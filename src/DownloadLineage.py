@@ -46,8 +46,7 @@ class Downloader:
             try:
                 if self.check_lineage(lineage):
                     print("lineage {} has been found.".format(lineage))
-                    self.lineage_description[lineage].append(
-                        os.path.join(self.download_dir, "{}/refseq_db.faa.gz".format(lineage)))
+                    self.lineage_description[lineage].append(os.path.join(self.download_dir, lineage))
                 else:
                     self.download_lineage(lineage)
             except KeyError:
@@ -61,11 +60,11 @@ class Downloader:
             if observed_hash != expected_hash:
                 print("md5 hash is incorrect: {} while {} expected".format(str(observed_hash), str(expected_hash)))
                 print("deleting corrupted file {}".format(local_filepath))
-                os.remove(local_filepath)
+                # os.remove(local_filepath)
                 raise Error("Unable to download necessary files")
             else:
                 print("Success download from {}".format(remote_filepath))
-                print("md5 hash is {}".format(observed_hash))
+                # print("md5 hash is {}".format(observed_hash))
         except URLError:
             print("Cannot reach {}".format(remote_filepath))
             return False
@@ -104,26 +103,8 @@ class Downloader:
 
     def check_lineage(self, lineage):
         try:
-            date = self.lineage_description[lineage][0]
-            expected_hash = self.lineage_description[lineage][1]
-            if os.path.exists(os.path.join(self.download_dir, "{}.{}.tar.gz".format(lineage, date))):
-                observed_hash = md5(os.path.join(self.download_dir, "{}.{}.tar.gz".format(lineage, date)))
-                if expected_hash != observed_hash:
-                    print("md5 hash of file {} is incorrect: {} while {} expected".format(
-                        os.path.join(self.download_dir, "{}.{}.tar.gz".format(lineage, date)), str(observed_hash),
-                        str(expected_hash)))
-                    os.remove(os.path.join(self.download_dir, "{}.{}.tar.gz".format(lineage, date)))
-                    if os.path.exists(os.path.join(self.download_dir, lineage)):
-                        shutil.rmtree(os.path.join(self.download_dir, lineage))
-                    return False
-                else:
-                    if os.path.exists(os.path.join(self.download_dir, "{}/refseq_db.faa.gz".format(lineage))):
-                        return True
-                    else:
-                        os.remove(os.path.join(self.download_dir, "{}.{}.tar.gz".format(lineage, date)))
-                        if os.path.exists(os.path.join(self.download_dir, lineage)):
-                            shutil.rmtree(os.path.join(self.download_dir, lineage))
-                        return False
+            if os.path.exists(os.path.join(self.download_dir, lineage)):
+                return True
             else:
                 return False
         except KeyError:
@@ -146,21 +127,19 @@ class Downloader:
                 tar = tarfile.open(download_path)
                 tar.extractall(self.download_dir)
                 tar.close()
-                print("Gene library extraction finished")
-                print("Gene library ready!\nReference file: {}/{}/refseq_db.faa.gz".format(self.download_dir, lineage))
-                local_lineage_dir = "{}/{}".format(self.download_dir, lineage)
+                # print("Gene library extraction finished")
+                print("Extraction path: {}/{}".format(self.download_dir, lineage))
+                local_lineage_dir = os.path.join(self.download_dir, lineage)
                 self.lineage_description[lineage].append(local_lineage_dir)
 
 
 if __name__ == "__main__":
     d = Downloader()
-    print(d.check_lineage("archaea_odb10"))
-    print(d.check_lineage("bacteria_odb10"))
-    print(d.check_lineage("eukaryota_odb10"))
     d.download_lineage("thiotrichales_odb10")
     d.download_lineage("rhodospirillales_odb10")
     d.download_lineage("cheoctovirus_odb10")
+    d.download_lineage("plasmodium_odb10")
     # d.download_lineage("tunavirinae")
-    for k in d.lineage_description:
-        print(k)
-        print(d.lineage_description[k])
+    # for k in d.lineage_description:
+    #     print(k)
+    #     print(d.lineage_description[k])
