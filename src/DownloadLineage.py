@@ -43,21 +43,31 @@ class Downloader:
         self.lineage_description = self.download_file_version_document()
         for lineage in self.default_lineage:
             try:
-                expected_hash = self.lineage_description[lineage][1]
-                if os.path.exists(os.path.join(self.download_dir, "{}/refseq_db.faa.gz".format(lineage))):
-                    observed_hash = md5(os.path.join(self.download_dir, "{}/refseq_db.faa.gz".format(lineage)))
-                    if expected_hash == observed_hash:
-                        self.lineage_description[lineage].append(
-                            os.path.join(self.download_dir, "{}/refseq_db.faa.gz".format(lineage)))
-                    else:
-                        print("md5 hash is incorrect: {} while {} expected".format(str(observed_hash),
-                                                                                   str(expected_hash)))
-                        shutil.rmtree(os.path.join(self.download_dir, lineage))
-                        os.remove(os.path.join(self.download_dir, "{}/refseq_db.faa.gz".format(lineage)))
+                if self.check_lineage(lineage):
+                    print("lineage {} has been found.")
+                    self.lineage_description[lineage].append(
+                        os.path.join(self.download_dir, "{}/refseq_db.faa.gz".format(lineage)))
                 else:
                     self.download_lineage(lineage)
             except KeyError:
                 raise Error("invalid lineage name: {}".format(lineage))
+        # for lineage in self.default_lineage:
+        #     try:
+        #         expected_hash = self.lineage_description[lineage][1]
+        #         if os.path.exists(os.path.join(self.download_dir, "{}/refseq_db.faa.gz".format(lineage))):
+        #             observed_hash = md5(os.path.join(self.download_dir, "{}/refseq_db.faa.gz".format(lineage)))
+        #             if expected_hash == observed_hash:
+        #                 self.lineage_description[lineage].append(
+        #                     os.path.join(self.download_dir, "{}/refseq_db.faa.gz".format(lineage)))
+        #             else:
+        #                 print("md5 hash is incorrect: {} while {} expected".format(str(observed_hash),
+        #                                                                            str(expected_hash)))
+        #                 shutil.rmtree(os.path.join(self.download_dir, lineage))
+        #                 os.remove(os.path.join(self.download_dir, "{}/refseq_db.faa.gz".format(lineage)))
+        #         else:
+        #             self.download_lineage(lineage)
+        #     except KeyError:
+        #         raise Error("invalid lineage name: {}".format(lineage))
 
     @staticmethod
     def download_single_file(remote_filepath, local_filepath, expected_hash):
@@ -108,12 +118,39 @@ class Downloader:
         else:
             return None
 
+    def check_lineage(self, lineage):
+        try:
+            date = self.lineage_description[lineage][0]
+            expected_hash = self.lineage_description[lineage][1]
+            if os.path.exists(os.path.exists(os.path.join(self.download_dir, "{}.{}.tar.gz".format(lineage, date)))):
+                observed_hash = md5(os.path.join(self.download_dir, "{}.{}.tar.gz".format(lineage, date)))
+                if expected_hash != observed_hash:
+                    os.remove(os.path.join(self.download_dir, "{}.{}.tar.gz".format(lineage, date)))
+                    if os.path.exists(os.path.join(self.download_dir, lineage)):
+                        shutil.rmtree(os.path.join(self.download_dir, lineage))
+                    return False
+                else:
+                    if os.path.exists(os.path.join(self.download_dir, "{}/refseq_db.faa.gz".format(lineage))):
+                        return True
+                    else:
+                        os.remove(os.path.join(self.download_dir, "{}.{}.tar.gz".format(lineage, date)))
+                        if os.path.exists(os.path.join(self.download_dir, lineage)):
+                            shutil.rmtree(os.path.join(self.download_dir, lineage))
+                        return False
+            else:
+                return False
+        except KeyError:
+            raise Error("invalid lineage name: {}".format(lineage))
+
     def download_lineage(self, lineage=None):
         if lineage is None:
             lineages = self.default_lineage
         else:
             lineages = [lineage]
         for lineage in lineages:
+            if self.check_lineage(lineage):
+                print("lineage {} has been found.")
+                continue
             date, expected_hash = self.lineage_description[lineage][0:2]  # [date, hash_value, category]
             remote_url = self.base_url + "lineages/{}.{}.tar.gz".format(lineage, date)
             download_path = os.path.join(self.download_dir, "{}.{}.tar.gz".format(lineage, date))
@@ -123,24 +160,25 @@ class Downloader:
                 tar.extractall(self.download_dir)
                 tar.close()
                 print("Gene library extraction finished")
-                print("Gene library ready!\n Reference file: {}/{}/refseq_db.faa.gz".format(self.download_dir, lineage))
+                print("Gene library ready!\nReference file: {}/{}/refseq_db.faa.gz".format(self.download_dir, lineage))
                 local_lineage_dir = "{}/{}".format(self.download_dir, lineage)
                 self.lineage_description[lineage].append(local_lineage_dir)
 
-    def has_local_lineage(self, lineage):
-        try:
-            if len(self.lineage_description[lineage]) == 4:
-                return True
-            else:
-                return False
-        except KeyError:
-            raise Error("invalid lineage name: {}".format(lineage))
+    # def has_local_lineage(self, lineage):
+    #     try:
+    #         if len(self.lineage_description[lineage]) == 4:
+    #             return True
+    #         else:
+    #             return False
+    #     except KeyError:
+    #         raise Error("invalid lineage name: {}".format(lineage))
 
 
 if __name__ == "__main__":
     d = Downloader()
     d.download_lineage("thiotrichales_odb10")
-    d.download_lineage("tunavirinae")
+    d.download_lineage("rhodospirillales_odb10")
+    # d.download_lineage("tunavirinae")
     for k in d.lineage_description:
         print(k)
         print(d.lineage_description[k])
