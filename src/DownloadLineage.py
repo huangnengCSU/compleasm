@@ -169,6 +169,8 @@ class Downloader:
 if __name__ == "__main__":
     d = Downloader("downloads")
     d.download_lineage("thiotrichales_odb10")
+    d.download_lineage("saccharomycetes_odb10")
+    d.download_lineage("diptera_odb10")
     # d.download_lineage("rhodospirillales_odb10")
     # d.download_lineage("cheoctovirus_odb10")
     # d.download_lineage("plasmodium_odb10")
