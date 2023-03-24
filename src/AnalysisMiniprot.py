@@ -1,5 +1,6 @@
 import argparse
 import os
+import gzip
 import pandas as pd
 from enum import Enum
 from Bio import SeqIO
@@ -51,6 +52,9 @@ class MiniprotGffItems:
                 self.positive,
                 self.codons]
 
+    def print(self):
+        print(self.show())
+
 
 def get_region_clusters(regions):
     # TODO: use contig_id, check whether the algorithm is correct
@@ -72,9 +76,14 @@ def get_region_clusters(regions):
 
 def load_protein_seqs(fasta_file):
     protein_seqs = {}
-    with open(fasta_file, "r") as f:
-        for record in SeqIO.parse(f, "fasta"):
-            protein_seqs[record.id] = str(record.seq)
+    if fasta_file.endswith(".gz"):
+        with gzip.open(fasta_file, "rt") as f:
+            for record in SeqIO.parse(f, "fasta"):
+                protein_seqs[record.id] = str(record.seq)
+    else:
+        with open(fasta_file, "r") as f:
+            for record in SeqIO.parse(f, "fasta.gz"):
+                protein_seqs[record.id] = str(record.seq)
     return protein_seqs
 
 
@@ -113,7 +122,7 @@ class MiniprotAlignmentParser:
                     if items.target_id != "":
                         yield items
                     items.__init__()
-                    items.fields = line.strip().split("\t")[1:]
+                    fields = line.strip().split("\t")[1:]
                     items.target_id = fields[0]
                     items.protein_length = int(fields[1])
                     items.protein_start = int(fields[2])
@@ -322,9 +331,10 @@ class MiniprotAlignmentParser:
         try:
             reader = iter(self.parse_miniprot_records(gff_file))
             for items in reader:
-                (Target_id, Protein_length, Protein_Start, Protein_End, Contig_id, Start, Stop, Strand, Rank, Identity,
-                 Positive, Score, Codons, Atn_seq, Att_seq) = items.show()
+                (Atn_seq, Att_seq, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End, Start, Stop, Strand, Score, Rank, Identity,
+                 Positive, Codons) = items.show()
                 Target_species = Target_id.split("_")[0]
+                # items.print()
                 records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
                                 Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                 Stop, Stop - Start, Strand, Rank, Identity, Positive,
@@ -383,7 +393,7 @@ class MiniprotAlignmentParser:
 
 
 if __name__ == "__main__":
-    parser_a = argparse.add_parser("analysis", description="analysis", help="analysis of protein-genome mapping.")
+    parser_a = argparse.ArgumentParser(description="Ost_eval")
     parser_a.add_argument("--run_folder", dest="run_folder", help="Path to running folder", type=str, required=True)
     parser_a.add_argument("--lineage_file", "--lineage_file", help="Gene library file", required=True)
     parser_a.add_argument("-g", "--gff", help="GFF file", required=True)
@@ -407,3 +417,4 @@ if __name__ == "__main__":
     args = parser_a.parse_args()
 
     miniprot_alignment_parser = MiniprotAlignmentParser(args.run_folder, args.gff, args.lineage_file, args)
+    miniprot_alignment_parser.Run()
