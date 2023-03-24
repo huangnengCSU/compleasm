@@ -9,7 +9,7 @@ class AutoLineager:
     def __init__(self, config):
         library_path = config.library_path
 
-        self.thread = config.thread
+        self.threads = config.threads
         self.sepp_output_folder = config.sepp_output_directory
         self.run_folder = config.autolineage_folder
         self.downloader = Downloader(library_path)
@@ -205,14 +205,19 @@ class AutoLineager:
         return lineage
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser(description='Run AutoLineage')
-    parser.add_argument("--autolineage_folder", dest="autolineage_folder", help="Path to AutoLineage folder")
-    parser.add_argument("--sepp_output_directory", dest="sepp_output_directory", help="Path to SEPP output directory")
-    parser.add_argument("--thread", dest="thread", help="Number of threads to use")
-    parser.add_argument("--library_path", dest="library_path", help="Path to the library folder", default=None, required=False)
+    parser.add_argument("--autolineage_folder", dest="autolineage_folder", help="Path to AutoLineage folder", type=str,
+                        required=True)
+    parser.add_argument("--sepp_output_directory", dest="sepp_output_directory", help="Path to SEPP output directory",
+                        type=str, required=True)
+    parser.add_argument("--threads", dest="threads", help="Number of threads to use", type=int, default=1)
+    parser.add_argument("--library_path", dest="library_path", help="Path to the library folder", default=None,
+                        required=False)
     args = parser.parse_args()
 
     auto_lineage = AutoLineager(args)
     lineage = auto_lineage.Run()
+    print(lineage)
