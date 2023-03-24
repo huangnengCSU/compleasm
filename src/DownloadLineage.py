@@ -40,8 +40,12 @@ class Downloader:
             self.download_dir = download_dir
         if not os.path.exists(self.download_dir):
             os.mkdir(self.download_dir)
-        self.lineage_description = self.download_file_version_document()
+        self.placement_dir = os.path.join(self.download_dir, "placement_files")
+        if not os.path.exists(self.placement_dir):
+            os.mkdir(self.placement_dir)
+        self.lineage_description, self.placement_description = self.download_file_version_document()
         print("Get file version description done.")
+        self.download_placement()  # download placement files
         for lineage in self.default_lineage:
             try:
                 if self.check_lineage(lineage):
@@ -76,7 +80,7 @@ class Downloader:
         hash_url = self.base_url + "file_versions.tsv.hash"
         hash_download_path = os.path.join(self.download_dir, "file_versions.tsv.hash")
 
-        ## download hash file
+        # download hash file
         try:
             urllib.request.urlretrieve(hash_url, hash_download_path)
         except URLError:
@@ -86,20 +90,22 @@ class Downloader:
         with open(hash_download_path, 'r') as fin:
             expected_file_version_hash = fin.readline().strip()
 
-        ## download file version
+        # download file version
         download_success = self.download_single_file(file_version_url, file_version_download_path,
                                                      expected_file_version_hash)
         lineages_description_dict = {}
+        placement_description_dict = {}
         if download_success:
             with open(file_version_download_path, 'r') as fin:
                 for line in fin:
                     strain, date, hash_value, category, info = line.strip().split()
-                    if info != "lineages":
-                        continue
-                    lineages_description_dict[strain] = [date, hash_value, category]
-            return lineages_description_dict
+                    if info == "lineages":
+                        lineages_description_dict[strain] = [date, hash_value, category]
+                    elif info == "placement_files":
+                        placement_description_dict[strain] = [date, hash_value, category]
+            return lineages_description_dict, placement_description_dict
         else:
-            return None
+            return None, None
 
     def check_lineage(self, lineage):
         try:
@@ -128,18 +134,48 @@ class Downloader:
                 tar.extractall(self.download_dir)
                 tar.close()
                 # print("Gene library extraction finished")
-                print("Extraction path: {}/{}".format(self.download_dir, lineage))
+                print("Lineage file extraction path: {}/{}".format(self.download_dir, lineage))
                 local_lineage_dir = os.path.join(self.download_dir, lineage)
                 self.lineage_description[lineage].append(local_lineage_dir)
 
+    def download_placement(self):
+        for strain in self.placement_description.keys():
+            date, expected_hash, category = self.placement_description[strain]
+            if strain.startswith("supermatrix"):
+                prefix, aln, version, sufix = strain.split(".")
+                download_file_name = "{}.{}.{}.{}.{}.tar.gz".format(prefix, aln, version, date, sufix)
+            else:
+                prefix, version, sufix = strain.split(".")
+                download_file_name = "{}.{}.{}.{}.tar.gz".format(prefix, version, date, sufix)
+            if os.path.exists(os.path.join(self.placement_dir, download_file_name)):
+                print("Placement file {} has been found.".format(download_file_name))
+                self.placement_description[strain].append(
+                    os.path.join(self.placement_dir, download_file_name.replace(".tar.gz", "")))
+                continue
+            else:
+                remote_url = self.base_url + "placement_files/{}".format(download_file_name)
+                download_path = os.path.join(self.placement_dir, download_file_name)
+                download_success = self.download_single_file(remote_url, download_path, expected_hash)
+                if download_success:
+                    tar = tarfile.open(download_path)
+                    tar.extractall(self.placement_dir)
+                    tar.close()
+                    print("Placement file extraction path: {}/{}".format(self.placement_dir,
+                                                                         download_file_name.replace(".tar.gz", "")))
+                    self.placement_description[strain].append(
+                        os.path.join(self.placement_dir, download_file_name.replace(".tar.gz", "")))
+
 
 if __name__ == "__main__":
-    d = Downloader()
+    d = Downloader("downloads")
     d.download_lineage("thiotrichales_odb10")
-    d.download_lineage("rhodospirillales_odb10")
-    d.download_lineage("cheoctovirus_odb10")
-    d.download_lineage("plasmodium_odb10")
-    # d.download_lineage("tunavirinae")
+    # d.download_lineage("rhodospirillales_odb10")
+    # d.download_lineage("cheoctovirus_odb10")
+    # d.download_lineage("plasmodium_odb10")
     # for k in d.lineage_description:
     #     print(k)
     #     print(d.lineage_description[k])
+
+    for k in d.placement_description:
+        print(k)
+        print(d.placement_description[k])
