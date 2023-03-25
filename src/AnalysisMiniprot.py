@@ -130,7 +130,7 @@ class MiniprotAlignmentParser:
                     items.strand = fields[4]
                     items.contig_id = fields[5]
                     items.contig_start = int(fields[7])
-                    items.contig_stop = int(fields[8])
+                    items.contig_end = int(fields[8])
                     items.score = int(fields[9])
                     # Score = fields[12].strip().split(":")[2]
 
@@ -346,6 +346,12 @@ class MiniprotAlignmentParser:
                                                     "Strand", "Rank", "Identity", "Positive", "I+L"])
         all_species = records_df["Target_species"].unique()
         grouped_df = records_df.groupby(["Target_species"])
+        # print("min_il: ", self.min_il)
+        # print("min_length_percent: ", self.min_length_percent)
+        # print("min_diff: ", self.min_diff)
+        # print("min_identity: ", self.min_identity)
+        # print("min_complete: ", self.min_complete)
+        # print("min_rise: ", self.min_rise)
         for gene_id in all_species:
             mapped_records = grouped_df.get_group(gene_id)
             mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
