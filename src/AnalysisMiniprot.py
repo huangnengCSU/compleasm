@@ -147,8 +147,7 @@ class MiniprotAlignmentParser:
                             continue
                         else:
                             new_ata.append(ata_seq[i])
-                    att_seq = "".join(new_ata)
-                    items.att_seq = att_seq
+                    items.att_seq = "".join(new_ata)
                     """
                 else:
                     fields = line.strip().split("\t")
