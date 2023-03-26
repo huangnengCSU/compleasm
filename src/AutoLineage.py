@@ -3,8 +3,8 @@ import json
 import re
 import shutil
 
-from DownloadLineage import Downloader
-from utils import Error
+from .DownloadLineage import Downloader
+from .utils import Error
 
 
 class AutoLineager:
