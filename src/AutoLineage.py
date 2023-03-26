@@ -1,32 +1,53 @@
 import os
 import json
 import re
+import shutil
+
 from DownloadLineage import Downloader
 from utils import Error
 
 
 class AutoLineager:
-    def __init__(self, config):
+    def __init__(self, sepp_output_directory, sepp_tmp_directory, config):
         library_path = config.library_path
 
+        self.sepp_output_folder = sepp_output_directory
+        self.sepp_tmp_folder = sepp_tmp_directory
+
         self.threads = config.threads
-        self.sepp_output_folder = config.sepp_output_directory
-        self.run_folder = config.autolineage_folder
+        # self.run_folder = config.autolineage_folder
         self.downloader = Downloader(library_path)
         self.lineage_description = self.downloader.lineage_description
         self.placement_description = self.downloader.placement_description
         self.library_folder = self.downloader.download_dir
         self.placement_file_folder = self.downloader.placement_dir
 
-    def run_sepp(self):
+        # TODO: get sepp path
+        self.sepp_execute_command = "/homes8/neng/miniconda3/pkgs/sepp-4.4.0-py39_0/bin/run_sepp.py"
+
+    def run_sepp(self, marker_genes_filapath):
         # select the best one in ["archaea_odb10", "bacteria_odb10", "eukaryota_odb10"] as search_lineage to run repp
-        autolineage_folder = self.run_folder
         search_lineage = "eukaryota_odb10"
         sepp_output_folder = self.sepp_output_folder
+        tmp_file_folder = self.sepp_tmp_folder
+        tree_nwk_path = self.placement_description["tree.{}.nwk".format(search_lineage)][3]
+        tree_metadata_path = self.placement_description["tree_metadata.{}.txt".format(search_lineage)][3]
+        supermaxtix_path = self.placement_description["supermatrix.aln.{}.faa".format(search_lineage)][3]
+        print("tree_nwk_path: {}".format(tree_nwk_path))
+        print("tree_metadata_path: {}".format(tree_metadata_path))
+        print("supermaxtix_path: {}".format(supermaxtix_path))
+        if os.path.exists(sepp_output_folder):
+            shutil.rmtree(sepp_output_folder)
+        if os.path.exists(tmp_file_folder):
+            shutil.rmtree(tmp_file_folder)
+        sepp_process = "python {} --cpu {} --outdir {} -t {} -r {} -a {} -f {} -F 15 -m amino -p {}".format(
+            self.sepp_execute_command, self.threads, sepp_output_folder, tree_nwk_path, tree_metadata_path,
+            supermaxtix_path, marker_genes_filapath, tmp_file_folder)
+        os.system(sepp_process)
         return search_lineage
 
     def pick_dataset(self, search_lineage):
-        run_folder = self.run_folder
+        # run_folder = self.run_folder
 
         # load busco dataset name by id in a dict {taxid:name}
         datasets_mapping = {}
@@ -199,8 +220,8 @@ class AutoLineager:
             if parent in all_ancestors:
                 return [parent]
 
-    def Run(self):
-        search_lineage = self.run_sepp()
+    def Run(self, marker_gene_filepath):
+        search_lineage = self.run_sepp(marker_gene_filepath)
         lineage, max_markers, placed_markers = self.pick_dataset(search_lineage)
         return lineage
 
