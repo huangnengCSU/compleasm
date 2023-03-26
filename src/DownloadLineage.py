@@ -3,7 +3,7 @@ import hashlib
 import tarfile
 import shutil
 import urllib.request
-from utils import Error
+from .utils import Error
 
 
 class URLError(OSError):
