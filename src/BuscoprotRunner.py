@@ -10,10 +10,10 @@ import argparse
 # 7. run AnalisisMiniprot on the output of miniprot
 # 8. get final output
 
-from RunMiniprot import MiniprotRunner
-from AnalysisMiniprot import MiniprotAlignmentParser
-from DownloadLineage import Downloader
-from AutoLineage import AutoLineager
+from .RunMiniprot import MiniprotRunner
+from .AnalysisMiniprot import MiniprotAlignmentParser
+from .DownloadLineage import Downloader
+from .AutoLineage import AutoLineager
 
 
 class BuscoprotRunner:
@@ -77,8 +77,7 @@ class BuscoprotRunner:
                                                                 self.config)
             miniprot_alignment_parser.Run()
 
-
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-o", "--output_dir", type=str, help="Run miniprot folder", required=True)
     parser.add_argument("-a", "--assembly_path", type=str, help="Assembly file path", required=True)
@@ -87,12 +86,23 @@ if __name__ == "__main__":
     parser.add_argument("--library_path", type=str, help="Library path", default="downloads")
     parser.add_argument("--autolineage", action="store_true", help="Auto lineage")
 
-    parser.add_argument("--min_diff", help="The thresholds for the best matching and second best matching. (1st-2nd)/2nd >= d, [0, 1]", type=float, default=0.2)
-    parser.add_argument("--min_identity", help="The identity threshold for valid mapping results. [0, 1]", type=float, default=0.6)
-    parser.add_argument("--min_length_percent", help="The protein sequence length threshold for valid mapping results. (mapped_gene_length/full_gene_length)>=l, [0, 1]", type=float, default=0.64)
-    parser.add_argument("--min_il", help="The thresholds for sum of identity and mapped length for valid mapping results. identity+mapped_rate >= e, [0, 2]", type=float, default=1.4)
-    parser.add_argument("--min_complete", help="The length threshold for complete gene. (mapped_gene_length/full_gene_length)>=c, [0, 1]", type=float, default=0.9)
-    parser.add_argument("--min_rise", help="Minimum length threshold to make dupicate take precedence over single or fragmented over single/duplicate. l1>=l2*(1+s), [0, 1]", type=float, default=1.5)
+    parser.add_argument("--min_diff",
+                        help="The thresholds for the best matching and second best matching. (1st-2nd)/2nd >= d, [0, 1]",
+                        type=float, default=0.2)
+    parser.add_argument("--min_identity", help="The identity threshold for valid mapping results. [0, 1]", type=float,
+                        default=0.6)
+    parser.add_argument("--min_length_percent",
+                        help="The protein sequence length threshold for valid mapping results. (mapped_gene_length/full_gene_length)>=l, [0, 1]",
+                        type=float, default=0.64)
+    parser.add_argument("--min_il",
+                        help="The thresholds for sum of identity and mapped length for valid mapping results. identity+mapped_rate >= e, [0, 2]",
+                        type=float, default=1.4)
+    parser.add_argument("--min_complete",
+                        help="The length threshold for complete gene. (mapped_gene_length/full_gene_length)>=c, [0, 1]",
+                        type=float, default=0.9)
+    parser.add_argument("--min_rise",
+                        help="Minimum length threshold to make dupicate take precedence over single or fragmented over single/duplicate. l1>=l2*(1+s), [0, 1]",
+                        type=float, default=1.5)
 
     args = parser.parse_args()
 
@@ -104,3 +114,7 @@ if __name__ == "__main__":
 
     buscoprot_runner = BuscoprotRunner(args)
     buscoprot_runner.Run()
+
+
+if __name__ == "__main__":
+    main()
