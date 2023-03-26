@@ -50,7 +50,7 @@ class Downloader:
             try:
                 if self.check_lineage(lineage):
                     print("lineage {} has been found.".format(lineage))
-                    self.lineage_description[lineage].append(os.path.join(self.download_dir, lineage))
+                    # self.lineage_description[lineage].append(os.path.join(self.download_dir, lineage))
                 else:
                     self.download_lineage(lineage)
             except KeyError:
@@ -110,6 +110,7 @@ class Downloader:
     def check_lineage(self, lineage):
         try:
             if os.path.exists(os.path.join(self.download_dir, lineage)):
+                self.lineage_description[lineage].append(os.path.join(self.download_dir, lineage))
                 return True
             else:
                 return False
