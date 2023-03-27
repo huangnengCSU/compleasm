@@ -93,6 +93,7 @@ class OutputFormat:
         self.gene_label = None
         self.single_complete_gene_id = None
 
+
 def find_frameshifts(cs_seq):
     frameshifts = []
     introns = []
@@ -109,12 +110,10 @@ def find_frameshifts(cs_seq):
     return frameshifts, introns
 
 
-
-
 class MiniprotAlignmentParser:
     def __init__(self, run_folder, gff_file, lineage_file, config):
         self.run_folder = run_folder
-        self.output_file = os.path.join(self.run_folder, "gene_completeness.tsv")
+        self.output_file = os.path.join(self.run_folder, "..", "gene_completeness.tsv")
         self.gff_file = gff_file
         self.lineage_file = lineage_file
         self.min_il = config.min_il
@@ -349,8 +348,8 @@ class MiniprotAlignmentParser:
         try:
             reader = iter(self.parse_miniprot_records(gff_file))
             for items in reader:
-                (Atn_seq, Att_seq, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End, Start, Stop, Strand, Score, Rank, Identity,
-                 Positive, Codons) = items.show()
+                (Atn_seq, Att_seq, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End, Start, Stop,
+                 Strand, Score, Rank, Identity, Positive, Codons) = items.show()
                 Target_species = Target_id.split("_")[0]
                 # items.print()
                 records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
@@ -404,12 +403,13 @@ class MiniprotAlignmentParser:
         print("F:{:.2f}%, {}".format(len(fragmented_genes) / len(all_species) * 100, len(fragmented_genes)))
         print("M:{:.2f}%, {}".format((len(missing_genes) + d) / len(all_species) * 100, len(missing_genes) + d))
         print("N:{}".format(len(all_species)))
-        with open(self.output_file,'a') as fout:
+        with open(self.output_file, 'a') as fout:
             fout.write("## lineage: {}\n".format(os.path.dirname(self.lineage_file).split("/")[-1]))
             fout.write("S:{:.2f}%, {}\n".format(len(single_genes) / len(all_species) * 100, len(single_genes)))
             fout.write("D:{:.2f}%, {}\n".format(len(duplicate_genes) / len(all_species) * 100, len(duplicate_genes)))
             fout.write("F:{:.2f}%, {}\n".format(len(fragmented_genes) / len(all_species) * 100, len(fragmented_genes)))
-            fout.write("M:{:.2f}%, {}\n".format((len(missing_genes) + d) / len(all_species) * 100, len(missing_genes) + d))
+            fout.write(
+                "M:{:.2f}%, {}\n".format((len(missing_genes) + d) / len(all_species) * 100, len(missing_genes) + d))
             fout.write("N:{}\n".format(len(all_species)))
         # print("Duplicate genes:")
         # print(duplicate_genes)
