@@ -97,7 +97,7 @@ def load_protein_seqs(fasta_file):
 class OutputFormat:
     def __init__(self):
         self.gene_label = None
-        self.single_complete_gene_id = None
+        self.data_record = None
 
 
 def find_frameshifts(cs_seq):
@@ -118,7 +118,8 @@ def find_frameshifts(cs_seq):
 class MiniprotAlignmentParser:
     def __init__(self, run_folder, gff_file, lineage_file, config):
         self.run_folder = run_folder
-        self.output_file = os.path.join(self.run_folder, "..", "gene_completeness.tsv")
+        self.completeness_output_file = os.path.join(self.run_folder, "..", "gene_completeness.tsv")
+        self.full_table_output_file = os.path.join(self.run_folder, "full_table.tsv")
         self.gff_file = gff_file
         self.lineage_file = lineage_file
         self.min_il = config.min_il
@@ -203,16 +204,15 @@ class MiniprotAlignmentParser:
         dataframe = dataframe[dataframe["Identity"] >= min_identity]
         if dataframe.shape[0] == 0:
             output.gene_label = GeneLabel.Missing
-            output.single_complete_gene_id = None
             return output
         elif dataframe.shape[0] == 1:
             if dataframe.iloc[0]["Protein_mapped_rate"] >= min_complete:
                 output.gene_label = GeneLabel.Single
-                output.single_complete_gene_id = gene_id
+                output.data_record = dataframe.iloc[0]
                 return output
             else:
                 output.gene_label = GeneLabel.Fragmented
-                output.single_complete_gene_id = None
+                output.data_record = dataframe.iloc[0]
                 return output
         else:
             complete_regions = []
@@ -226,27 +226,27 @@ class MiniprotAlignmentParser:
                         (dataframe.iloc[i]["Contig_id"], dataframe.iloc[i]["Start"], dataframe.iloc[i]["Stop"]))
             if len(complete_regions) == 0:
                 output.gene_label = GeneLabel.Fragmented
-                output.single_complete_gene_id = None
+                output.data_record = dataframe.iloc[0]
                 return output
             elif len(complete_regions) == 1:
                 output.gene_label = GeneLabel.Single
-                output.single_complete_gene_id = gene_id
+                output.data_record = dataframe.iloc[0]
                 return output
             else:
                 ctgs = [x[0] for x in complete_regions]
                 if len(set(ctgs)) > 1:
                     output.gene_label = GeneLabel.Duplicate
-                    output.single_complete_gene_id = None
+                    output.data_record = dataframe.iloc[0]
                     return output
                 regions = [(x[1], x[2]) for x in complete_regions]
                 clusters = get_region_clusters(regions)
                 if len(clusters) == 1:
                     output.gene_label = GeneLabel.Single
-                    output.single_complete_gene_id = gene_id
+                    output.data_record = dataframe.iloc[0]
                     return output
                 else:
                     output.gene_label = GeneLabel.Duplicate
-                    output.single_complete_gene_id = None
+                    output.data_record = dataframe.iloc[0]
                     return output
 
     @staticmethod
@@ -263,7 +263,6 @@ class MiniprotAlignmentParser:
             return out
         if dataframe_1st.shape[0] == 0 and dataframe_2nd.shape[0] == 0:
             output.gene_label = GeneLabel.Missing
-            output.single_complete_gene_id = None
             return output
         else:
             gene_id1 = dataframe_1st.iloc[0]["Target_id"]
@@ -273,47 +272,77 @@ class MiniprotAlignmentParser:
 
             label_length = defaultdict(list)
             out1 = MiniprotAlignmentParser.record_1st_gene_label(dataframe_1st, min_identity, min_complete)
-            label_length[out1.gene_label].append([protein_length1, out1.single_complete_gene_id])
+            label_length[out1.gene_label].append(protein_length1)
             out2 = MiniprotAlignmentParser.record_1st_gene_label(dataframe_2nd, min_identity, min_complete)
-            label_length[out2.gene_label].append([protein_length2, out2.single_complete_gene_id])
+            label_length[out2.gene_label].append(protein_length2)
             if label_length.keys() == {GeneLabel.Single}:
                 output.gene_label = GeneLabel.Single
-                output.single_complete_gene_id = gene_id1
+                output.data_record = dataframe_1st.iloc[0]
                 return output
             elif label_length.keys() == {GeneLabel.Fragmented}:
                 output.gene_label = GeneLabel.Fragmented
-                output.single_complete_gene_id = None
+                output.data_record = dataframe_1st.iloc[0]
                 return output
             elif label_length.keys() == {GeneLabel.Duplicate}:
                 output.gene_label = GeneLabel.Duplicate
-                output.single_complete_gene_id = None
+                output.data_record = dataframe_1st.iloc[0]
                 return output
             elif label_length.keys() == {GeneLabel.Single, GeneLabel.Fragmented}:
-                if label_length[GeneLabel.Fragmented][0][0] > label_length[GeneLabel.Single][0][0] * (1 + min_rise):
+                if label_length[GeneLabel.Fragmented][0] > label_length[GeneLabel.Single][0] * (1 + min_rise):
                     output.gene_label = GeneLabel.Fragmented
-                    output.single_complete_gene_id = None
+                    if out1.gene_label==GeneLabel.Fragmented:
+                        output.data_record = dataframe_1st.iloc[0]
+                    elif out2.gene_label==GeneLabel.Fragmented:
+                        output.data_record = dataframe_2nd.iloc[0]
+                    else:
+                        raise ValueError
                     return output
                 else:
                     output.gene_label = GeneLabel.Single
-                    output.single_complete_gene_id = label_length[GeneLabel.Single][0][1]
+                    if out1.gene_label == GeneLabel.Single:
+                        output.data_record = dataframe_1st.iloc[0]
+                    elif out2.gene_label == GeneLabel.Single:
+                        output.data_record = dataframe_2nd.iloc[0]
+                    else:
+                        raise ValueError
                     return output
             elif label_length.keys() == {GeneLabel.Single, GeneLabel.Duplicate}:
-                if label_length[GeneLabel.Duplicate][0][0] > label_length[GeneLabel.Single][0][0] * (1 + min_rise):
+                if label_length[GeneLabel.Duplicate][0] > label_length[GeneLabel.Single][0] * (1 + min_rise):
                     output.gene_label = GeneLabel.Duplicate
-                    output.single_complete_gene_id = None
+                    if out1.gene_label == GeneLabel.Duplicate:
+                        output.data_record = dataframe_1st.iloc[0]
+                    elif out2.gene_label == GeneLabel.Duplicate:
+                        output.data_record = dataframe_2nd.iloc[0]
+                    else:
+                        raise ValueError
                     return output
                 else:
                     output.gene_label = GeneLabel.Single
-                    output.single_complete_gene_id = label_length[GeneLabel.Single][0][1]
+                    if out1.gene_label == GeneLabel.Single:
+                        output.data_record = dataframe_1st.iloc[0]
+                    elif out2.gene_label == GeneLabel.Single:
+                        output.data_record = dataframe_2nd.iloc[0]
+                    else:
+                        raise ValueError
                     return output
             elif label_length.keys() == {GeneLabel.Fragmented, GeneLabel.Duplicate}:
-                if label_length[GeneLabel.Fragmented][0][0] > label_length[GeneLabel.Duplicate][0][0] * (1 + min_rise):
+                if label_length[GeneLabel.Fragmented][0] > label_length[GeneLabel.Duplicate][0] * (1 + min_rise):
                     output.gene_label = GeneLabel.Fragmented
-                    output.single_complete_gene_id = None
+                    if out1.gene_label == GeneLabel.Fragmented:
+                        output.data_record = dataframe_1st.iloc[0]
+                    elif out2.gene_label == GeneLabel.Fragmented:
+                        output.data_record = dataframe_2nd.iloc[0]
+                    else:
+                        raise ValueError
                     return output
                 else:
                     output.gene_label = GeneLabel.Duplicate
-                    output.single_complete_gene_id = None
+                    if out1.gene_label == GeneLabel.Duplicate:
+                        output.data_record = dataframe_1st.iloc[0]
+                    elif out2.gene_label == GeneLabel.Duplicate:
+                        output.data_record = dataframe_2nd.iloc[0]
+                    else:
+                        raise ValueError
                     return output
             else:
                 print("Error")
@@ -325,7 +354,6 @@ class MiniprotAlignmentParser:
         if dataframe.shape[0] == 0:
             output = OutputFormat()
             output.gene_label = GeneLabel.Missing
-            output.single_complete_gene_id = None
             return output
         if dataframe.shape[0] == 1:
             return MiniprotAlignmentParser.record_1st_gene_label(
@@ -384,6 +412,8 @@ class MiniprotAlignmentParser:
         # print("min_identity: ", self.min_identity)
         # print("min_complete: ", self.min_complete)
         # print("min_rise: ", self.min_rise)
+        full_table_writer = open(self.full_table_output_file, "w")
+        full_table_writer.write("Gene\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tFrameshift events\tFrameshift lengths\n")
         for gene_id in all_species:
             mapped_records = grouped_df.get_group(gene_id)
             mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
@@ -393,11 +423,24 @@ class MiniprotAlignmentParser:
                 output = self.Ost_eval(mapped_records, self.min_diff, self.min_identity, self.min_complete,
                                        self.min_rise)
                 if output.gene_label == GeneLabel.Single:
-                    single_complete_proteins.append(output.single_complete_gene_id)
+                    single_complete_proteins.append(output.data_record["Target_id"])
             else:
                 output = OutputFormat()
                 output.gene_label = GeneLabel.Missing
-                output.single_complete_gene_id = None
+
+            if output.gene_label == GeneLabel.Missing:
+                full_table_writer.write("{}\t{}\n".format(output.data_record["Target_species"], output.gene_label))
+            else:
+                full_table_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(output.data_record["Target_species"],
+                                                                                         output.gene_label,
+                                                                                         output.data_record["Contig_id"],
+                                                                                         output.data_record["Start"],
+                                                                                         output.data_record["Stop"],
+                                                                                         output.data_record["Strand"],
+                                                                                         output.data_record["I+L"],
+                                                                                         output.data_record["Protein_length"],
+                                                                                         output.data_record["Frameshift_events"],
+                                                                                         output.data_record["Frameshift_lengths"]))
 
             if output.gene_label == GeneLabel.Single:
                 single_genes.append(gene_id)
@@ -410,6 +453,7 @@ class MiniprotAlignmentParser:
             else:
                 print("Error")
                 raise ValueError
+        full_table_writer.close()
 
         d = len(all_species) - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(missing_genes)
         print("S:{:.2f}%, {}".format(len(single_genes) / len(all_species) * 100, len(single_genes)))
@@ -417,7 +461,7 @@ class MiniprotAlignmentParser:
         print("F:{:.2f}%, {}".format(len(fragmented_genes) / len(all_species) * 100, len(fragmented_genes)))
         print("M:{:.2f}%, {}".format((len(missing_genes) + d) / len(all_species) * 100, len(missing_genes) + d))
         print("N:{}".format(len(all_species)))
-        with open(self.output_file, 'a') as fout:
+        with open(self.completeness_output_file, 'a') as fout:
             fout.write("## lineage: {}\n".format(os.path.dirname(self.lineage_file).split("/")[-1]))
             fout.write("S:{:.2f}%, {}\n".format(len(single_genes) / len(all_species) * 100, len(single_genes)))
             fout.write("D:{:.2f}%, {}\n".format(len(duplicate_genes) / len(all_species) * 100, len(duplicate_genes)))
