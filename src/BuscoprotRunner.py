@@ -48,9 +48,6 @@ class BuscoprotRunner:
             lineage = self.lineage
 
         self.downloader.download_lineage(lineage)
-        for k in self.downloader.lineage_description.keys():
-            print(k)
-            print(self.downloader.lineage_description[k])
         print("lineage: {}".format(lineage))
         lineage_filepath = os.path.join(self.downloader.lineage_description[lineage][3], "refseq_db.faa.gz")
         output_dir = os.path.join(self.output_folder, lineage)
