@@ -27,7 +27,7 @@ class BuscoprotRunner:
         else:
             self.lineage = config.lineage
         # TODO: get miniprot path
-        miniprot_execute_command = "/hlilab/neng/tools/miniprot/miniprot"
+        miniprot_execute_command = "miniprot"
 
         self.autolineage = autolineage
         self.output_folder = output_folder

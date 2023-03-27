@@ -23,7 +23,7 @@ class AutoLineager:
         self.placement_file_folder = self.downloader.placement_dir
 
         # TODO: get sepp path
-        self.sepp_execute_command = "/homes8/neng/miniconda3/pkgs/sepp-4.4.0-py39_0/bin/run_sepp.py"
+        self.sepp_execute_command = "run_sepp.py"
 
     def run_sepp(self, marker_genes_filapath):
         # select the best one in ["archaea_odb10", "bacteria_odb10", "eukaryota_odb10"] as search_lineage to run repp
