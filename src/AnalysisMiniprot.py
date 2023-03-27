@@ -35,6 +35,9 @@ class MiniprotGffItems:
         self.identity = 0
         self.positive = 0
         self.codons = []
+        self.frameshift_events = 0
+        self.frameshift_lengths = 0
+        self.frame_shifts = []
 
     def show(self):
         return [self.atn_seq,
@@ -51,7 +54,10 @@ class MiniprotGffItems:
                 self.rank,
                 self.identity,
                 self.positive,
-                self.codons]
+                self.codons,
+                self.frameshift_events,
+                self.frameshift_lengths,
+                self.frame_shifts]
 
     def print(self):
         print(self.show())
@@ -96,18 +102,17 @@ class OutputFormat:
 
 def find_frameshifts(cs_seq):
     frameshifts = []
-    introns = []
+    frameshift_events = 0
+    frameshift_lengths = 0
     pt = r"\:[0-9]+|\*[acgtn]+[A-Z*]|\+[A-Z]+|\-[acgtn]+|\~[acgtn]{2}[0-9]+[acgtn]{2}"
     it = re.finditer(pt, cs_seq)
     for m in it:
         if m.group(0).startswith("+") or m.group(0).startswith("-"):
             # print("frameshift:", m.group(0))
             frameshifts.append(m.group(0))
-        if m.group(0).startswith("~"):
-            # print("intron:", m.group(0))
-            introns.append(m.group(0))
-    # TODO: return pattern sequence or shift number?
-    return frameshifts, introns
+            frameshift_events += 1
+            frameshift_lengths += len(m.group(0)) - 1
+    return frameshifts, frameshift_events, frameshift_lengths
 
 
 class MiniprotAlignmentParser:
@@ -151,6 +156,12 @@ class MiniprotAlignmentParser:
                     items.contig_end = int(fields[8])
                     items.score = int(fields[9])
                     # Score = fields[12].strip().split(":")[2]
+                    cg = fields[17].replace("cg:Z:", "")
+                    cs = fields[18].replace("cs:Z:", "")
+                    frame_shifts, frameshift_events, frameshift_lengths = find_frameshifts(cs)
+                    items.frameshift_events = frameshift_events
+                    items.frameshift_lengths = frameshift_lengths
+                    items.frame_shifts = frame_shifts
 
                     """ # This is for parse the ATN/ATT/AAS/AQA sequences in miniprot --aln
                     atn_line = gff.readline()
@@ -349,19 +360,22 @@ class MiniprotAlignmentParser:
             reader = iter(self.parse_miniprot_records(gff_file))
             for items in reader:
                 (Atn_seq, Att_seq, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End, Start, Stop,
-                 Strand, Score, Rank, Identity, Positive, Codons) = items.show()
+                 Strand, Score, Rank, Identity, Positive, Codons, Frameshift_events, Frameshift_lengths,
+                 Frame_shifts) = items.show()
                 Target_species = Target_id.split("_")[0]
                 # items.print()
                 records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
                                 Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                 Stop, Stop - Start, Strand, Rank, Identity, Positive,
-                                (Protein_End - Protein_Start) / Protein_length + Identity])
+                                (Protein_End - Protein_Start) / Protein_length + Identity, Frameshift_events,
+                               Frameshift_lengths])
         except StopIteration:
             pass
         records_df = pd.DataFrame(records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
                                                     "Protein_Start", "Protein_End", "Protein_mapped_length",
                                                     "Protein_mapped_rate", "Start", "Stop", "Genome_mapped_length",
-                                                    "Strand", "Rank", "Identity", "Positive", "I+L"])
+                                                    "Strand", "Rank", "Identity", "Positive", "I+L",
+                                                    "Frameshift_events", "Frameshift_lengths"])
         all_species = records_df["Target_species"].unique()
         grouped_df = records_df.groupby(["Target_species"])
         # print("min_il: ", self.min_il)
@@ -444,7 +458,7 @@ if __name__ == "__main__":
                           type=float, default=0.9)
     parser_a.add_argument("-s", "--min_rise",
                           help="Minimum length threshold to make dupicate take precedence over single or fragmented over single/duplicate. l1>=l2*(1+s), [0, 1]",
-                          type=float, default=1.5)
+                          type=float, default=0.5)
     args = parser_a.parse_args()
 
     miniprot_alignment_parser = MiniprotAlignmentParser(args.run_folder, args.gff, args.lineage_file, args)
