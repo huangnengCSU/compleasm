@@ -404,6 +404,13 @@ class MiniprotAlignmentParser:
         print("F:{:.2f}%, {}".format(len(fragmented_genes) / len(all_species) * 100, len(fragmented_genes)))
         print("M:{:.2f}%, {}".format((len(missing_genes) + d) / len(all_species) * 100, len(missing_genes) + d))
         print("N:{}".format(len(all_species)))
+        with open(self.output_file,'a') as fout:
+            fout.write("## lineage: {}\n".format(os.path.dirname(self.lineage_file).split("/")[-1]))
+            fout.write("S:{:.2f}%, {}\n".format(len(single_genes) / len(all_species) * 100, len(single_genes)))
+            fout.write("D:{:.2f}%, {}\n".format(len(duplicate_genes) / len(all_species) * 100, len(duplicate_genes)))
+            fout.write("F:{:.2f}%, {}\n".format(len(fragmented_genes) / len(all_species) * 100, len(fragmented_genes)))
+            fout.write("M:{:.2f}%, {}\n".format((len(missing_genes) + d) / len(all_species) * 100, len(missing_genes) + d))
+            fout.write("N:{}\n".format(len(all_species)))
         # print("Duplicate genes:")
         # print(duplicate_genes)
         # print("Fragmented genes:")
