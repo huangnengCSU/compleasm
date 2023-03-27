@@ -49,7 +49,8 @@ class Downloader:
         for lineage in self.default_lineage:
             try:
                 if self.check_lineage(lineage):
-                    print("lineage {} has been found.".format(lineage))
+                    pass
+                    # print("lineage {} has been found.".format(lineage))
                     # self.lineage_description[lineage].append(os.path.join(self.download_dir, lineage))
                 else:
                     self.download_lineage(lineage)
@@ -124,7 +125,7 @@ class Downloader:
             lineages = [lineage]
         for lineage in lineages:
             if self.check_lineage(lineage):
-                print("Lineage {} has been found.".format(lineage))
+                # print("Lineage {} has been found.".format(lineage))
                 continue
             date, expected_hash = self.lineage_description[lineage][0:2]  # [date, hash_value, category]
             remote_url = self.base_url + "lineages/{}.{}.tar.gz".format(lineage, date)
@@ -149,7 +150,7 @@ class Downloader:
                 prefix, version, sufix = strain.split(".")
                 download_file_name = "{}.{}.{}.{}.tar.gz".format(prefix, version, date, sufix)
             if os.path.exists(os.path.join(self.placement_dir, download_file_name)):
-                print("Placement file {} has been found.".format(download_file_name))
+                # print("Placement file {} has been found.".format(download_file_name))
                 self.placement_description[strain].append(
                     os.path.join(self.placement_dir, download_file_name.replace(".tar.gz", "")))
                 continue
