@@ -59,6 +59,8 @@ class BuscoprotRunner:
         miniprot_output_path = self.miniprot_runner.run_miniprot(self.assembly_path, lineage_filepath, output_dir)
         miniprot_alignment_parser = MiniprotAlignmentParser(output_dir, miniprot_output_path, lineage_filepath,
                                                             self.config)
+        if os.path.exists(miniprot_alignment_parser.output_file):
+            os.remove(miniprot_alignment_parser.output_file)
         miniprot_alignment_parser.Run()
         if self.autolineage:
             marker_genes_filapath = miniprot_alignment_parser.marker_gene_path
