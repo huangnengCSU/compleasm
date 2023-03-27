@@ -1,6 +1,7 @@
 import argparse
 import os
 import gzip
+import re
 import pandas as pd
 from enum import Enum
 from Bio import SeqIO
@@ -92,10 +93,28 @@ class OutputFormat:
         self.gene_label = None
         self.single_complete_gene_id = None
 
+def find_frameshifts(cs_seq):
+    frameshifts = []
+    introns = []
+    pt = r"\:[0-9]+|\*[acgtn]+[A-Z*]|\+[A-Z]+|\-[acgtn]+|\~[acgtn]{2}[0-9]+[acgtn]{2}"
+    it = re.finditer(pt, cs_seq)
+    for m in it:
+        if m.group(0).startswith("+") or m.group(0).startswith("-"):
+            # print("frameshift:", m.group(0))
+            frameshifts.append(m.group(0))
+        if m.group(0).startswith("~"):
+            # print("intron:", m.group(0))
+            introns.append(m.group(0))
+    # TODO: return pattern sequence or shift number?
+    return frameshifts, introns
+
+
+
 
 class MiniprotAlignmentParser:
     def __init__(self, run_folder, gff_file, lineage_file, config):
         self.run_folder = run_folder
+        self.output_file = os.path.join(self.run_folder, "gene_completeness.tsv")
         self.gff_file = gff_file
         self.lineage_file = lineage_file
         self.min_il = config.min_il
