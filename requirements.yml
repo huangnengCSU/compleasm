@@ -184,7 +184,6 @@ dependencies:
   - readline=8.1.2=h0f457ee_0
   - samtools=1.16.1=h6899075_1
   - sed=4.8=he412f7d_0
-  - sepp=4.4.0=py39_0
   - setuptools=67.5.1=pyhd8ed1ab_0
   - six=1.16.0=pyh6c4a22f_0
   - sqlite=3.40.0=h4ff8645_0
@@ -221,6 +220,7 @@ dependencies:
   - zlib=1.2.13=h166bdaf_4
   - zstd=1.5.2=h3eb15da_6
   - miniprot=0.9
+  - sepp=4.4.0
   - pip:
       - docopt==0.6.2
       - pipreqs==0.4.11
