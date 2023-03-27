@@ -40,7 +40,7 @@ class AutoLineager:
             shutil.rmtree(sepp_output_folder)
         if os.path.exists(tmp_file_folder):
             shutil.rmtree(tmp_file_folder)
-        sepp_process = "python {} --cpu {} --outdir {} -t {} -r {} -a {} -f {} -F 15 -m amino -p {}".format(
+        sepp_process = "{} --cpu {} --outdir {} -t {} -r {} -a {} -f {} -F 15 -m amino -p {}".format(
             self.sepp_execute_command, self.threads, sepp_output_folder, tree_nwk_path, tree_metadata_path,
             supermaxtix_path, marker_genes_filapath, tmp_file_folder)
         os.system(sepp_process)
