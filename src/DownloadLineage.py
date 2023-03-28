@@ -90,9 +90,9 @@ class Downloader:
             except URLError:
                 print("Cannot reach {}".format(hash_url))
                 raise Error("Unable to download necessary files")
-            expected_file_version_hash = ""
-            with open(hash_download_path, 'r') as fin:
-                expected_file_version_hash = fin.readline().strip()
+        expected_file_version_hash = ""
+        with open(hash_download_path, 'r') as fin:
+            expected_file_version_hash = fin.readline().strip()
 
         # download file version
         download_success = self.download_single_file(file_version_url, file_version_download_path,
