@@ -429,8 +429,9 @@ class MiniprotAlignmentParser:
                 output.gene_label = GeneLabel.Missing
 
             if output.gene_label == GeneLabel.Missing:
-                full_table_writer.write("{}\t{}\n".format(output.data_record["Target_species"], output.gene_label))
+                full_table_writer.write("{}\t{}\n".format(gene_id, output.gene_label))
             else:
+                assert gene_id == output.data_record["Target_species"]
                 full_table_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(output.data_record["Target_species"],
                                                                                          output.gene_label,
                                                                                          output.data_record["Contig_id"],
