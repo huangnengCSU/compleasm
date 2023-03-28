@@ -170,7 +170,7 @@ class MiniprotAlignmentParser:
                     aas_line = gff.readline()
                     aqa_line = gff.readline()
                     items.atn_seq = atn_line.strip().split("\t")[1].replace("-", "")
-                    items.ata_seq = ata_line.strip().split("\t")[1]
+                    ata_seq = ata_line.strip().split("\t")[1]
                     new_ata = []
                     for i in range(len(ata_seq)):
                         if ata_seq[i].upper() not in AminoAcid:
