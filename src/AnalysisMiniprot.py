@@ -117,7 +117,7 @@ def find_frameshifts(cs_seq):
 
 class MiniprotAlignmentParser:
     def __init__(self, run_folder, gff_file, lineage_file, config):
-        self.run_folder = run_folder
+        self.run_folder = run_folder    # output_dir/lineage/
         self.completeness_output_file = os.path.join(self.run_folder, "..", "gene_completeness.tsv")
         self.full_table_output_file = os.path.join(self.run_folder, "full_table.tsv")
         self.gff_file = gff_file
@@ -483,7 +483,7 @@ class MiniprotAlignmentParser:
 
 
 if __name__ == "__main__":
-    parser_a = argparse.ArgumentParser(description="Ost_eval")
+    parser_a = argparse.ArgumentParser()
     parser_a.add_argument("--run_folder", dest="run_folder", help="Path to running folder", type=str, required=True)
     parser_a.add_argument("--lineage_file", "--lineage_file", help="Gene library file", required=True)
     parser_a.add_argument("-g", "--gff", help="GFF file", required=True)
