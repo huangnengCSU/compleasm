@@ -81,15 +81,18 @@ class Downloader:
         hash_url = self.base_url + "file_versions.tsv.hash"
         hash_download_path = os.path.join(self.download_dir, "file_versions.tsv.hash")
 
-        # download hash file
-        try:
-            urllib.request.urlretrieve(hash_url, hash_download_path)
-        except URLError:
-            print("Cannot reach {}".format(hash_url))
-            raise Error("Unable to download necessary files")
-        expected_file_version_hash = ""
-        with open(hash_download_path, 'r') as fin:
-            expected_file_version_hash = fin.readline().strip()
+        if os.path.exists(file_version_download_path) and os.path.exists(hash_download_path):
+            download_success = True
+        else:
+            # download hash file
+            try:
+                urllib.request.urlretrieve(hash_url, hash_download_path)
+            except URLError:
+                print("Cannot reach {}".format(hash_url))
+                raise Error("Unable to download necessary files")
+            expected_file_version_hash = ""
+            with open(hash_download_path, 'r') as fin:
+                expected_file_version_hash = fin.readline().strip()
 
         # download file version
         download_success = self.download_single_file(file_version_url, file_version_download_path,
