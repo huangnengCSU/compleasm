@@ -598,10 +598,10 @@ if __name__ == "__main__":
                           help="The thresholds for the best matching and second best matching. (1st-2nd)/2nd >= d, [0, 1]",
                           type=float, default=0.2)
     parser_a.add_argument("-i", "--min_identity", help="The identity threshold for valid mapping results. [0, 1]",
-                          type=float, default=0.6)
+                          type=float, default=0.4)
     parser_a.add_argument("-l", "--min_length_percent",
                           help="The protein sequence length threshold for valid mapping results. (mapped_gene_length/full_gene_length)>=l, [0, 1]",
-                          type=float, default=0.64)
+                          type=float, default=0.6)
     parser_a.add_argument("-e", "--min_il",
                           help="The thresholds for sum of identity and mapped length for valid mapping results. identity+mapped_rate >= e, [0, 2]",
                           type=float, default=1.4)
