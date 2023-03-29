@@ -104,14 +104,13 @@ def find_frameshifts(cs_seq):
     frameshifts = []
     frameshift_events = 0
     frameshift_lengths = 0
-    pt = r"\:[0-9]+|\*[acgtn]+[A-Z*]|\+[A-Z]+|\-[acgtn]+|\~[acgtn]{2}[0-9]+[acgtn]{2}"
+    pt = r"[0-9]+[MIDFGNUV]"
     it = re.finditer(pt, cs_seq)
     for m in it:
-        if m.group(0).startswith("+") or m.group(0).startswith("-"):
-            # print("frameshift:", m.group(0))
+        if m.group(0).endswith("F") or m.group(0).endswith("G"):
             frameshifts.append(m.group(0))
             frameshift_events += 1
-            frameshift_lengths += len(m.group(0)) - 1
+            frameshift_lengths += int(m.group(0)[:-1])
     return frameshifts, frameshift_events, frameshift_lengths
 
 
@@ -159,7 +158,7 @@ class MiniprotAlignmentParser:
                     # Score = fields[12].strip().split(":")[2]
                     cg = fields[17].replace("cg:Z:", "")
                     cs = fields[18].replace("cs:Z:", "")
-                    frame_shifts, frameshift_events, frameshift_lengths = find_frameshifts(cs)
+                    frame_shifts, frameshift_events, frameshift_lengths = find_frameshifts(cg)
                     items.frameshift_events = frameshift_events
                     items.frameshift_lengths = frameshift_lengths
                     items.frame_shifts = frame_shifts
