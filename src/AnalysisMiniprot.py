@@ -383,6 +383,10 @@ class MiniprotAlignmentParser:
         gff_file = self.gff_file
         protein_file = self.lineage_file
         protein_seqs = load_protein_seqs(protein_file)
+        protein_names = defaultdict(int)
+        for pid in protein_seqs.keys():
+            pid = pid.split("_")[0]
+            protein_names[pid] += 1
         try:
             reader = iter(self.parse_miniprot_records(gff_file))
             for items in reader:
@@ -457,20 +461,21 @@ class MiniprotAlignmentParser:
                 raise ValueError
         full_table_writer.close()
 
-        d = len(all_species) - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(missing_genes)
-        print("S:{:.2f}%, {}".format(len(single_genes) / len(all_species) * 100, len(single_genes)))
-        print("D:{:.2f}%, {}".format(len(duplicate_genes) / len(all_species) * 100, len(duplicate_genes)))
-        print("F:{:.2f}%, {}".format(len(fragmented_genes) / len(all_species) * 100, len(fragmented_genes)))
-        print("M:{:.2f}%, {}".format((len(missing_genes) + d) / len(all_species) * 100, len(missing_genes) + d))
-        print("N:{}".format(len(all_species)))
+        total_genes = len(protein_names.keys())
+        d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(missing_genes)
+        print("S:{:.2f}%, {}".format(len(single_genes) / total_genes * 100, len(single_genes)))
+        print("D:{:.2f}%, {}".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
+        print("F:{:.2f}%, {}".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
+        print("M:{:.2f}%, {}".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
+        print("N:{}".format(total_genes))
         with open(self.completeness_output_file, 'a') as fout:
             fout.write("## lineage: {}\n".format(os.path.dirname(self.lineage_file).split("/")[-1]))
-            fout.write("S:{:.2f}%, {}\n".format(len(single_genes) / len(all_species) * 100, len(single_genes)))
-            fout.write("D:{:.2f}%, {}\n".format(len(duplicate_genes) / len(all_species) * 100, len(duplicate_genes)))
-            fout.write("F:{:.2f}%, {}\n".format(len(fragmented_genes) / len(all_species) * 100, len(fragmented_genes)))
+            fout.write("S:{:.2f}%, {}\n".format(len(single_genes) / total_genes * 100, len(single_genes)))
+            fout.write("D:{:.2f}%, {}\n".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
+            fout.write("F:{:.2f}%, {}\n".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
             fout.write(
-                "M:{:.2f}%, {}\n".format((len(missing_genes) + d) / len(all_species) * 100, len(missing_genes) + d))
-            fout.write("N:{}\n".format(len(all_species)))
+                "M:{:.2f}%, {}\n".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
+            fout.write("N:{}\n".format(total_genes))
         # print("Duplicate genes:")
         # print(duplicate_genes)
         # print("Fragmented genes:")
@@ -484,7 +489,7 @@ class MiniprotAlignmentParser:
 
     @staticmethod
     def Local_Run(gff_file, full_table_output_file, completeness_output_file, min_il, min_diff, min_identity,
-                  min_complete, min_rise, min_length_percent):
+                  min_complete, min_rise, min_length_percent, lineage_file=None):
         single_genes = []
         duplicate_genes = []
         fragmented_genes = []
@@ -556,20 +561,30 @@ class MiniprotAlignmentParser:
                 raise ValueError
         full_table_writer.close()
 
-        d = len(all_species) - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(missing_genes)
-        print("S:{:.2f}%, {}".format(len(single_genes) / len(all_species) * 100, len(single_genes)))
-        print("D:{:.2f}%, {}".format(len(duplicate_genes) / len(all_species) * 100, len(duplicate_genes)))
-        print("F:{:.2f}%, {}".format(len(fragmented_genes) / len(all_species) * 100, len(fragmented_genes)))
-        print("M:{:.2f}%, {}".format((len(missing_genes) + d) / len(all_species) * 100, len(missing_genes) + d))
-        print("N:{}".format(len(all_species)))
+        if lineage_file is not None:
+            protein_seqs = load_protein_seqs(lineage_file)
+            protein_names = defaultdict(int)
+            for pid in protein_seqs.keys():
+                pid = pid.split("_")[0]
+                protein_names[pid] += 1
+            total_genes = len(protein_names.keys())
+        else:
+            total_genes = len(all_species)
+
+        d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(missing_genes)
+        print("S:{:.2f}%, {}".format(len(single_genes) / total_genes * 100, len(single_genes)))
+        print("D:{:.2f}%, {}".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
+        print("F:{:.2f}%, {}".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
+        print("M:{:.2f}%, {}".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
+        print("N:{}".format(total_genes))
         with open(completeness_output_file, 'a') as fout:
             fout.write("## lineage: xx_xx\n")
-            fout.write("S:{:.2f}%, {}\n".format(len(single_genes) / len(all_species) * 100, len(single_genes)))
-            fout.write("D:{:.2f}%, {}\n".format(len(duplicate_genes) / len(all_species) * 100, len(duplicate_genes)))
-            fout.write("F:{:.2f}%, {}\n".format(len(fragmented_genes) / len(all_species) * 100, len(fragmented_genes)))
+            fout.write("S:{:.2f}%, {}\n".format(len(single_genes) / total_genes * 100, len(single_genes)))
+            fout.write("D:{:.2f}%, {}\n".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
+            fout.write("F:{:.2f}%, {}\n".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
             fout.write(
-                "M:{:.2f}%, {}\n".format((len(missing_genes) + d) / len(all_species) * 100, len(missing_genes) + d))
-            fout.write("N:{}\n".format(len(all_species)))
+                "M:{:.2f}%, {}\n".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
+            fout.write("N:{}\n".format(total_genes))
 
 
 if __name__ == "__main__":
