@@ -154,7 +154,7 @@ class MiniprotAlignmentParser:
                     items.contig_id = fields[5]
                     items.contig_start = int(fields[7])
                     items.contig_end = int(fields[8])
-                    items.score = int(fields[9])
+                    items.score = int(fields[12].strip().split(":")[2])
                     # Score = fields[12].strip().split(":")[2]
                     cg = fields[17].replace("cg:Z:", "")
                     cs = fields[18].replace("cs:Z:", "")
@@ -399,14 +399,14 @@ class MiniprotAlignmentParser:
                                 Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                 Stop, Stop - Start, Strand, Rank, Identity, Positive,
                                 (Protein_End - Protein_Start) / Protein_length + Identity, Frameshift_events,
-                                Frameshift_lengths])
+                                Frameshift_lengths, Score])
         except StopIteration:
             pass
         records_df = pd.DataFrame(records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
                                                     "Protein_Start", "Protein_End", "Protein_mapped_length",
                                                     "Protein_mapped_rate", "Start", "Stop", "Genome_mapped_length",
                                                     "Strand", "Rank", "Identity", "Positive", "I+L",
-                                                    "Frameshift_events", "Frameshift_lengths"])
+                                                    "Frameshift_events", "Frameshift_lengths", "Score"])
         all_species = records_df["Target_species"].unique()
         grouped_df = records_df.groupby(["Target_species"])
         # print("min_il: ", self.min_il)
@@ -443,7 +443,7 @@ class MiniprotAlignmentParser:
                                                                       output.data_record["Start"],
                                                                       output.data_record["Stop"],
                                                                       output.data_record["Strand"],
-                                                                      output.data_record["I+L"],
+                                                                      output.data_record["Score"],
                                                                       output.data_record["Protein_length"],
                                                                       output.data_record["Frameshift_events"],
                                                                       output.data_record["Frameshift_lengths"]))
@@ -507,14 +507,14 @@ class MiniprotAlignmentParser:
                                 Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                 Stop, Stop - Start, Strand, Rank, Identity, Positive,
                                 (Protein_End - Protein_Start) / Protein_length + Identity, Frameshift_events,
-                                Frameshift_lengths])
+                                Frameshift_lengths, Score])
         except StopIteration:
             pass
         records_df = pd.DataFrame(records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
                                                     "Protein_Start", "Protein_End", "Protein_mapped_length",
                                                     "Protein_mapped_rate", "Start", "Stop", "Genome_mapped_length",
                                                     "Strand", "Rank", "Identity", "Positive", "I+L",
-                                                    "Frameshift_events", "Frameshift_lengths"])
+                                                    "Frameshift_events", "Frameshift_lengths", "Score"])
         all_species = records_df["Target_species"].unique()
         grouped_df = records_df.groupby(["Target_species"])
         full_table_writer = open(full_table_output_file, "w")
@@ -543,7 +543,7 @@ class MiniprotAlignmentParser:
                                                                       output.data_record["Start"],
                                                                       output.data_record["Stop"],
                                                                       output.data_record["Strand"],
-                                                                      output.data_record["I+L"],
+                                                                      output.data_record["Score"],
                                                                       output.data_record["Protein_length"],
                                                                       output.data_record["Frameshift_events"],
                                                                       output.data_record["Frameshift_lengths"]))
