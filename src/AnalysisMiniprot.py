@@ -15,7 +15,8 @@ class GeneLabel(Enum):
     Single = 1
     Duplicate = 2
     Fragmented = 3
-    Missing = 4
+    Interspaced = 4
+    Missing = 5
 
 
 class MiniprotGffItems:
@@ -375,14 +376,66 @@ class MiniprotAlignmentParser:
 
     @staticmethod
     def refine_fragmented(dataframe):
-        # TODO: detect two different kind of fragmented genes
+        target_ids = dataframe["Target_id"].unique()
+        identity_plus_length = defaultdict(int)
+        for tid in target_ids:
+            sub_dataframe = dataframe[dataframe["Target_id"] == tid]
+            if sub_dataframe.shape[0] == 1:
+                identity_plus_length[tid] = sub_dataframe["I+L"].iloc[0]
+            else:
+                regions = sorted(sub_dataframe[["Protein_Start", "Protein_End", "Contig_id", "Start", "Stop",
+                                                "I+L"]].values.tolist(), key=lambda x: x[0])
+                clusters = []
+                for region in regions:
+                    if len(clusters) == 0:
+                        clusters.append(region)
+                    else:
+                        if region[0] > clusters[-1][1]:
+                            clusters.append(region)
+                        else:
+                            if region[1] - region[0] > clusters[-1][1] - clusters[-1][0]:
+                                clusters[-1] = region
+                            else:
+                                pass
+                if len(clusters) == 1:
+                    identity_plus_length[tid] = clusters[0][5]
+                else:
+                    new_clusters = defaultdict(list)
+                    for region in clusters:
+                        if len(new_clusters.keys()) == 0:
+                            new_clusters[region[2]].append(region)
+                        else:
+                            if region[2] not in new_clusters:
+                                new_clusters[region[2]].append(region)
+                            else:
+                                cid = region[2]
+                                if region[3] > new_clusters[cid][-1][4]:
+                                    new_clusters[cid].append(region)
+                                else:
+                                    if region[4] - region[3] > new_clusters[cid][-1][4] - new_clusters[cid][-1][3]:
+                                        new_clusters[cid][-1] = region
+                                    else:
+                                        pass
+                    for cid in new_clusters.keys():
+                        for region in new_clusters[cid]:
+                            identity_plus_length[tid] += region[5]
+        identity_plus_length = sorted(identity_plus_length.items(), key=lambda x: x[1], reverse=True)
+        tid = identity_plus_length[0][0]
         output = OutputFormat()
+        sub_dataframe = dataframe[dataframe["Target_id"] == tid]
+        if sub_dataframe.shape[0] > 1 and identity_plus_length[0][1] > sub_dataframe.iloc[0]["I+L"]:
+            output.gene_label = GeneLabel.Interspaced
+            output.data_record = sub_dataframe.iloc[0]
+        else:
+            output.gene_label = GeneLabel.Fragmented
+            output.data_record = sub_dataframe.iloc[0]
         return output
 
     def Run(self):
         single_genes = []
         duplicate_genes = []
         fragmented_genes = []
+        interspaced_genes = []
         missing_genes = []
         records = []
         single_complete_proteins = []
@@ -463,6 +516,8 @@ class MiniprotAlignmentParser:
                 duplicate_genes.append(gene_id)
             elif output.gene_label == GeneLabel.Fragmented:
                 fragmented_genes.append(gene_id)
+            elif output.gene_label == GeneLabel.Interspaced:
+                interspaced_genes.append(gene_id)
             elif output.gene_label == GeneLabel.Missing:
                 missing_genes.append(gene_id)
             else:
@@ -471,10 +526,11 @@ class MiniprotAlignmentParser:
         full_table_writer.close()
 
         total_genes = len(protein_names.keys())
-        d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(missing_genes)
+        d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(interspaced_genes) - len(missing_genes)
         print("S:{:.2f}%, {}".format(len(single_genes) / total_genes * 100, len(single_genes)))
         print("D:{:.2f}%, {}".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
         print("F:{:.2f}%, {}".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
+        print("I:{:.2f}%, {}".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
         print("M:{:.2f}%, {}".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
         print("N:{}".format(total_genes))
         with open(self.completeness_output_file, 'a') as fout:
@@ -482,6 +538,7 @@ class MiniprotAlignmentParser:
             fout.write("S:{:.2f}%, {}\n".format(len(single_genes) / total_genes * 100, len(single_genes)))
             fout.write("D:{:.2f}%, {}\n".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
             fout.write("F:{:.2f}%, {}\n".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
+            fout.write("I:{:.2f}%, {}\n".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
             fout.write(
                 "M:{:.2f}%, {}\n".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
             fout.write("N:{}\n".format(total_genes))
@@ -502,6 +559,7 @@ class MiniprotAlignmentParser:
         single_genes = []
         duplicate_genes = []
         fragmented_genes = []
+        interspaced_genes = []
         missing_genes = []
         records = []
         try:
@@ -565,6 +623,8 @@ class MiniprotAlignmentParser:
                 duplicate_genes.append(gene_id)
             elif output.gene_label == GeneLabel.Fragmented:
                 fragmented_genes.append(gene_id)
+            elif output.gene_label == GeneLabel.Interspaced:
+                interspaced_genes.append(gene_id)
             elif output.gene_label == GeneLabel.Missing:
                 missing_genes.append(gene_id)
             else:
@@ -582,10 +642,11 @@ class MiniprotAlignmentParser:
         else:
             total_genes = len(all_species)
 
-        d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(missing_genes)
+        d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(interspaced_genes) - len(missing_genes)
         print("S:{:.2f}%, {}".format(len(single_genes) / total_genes * 100, len(single_genes)))
         print("D:{:.2f}%, {}".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
         print("F:{:.2f}%, {}".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
+        print("I:{:.2f}%, {}".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
         print("M:{:.2f}%, {}".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
         print("N:{}".format(total_genes))
         with open(completeness_output_file, 'a') as fout:
@@ -593,6 +654,7 @@ class MiniprotAlignmentParser:
             fout.write("S:{:.2f}%, {}\n".format(len(single_genes) / total_genes * 100, len(single_genes)))
             fout.write("D:{:.2f}%, {}\n".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
             fout.write("F:{:.2f}%, {}\n".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
+            fout.write("I:{:.2f}%, {}\n".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
             fout.write(
                 "M:{:.2f}%, {}\n".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
             fout.write("N:{}\n".format(total_genes))
@@ -635,4 +697,3 @@ if __name__ == "__main__":
                                       min_il=args.min_il,
                                       min_complete=args.min_complete,
                                       min_rise=args.min_rise)
-
