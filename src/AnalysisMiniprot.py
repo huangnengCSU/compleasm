@@ -90,7 +90,7 @@ def load_protein_seqs(fasta_file):
                 protein_seqs[record.id] = str(record.seq)
     else:
         with open(fasta_file, "r") as f:
-            for record in SeqIO.parse(f, "fasta.gz"):
+            for record in SeqIO.parse(f, "fasta"):
                 protein_seqs[record.id] = str(record.seq)
     return protein_seqs
 
