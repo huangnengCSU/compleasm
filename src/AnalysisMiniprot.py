@@ -373,6 +373,12 @@ class MiniprotAlignmentParser:
                     dataframe[dataframe["Target_id"] == record_1st_tid],
                     dataframe[dataframe["Target_id"] == record_2nd_tid], min_identity, min_complete, min_rise)
 
+    @staticmethod
+    def refine_fragmented(dataframe):
+        # TODO: detect two different kind of fragmented genes
+        output = OutputFormat()
+        return output
+
     def Run(self):
         single_genes = []
         duplicate_genes = []
@@ -428,6 +434,9 @@ class MiniprotAlignmentParser:
                                        self.min_rise)
                 if output.gene_label == GeneLabel.Single:
                     single_complete_proteins.append(output.data_record["Target_id"])
+
+                if output.gene_label == GeneLabel.Fragmented:
+                    output = self.refine_fragmented(mapped_records)
             else:
                 output = OutputFormat()
                 output.gene_label = GeneLabel.Missing
@@ -528,6 +537,8 @@ class MiniprotAlignmentParser:
                     mapped_records.iloc[0]["Protein_mapped_rate"] >= min_length_percent:
                 output = MiniprotAlignmentParser.Ost_eval(mapped_records, min_diff, min_identity, min_complete,
                                                           min_rise)
+                if output.gene_label == GeneLabel.Fragmented:
+                    output = MiniprotAlignmentParser.refine_fragmented(mapped_records)
             else:
                 output = OutputFormat()
                 output.gene_label = GeneLabel.Missing
