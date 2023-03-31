@@ -93,15 +93,12 @@ def main():
     parser.add_argument("--min_length_percent",
                         help="The protein sequence length threshold for valid mapping results. (mapped_gene_length/full_gene_length)>=l, [0, 1]",
                         type=float, default=0.6)
-    parser.add_argument("--min_il",
-                        help="The thresholds for sum of identity and mapped length for valid mapping results. identity+mapped_rate >= e, [0, 2]",
-                        type=float, default=1.4)
     parser.add_argument("--min_complete",
                         help="The length threshold for complete gene. (mapped_gene_length/full_gene_length)>=c, [0, 1]",
                         type=float, default=0.9)
     parser.add_argument("--min_rise",
                         help="Minimum length threshold to make dupicate take precedence over single or fragmented over single/duplicate. l1>=l2*(1+s), [0, 1]",
-                        type=float, default=1.5)
+                        type=float, default=0.5)
 
     args = parser.parse_args()
 

@@ -123,7 +123,6 @@ class MiniprotAlignmentParser:
         self.full_table_output_file = os.path.join(self.run_folder, "full_table.tsv")
         self.gff_file = gff_file
         self.lineage_file = lineage_file
-        self.min_il = config.min_il
         self.min_length_percent = config.min_length_percent
         self.min_diff = config.min_diff
         self.min_identity = config.min_identity
@@ -466,15 +465,10 @@ class MiniprotAlignmentParser:
                                                     "Protein_Start", "Protein_End", "Protein_mapped_length",
                                                     "Protein_mapped_rate", "Start", "Stop", "Genome_mapped_length",
                                                     "Strand", "Rank", "Identity", "Positive", "I+L",
-                                                    "Frameshift_events", "Frameshift_lengths", "Score", "Atn_seq", "Ata_seq"])
+                                                    "Frameshift_events", "Frameshift_lengths", "Score", "Atn_seq",
+                                                    "Ata_seq"])
         all_species = records_df["Target_species"].unique()
         grouped_df = records_df.groupby(["Target_species"])
-        # print("min_il: ", self.min_il)
-        # print("min_length_percent: ", self.min_length_percent)
-        # print("min_diff: ", self.min_diff)
-        # print("min_identity: ", self.min_identity)
-        # print("min_complete: ", self.min_complete)
-        # print("min_rise: ", self.min_rise)
         full_table_writer = open(self.full_table_output_file, "w")
         full_table_writer.write(
             "Gene\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tFrameshift events\n")
@@ -482,12 +476,13 @@ class MiniprotAlignmentParser:
             mapped_records = grouped_df.get_group(gene_id)
             mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
 
-            if mapped_records.iloc[0]["I+L"] >= self.min_il or \
-                    mapped_records.iloc[0]["Protein_mapped_rate"] >= self.min_length_percent:
+            if mapped_records.iloc[0]["I+L"] >= (self.min_identity + self.min_length_percent) or mapped_records.iloc[0][
+                "Protein_mapped_rate"] >= self.min_length_percent:
                 output = self.Ost_eval(mapped_records, self.min_diff, self.min_identity, self.min_complete,
                                        self.min_rise)
                 if output.gene_label == GeneLabel.Single:
-                    single_complete_proteins.append(">{}\n{}\n".format(output.data_record["Target_id"],output.data_record["Ata_seq"]))
+                    single_complete_proteins.append(
+                        ">{}\n{}\n".format(output.data_record["Target_id"], output.data_record["Ata_seq"]))
 
                 if output.gene_label == GeneLabel.Fragmented:
                     output = self.refine_fragmented(mapped_records)
@@ -501,14 +496,14 @@ class MiniprotAlignmentParser:
                 assert gene_id == output.data_record["Target_species"]
                 full_table_writer.write(
                     "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(output.data_record["Target_species"],
-                                                                      output.gene_label,
-                                                                      output.data_record["Contig_id"],
-                                                                      output.data_record["Start"],
-                                                                      output.data_record["Stop"],
-                                                                      output.data_record["Strand"],
-                                                                      output.data_record["Score"],
-                                                                      output.data_record["Protein_length"],
-                                                                      output.data_record["Frameshift_events"]))
+                                                                  output.gene_label,
+                                                                  output.data_record["Contig_id"],
+                                                                  output.data_record["Start"],
+                                                                  output.data_record["Stop"],
+                                                                  output.data_record["Strand"],
+                                                                  output.data_record["Score"],
+                                                                  output.data_record["Protein_length"],
+                                                                  output.data_record["Frameshift_events"]))
 
             if output.gene_label == GeneLabel.Single:
                 single_genes.append(gene_id)
@@ -526,7 +521,8 @@ class MiniprotAlignmentParser:
         full_table_writer.close()
 
         total_genes = len(protein_names.keys())
-        d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(interspaced_genes) - len(missing_genes)
+        d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(
+            interspaced_genes) - len(missing_genes)
         print("S:{:.2f}%, {}".format(len(single_genes) / total_genes * 100, len(single_genes)))
         print("D:{:.2f}%, {}".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
         print("F:{:.2f}%, {}".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
@@ -554,7 +550,7 @@ class MiniprotAlignmentParser:
                 fout.write(x)
 
     @staticmethod
-    def Local_Run(gff_file, full_table_output_file, completeness_output_file, min_il, min_diff, min_identity,
+    def Local_Run(gff_file, full_table_output_file, completeness_output_file, min_diff, min_identity,
                   min_complete, min_rise, min_length_percent, lineage_file=None):
         single_genes = []
         duplicate_genes = []
@@ -581,7 +577,8 @@ class MiniprotAlignmentParser:
                                                     "Protein_Start", "Protein_End", "Protein_mapped_length",
                                                     "Protein_mapped_rate", "Start", "Stop", "Genome_mapped_length",
                                                     "Strand", "Rank", "Identity", "Positive", "I+L",
-                                                    "Frameshift_events", "Frameshift_lengths", "Score", "Atn_seq", "Ata_seq"])
+                                                    "Frameshift_events", "Frameshift_lengths", "Score", "Atn_seq",
+                                                    "Ata_seq"])
         all_species = records_df["Target_species"].unique()
         grouped_df = records_df.groupby(["Target_species"])
         full_table_writer = open(full_table_output_file, "w")
@@ -591,8 +588,8 @@ class MiniprotAlignmentParser:
             mapped_records = grouped_df.get_group(gene_id)
             mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
 
-            if mapped_records.iloc[0]["I+L"] >= min_il or \
-                    mapped_records.iloc[0]["Protein_mapped_rate"] >= min_length_percent:
+            if mapped_records.iloc[0]["I+L"] >= (min_identity + min_length_percent) or mapped_records.iloc[0][
+                "Protein_mapped_rate"] >= min_length_percent:
                 output = MiniprotAlignmentParser.Ost_eval(mapped_records, min_diff, min_identity, min_complete,
                                                           min_rise)
                 if output.gene_label == GeneLabel.Fragmented:
@@ -607,14 +604,14 @@ class MiniprotAlignmentParser:
                 assert gene_id == output.data_record["Target_species"]
                 full_table_writer.write(
                     "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(output.data_record["Target_species"],
-                                                                      output.gene_label,
-                                                                      output.data_record["Contig_id"],
-                                                                      output.data_record["Start"],
-                                                                      output.data_record["Stop"],
-                                                                      output.data_record["Strand"],
-                                                                      output.data_record["Score"],
-                                                                      output.data_record["Protein_length"],
-                                                                      output.data_record["Frameshift_events"]))
+                                                                  output.gene_label,
+                                                                  output.data_record["Contig_id"],
+                                                                  output.data_record["Start"],
+                                                                  output.data_record["Stop"],
+                                                                  output.data_record["Strand"],
+                                                                  output.data_record["Score"],
+                                                                  output.data_record["Protein_length"],
+                                                                  output.data_record["Frameshift_events"]))
 
             if output.gene_label == GeneLabel.Single:
                 single_genes.append(gene_id)
@@ -641,7 +638,8 @@ class MiniprotAlignmentParser:
         else:
             total_genes = len(all_species)
 
-        d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(interspaced_genes) - len(missing_genes)
+        d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(
+            interspaced_genes) - len(missing_genes)
         print("S:{:.2f}%, {}".format(len(single_genes) / total_genes * 100, len(single_genes)))
         print("D:{:.2f}%, {}".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
         print("F:{:.2f}%, {}".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
@@ -674,9 +672,6 @@ if __name__ == "__main__":
     parser_a.add_argument("-l", "--min_length_percent",
                           help="The protein sequence length threshold for valid mapping results. (mapped_gene_length/full_gene_length)>=l, [0, 1]",
                           type=float, default=0.6)
-    parser_a.add_argument("-e", "--min_il",
-                          help="The thresholds for sum of identity and mapped length for valid mapping results. identity+mapped_rate >= e, [0, 2]",
-                          type=float, default=1.4)
     parser_a.add_argument("-c", "--min_complete",
                           help="The length threshold for complete gene. (mapped_gene_length/full_gene_length)>=c, [0, 1]",
                           type=float, default=0.9)
@@ -693,6 +688,5 @@ if __name__ == "__main__":
                                       min_diff=args.min_diff,
                                       min_identity=args.min_identity,
                                       min_length_percent=args.min_length_percent,
-                                      min_il=args.min_il,
                                       min_complete=args.min_complete,
                                       min_rise=args.min_rise)
