@@ -8,7 +8,7 @@ from Bio import SeqIO
 from collections import defaultdict
 
 AminoAcid = ["A", "R", "N", "D", "C", "Q", "E", "G", "H", "I",
-             "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V", "*"]
+             "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V"]
 
 
 class GeneLabel(Enum):
@@ -22,7 +22,7 @@ class GeneLabel(Enum):
 class MiniprotGffItems:
     def __init__(self):
         self.atn_seq = ""
-        self.att_seq = ""
+        self.ata_seq = ""
         self.target_id = ""
         self.contig_id = ""
         self.protein_length = 0
@@ -42,7 +42,7 @@ class MiniprotGffItems:
 
     def show(self):
         return [self.atn_seq,
-                self.att_seq,
+                self.ata_seq,
                 self.target_id,
                 self.contig_id,
                 self.protein_length,
@@ -117,6 +117,7 @@ def find_frameshifts(cs_seq):
 
 class MiniprotAlignmentParser:
     def __init__(self, run_folder, gff_file, lineage_file, config):
+        self.autolineage = config.autolineage
         self.run_folder = run_folder  # output_dir/lineage/
         self.completeness_output_file = os.path.join(self.run_folder, "..", "gene_completeness.tsv")
         self.full_table_output_file = os.path.join(self.run_folder, "full_table.tsv")
@@ -131,7 +132,7 @@ class MiniprotAlignmentParser:
         self.marker_gene_path = os.path.join(self.run_folder, "gene_marker.fasta")
 
     @staticmethod
-    def parse_miniprot_records(gff_file):
+    def parse_miniprot_records(gff_file, autolineage=False):
         items = MiniprotGffItems()
         with open(gff_file, "r") as gff:
             while True:
@@ -164,21 +165,21 @@ class MiniprotAlignmentParser:
                     items.frameshift_lengths = frameshift_lengths
                     items.frame_shifts = frame_shifts
 
-                    """ # This is for parse the ATN/ATT/AAS/AQA sequences in miniprot --aln
-                    atn_line = gff.readline()
-                    ata_line = gff.readline()
-                    aas_line = gff.readline()
-                    aqa_line = gff.readline()
-                    items.atn_seq = atn_line.strip().split("\t")[1].replace("-", "")
-                    ata_seq = ata_line.strip().split("\t")[1]
-                    new_ata = []
-                    for i in range(len(ata_seq)):
-                        if ata_seq[i].upper() not in AminoAcid:
-                            continue
-                        else:
-                            new_ata.append(ata_seq[i])
-                    items.att_seq = "".join(new_ata)
-                    """
+                    if autolineage:
+                        # This is for parse the ATN/ATA/AAS/AQA sequences in miniprot --aln
+                        atn_line = gff.readline()
+                        ata_line = gff.readline()
+                        aas_line = gff.readline()
+                        aqa_line = gff.readline()
+                        items.atn_seq = atn_line.strip().split("\t")[1].replace("-", "")
+                        ata_seq = ata_line.strip().split("\t")[1]
+                        new_ata = []
+                        for i in range(len(ata_seq)):
+                            if ata_seq[i].upper() not in AminoAcid:
+                                continue
+                            else:
+                                new_ata.append(ata_seq[i])
+                        items.ata_seq = "".join(new_ata)
                 else:
                     fields = line.strip().split("\t")
                     if fields[2] == "mRNA":
@@ -447,9 +448,9 @@ class MiniprotAlignmentParser:
             pid = pid.split("_")[0]
             protein_names[pid] += 1
         try:
-            reader = iter(self.parse_miniprot_records(gff_file))
+            reader = iter(self.parse_miniprot_records(gff_file, self.autolineage))
             for items in reader:
-                (Atn_seq, Att_seq, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End, Start, Stop,
+                (Atn_seq, Ata_seq, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End, Start, Stop,
                  Strand, Score, Rank, Identity, Positive, Codons, Frameshift_events, Frameshift_lengths,
                  Frame_shifts) = items.show()
                 Target_species = Target_id.split("_")[0]
@@ -458,14 +459,14 @@ class MiniprotAlignmentParser:
                                 Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                 Stop, Stop - Start, Strand, Rank, Identity, Positive,
                                 (Protein_End - Protein_Start) / Protein_length + Identity, Frameshift_events,
-                                Frameshift_lengths, Score])
+                                Frameshift_lengths, Score, Atn_seq, Ata_seq])
         except StopIteration:
             pass
         records_df = pd.DataFrame(records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
                                                     "Protein_Start", "Protein_End", "Protein_mapped_length",
                                                     "Protein_mapped_rate", "Start", "Stop", "Genome_mapped_length",
                                                     "Strand", "Rank", "Identity", "Positive", "I+L",
-                                                    "Frameshift_events", "Frameshift_lengths", "Score"])
+                                                    "Frameshift_events", "Frameshift_lengths", "Score", "Atn_seq", "Ata_seq"])
         all_species = records_df["Target_species"].unique()
         grouped_df = records_df.groupby(["Target_species"])
         # print("min_il: ", self.min_il)
@@ -486,7 +487,7 @@ class MiniprotAlignmentParser:
                 output = self.Ost_eval(mapped_records, self.min_diff, self.min_identity, self.min_complete,
                                        self.min_rise)
                 if output.gene_label == GeneLabel.Single:
-                    single_complete_proteins.append(output.data_record["Target_id"])
+                    single_complete_proteins.append(">{}\n{}\n".format(output.data_record["Target_id"],output.data_record["Ata_seq"]))
 
                 if output.gene_label == GeneLabel.Fragmented:
                     output = self.refine_fragmented(mapped_records)
@@ -549,8 +550,8 @@ class MiniprotAlignmentParser:
         # print(missing_genes)
 
         with open(self.marker_gene_path, "w") as fout:
-            for protein_id in single_complete_proteins:
-                fout.write(">{}\n{}\n".format(protein_id, protein_seqs[protein_id]))
+            for x in single_complete_proteins:
+                fout.write(x)
 
     @staticmethod
     def Local_Run(gff_file, full_table_output_file, completeness_output_file, min_il, min_diff, min_identity,
@@ -564,7 +565,7 @@ class MiniprotAlignmentParser:
         try:
             reader = iter(MiniprotAlignmentParser.parse_miniprot_records(gff_file))
             for items in reader:
-                (Atn_seq, Att_seq, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End, Start, Stop,
+                (Atn_seq, Ata_seq, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End, Start, Stop,
                  Strand, Score, Rank, Identity, Positive, Codons, Frameshift_events, Frameshift_lengths,
                  Frame_shifts) = items.show()
                 Target_species = Target_id.split("_")[0]
@@ -573,14 +574,14 @@ class MiniprotAlignmentParser:
                                 Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                 Stop, Stop - Start, Strand, Rank, Identity, Positive,
                                 (Protein_End - Protein_Start) / Protein_length + Identity, Frameshift_events,
-                                Frameshift_lengths, Score])
+                                Frameshift_lengths, Score, Atn_seq, Ata_seq])
         except StopIteration:
             pass
         records_df = pd.DataFrame(records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
                                                     "Protein_Start", "Protein_End", "Protein_mapped_length",
                                                     "Protein_mapped_rate", "Start", "Stop", "Genome_mapped_length",
                                                     "Strand", "Rank", "Identity", "Positive", "I+L",
-                                                    "Frameshift_events", "Frameshift_lengths", "Score"])
+                                                    "Frameshift_events", "Frameshift_lengths", "Score", "Atn_seq", "Ata_seq"])
         all_species = records_df["Target_species"].unique()
         grouped_df = records_df.groupby(["Target_species"])
         full_table_writer = open(full_table_output_file, "w")
