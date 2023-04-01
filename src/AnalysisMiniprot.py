@@ -201,7 +201,7 @@ class MiniprotAlignmentParser:
         # check records with same tid of the best record
         output = OutputFormat()
         gene_id = dataframe.iloc[0]["Target_id"]
-        dataframe = dataframe[dataframe["Identity"] >= min_identity]
+        # dataframe = dataframe[dataframe["Identity"] >= min_identity]
         if dataframe.shape[0] == 0:
             output.gene_label = GeneLabel.Missing
             return output
@@ -253,8 +253,8 @@ class MiniprotAlignmentParser:
     def record_1st_2nd_gene_label(dataframe_1st, dataframe_2nd, min_identity, min_complete, min_rise):
         # check top 1st and 2nd records whether they are the same gene
         output = OutputFormat()
-        dataframe_1st = dataframe_1st[dataframe_1st["Identity"] >= min_identity]
-        dataframe_2nd = dataframe_2nd[dataframe_2nd["Identity"] >= min_identity]
+        # dataframe_1st = dataframe_1st[dataframe_1st["Identity"] >= min_identity]
+        # dataframe_2nd = dataframe_2nd[dataframe_2nd["Identity"] >= min_identity]
         if dataframe_1st.shape[0] >= 1 and dataframe_2nd.shape[0] == 0:
             out = MiniprotAlignmentParser.record_1st_gene_label(dataframe_1st, min_identity, min_complete)
             return out
@@ -475,9 +475,11 @@ class MiniprotAlignmentParser:
         for gene_id in all_species:
             mapped_records = grouped_df.get_group(gene_id)
             mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
+            pass_tids = mapped_records[(mapped_records["Protein_mapped_rate"] >= self.min_length_percent) | (
+                        mapped_records["Identity"] >= self.min_identity)]["Target_id"].unique()
 
-            if mapped_records.iloc[0]["I+L"] >= (self.min_identity + self.min_length_percent) or mapped_records.iloc[0][
-                "Protein_mapped_rate"] >= self.min_length_percent:
+            if len(pass_tids) > 0:
+                mapped_records = mapped_records[mapped_records["Target_id"].isin(pass_tids)]
                 output = self.Ost_eval(mapped_records, self.min_diff, self.min_identity, self.min_complete,
                                        self.min_rise)
                 if output.gene_label == GeneLabel.Single:
@@ -587,9 +589,11 @@ class MiniprotAlignmentParser:
         for gene_id in all_species:
             mapped_records = grouped_df.get_group(gene_id)
             mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
+            pass_tids = mapped_records[(mapped_records["Protein_mapped_rate"] >= min_length_percent) | (
+                    mapped_records["Identity"] >= min_identity)]["Target_id"].unique()
 
-            if mapped_records.iloc[0]["I+L"] >= (min_identity + min_length_percent) or mapped_records.iloc[0][
-                "Protein_mapped_rate"] >= min_length_percent:
+            if len(pass_tids)>0:
+                mapped_records = mapped_records[mapped_records["Target_id"].isin(pass_tids)]
                 output = MiniprotAlignmentParser.Ost_eval(mapped_records, min_diff, min_identity, min_complete,
                                                           min_rise)
                 if output.gene_label == GeneLabel.Fragmented:
