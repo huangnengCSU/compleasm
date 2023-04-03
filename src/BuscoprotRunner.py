@@ -1,6 +1,7 @@
 import os.path
 import argparse
 import shutil
+import time
 
 # 1. run miniprot on lineage ["archaea_odb10", "bacteria_odb10", "eukaryota_odb10"]
 # 2. run AnalisisMiniprot on the output of miniprot
@@ -45,27 +46,36 @@ class BuscoprotRunner:
         self.lineage_searcher = AutoLineager(sepp_output_path, sepp_tmp_path, config)
 
     def Run(self):
+        begin_time = time.time()
         if self.autolineage:
             lineage = "eukaryota_odb10"
         else:
             lineage = self.lineage
-
+        download_lineage_start_time = time.time()
         self.downloader.download_lineage(lineage)
+        download_lineage_end_time = time.time()
         logger.info("lineage: {}".format(lineage))
         lineage_filepath = os.path.join(self.downloader.lineage_description[lineage][3], "refseq_db.faa.gz")
         output_dir = os.path.join(self.output_folder, lineage)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
+
+        run_miniprot_start_time = time.time()
         miniprot_output_path = self.miniprot_runner.run_miniprot(self.assembly_path, lineage_filepath, output_dir)
+        run_miniprot_end_time = time.time()
+        analysis_miniprot_start_time = time.time()
         miniprot_alignment_parser = MiniprotAlignmentParser(output_dir, miniprot_output_path, lineage_filepath,
                                                             self.config)
         if os.path.exists(miniprot_alignment_parser.completeness_output_file):
             os.remove(miniprot_alignment_parser.completeness_output_file)
         miniprot_alignment_parser.Run()
+        analysis_miniprot_end_time = time.time()
         if self.autolineage:
+            autolineage_start_time = time.time()
             marker_genes_filapath = miniprot_alignment_parser.marker_gene_path
             best_match_lineage = self.lineage_searcher.Run(marker_genes_filapath)
             logger.info("best_match_lineage: {}".format(best_match_lineage))
+            autolineage_end_time = time.time()
             if best_match_lineage == lineage:
                 return
             self.downloader.download_lineage(best_match_lineage)
@@ -74,12 +84,25 @@ class BuscoprotRunner:
             output_dir = os.path.join(self.output_folder, lineage)
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir)
+            second_run_miniprot_start_time = time.time()
             miniprot_output_path = self.miniprot_runner.run_miniprot(self.assembly_path, lineage_filepath, output_dir)
+            second_run_miniprot_end_time = time.time()
+            second_analysis_miniprot_start_time = time.time()
             miniprot_alignment_parser = MiniprotAlignmentParser(output_dir, miniprot_output_path, lineage_filepath,
                                                                 self.config)
             miniprot_alignment_parser.Run()
+            second_analysis_miniprot_end_time = time.time()
         if os.path.exists("logs"):
             shutil.move("logs", os.path.join(self.output_folder))
+        end_time = time.time()
+        print("## Download lineage: {:.2f}(s)".format(download_lineage_end_time - download_lineage_start_time))
+        print("## Run miniprot: {:.2f}(s)".format(run_miniprot_end_time - run_miniprot_start_time))
+        print("## Analyze miniprot: {:.2f}(s)".format(analysis_miniprot_end_time - analysis_miniprot_start_time))
+        if self.autolineage:
+            print("## Autolineage: {:.2f}(s)".format(autolineage_end_time - autolineage_start_time))
+            print("## Second run miniprot: {:.2f}(s)".format(second_run_miniprot_end_time - second_run_miniprot_start_time))
+            print("## Second analyze miniprot: {:.2f}(s)".format(second_analysis_miniprot_end_time - second_analysis_miniprot_start_time))
+        print("## Total runtime: {:.2f}(s)".format(end_time - begin_time))
 
 def main():
     parser = argparse.ArgumentParser()
