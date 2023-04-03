@@ -1,9 +1,7 @@
 import os.path
 import subprocess
 import shlex
-from .utils import MinibuscoLogger
 
-logger = MinibuscoLogger(__name__).getlog()
 
 
 class MiniprotRunner:
