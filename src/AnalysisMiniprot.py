@@ -553,7 +553,7 @@ class MiniprotAlignmentParser:
 
     @staticmethod
     def Local_Run(gff_file, full_table_output_file, completeness_output_file, min_diff, min_identity,
-                  min_complete, min_rise, min_length_percent, lineage_file=None):
+                  min_complete, min_rise, min_length_percent, lineage_file=None, autolineage=False):
         single_genes = []
         duplicate_genes = []
         fragmented_genes = []
@@ -561,7 +561,7 @@ class MiniprotAlignmentParser:
         missing_genes = []
         records = []
         try:
-            reader = iter(MiniprotAlignmentParser.parse_miniprot_records(gff_file))
+            reader = iter(MiniprotAlignmentParser.parse_miniprot_records(gff_file, autolineage))
             for items in reader:
                 (Atn_seq, Ata_seq, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End, Start, Stop,
                  Strand, Score, Rank, Identity, Positive, Codons, Frameshift_events, Frameshift_lengths,
