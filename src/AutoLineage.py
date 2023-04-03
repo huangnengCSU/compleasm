@@ -4,7 +4,9 @@ import re
 import shutil
 
 from .DownloadLineage import Downloader
-from .utils import Error
+from .utils import Error, MinibuscoLogger
+
+logger = MinibuscoLogger().getlog(__name__)
 
 
 class AutoLineager:
@@ -33,9 +35,9 @@ class AutoLineager:
         tree_nwk_path = self.placement_description["tree.{}.nwk".format(search_lineage)][3]
         tree_metadata_path = self.placement_description["tree_metadata.{}.txt".format(search_lineage)][3]
         supermaxtix_path = self.placement_description["supermatrix.aln.{}.faa".format(search_lineage)][3]
-        print("tree_nwk_path: {}".format(tree_nwk_path))
-        print("tree_metadata_path: {}".format(tree_metadata_path))
-        print("supermaxtix_path: {}".format(supermaxtix_path))
+        logger.info("tree_nwk_path: {}".format(tree_nwk_path))
+        logger.info("tree_metadata_path: {}".format(tree_metadata_path))
+        logger.info("supermaxtix_path: {}".format(supermaxtix_path))
         if os.path.exists(sepp_output_folder):
             shutil.rmtree(sepp_output_folder)
         if os.path.exists(tmp_file_folder):

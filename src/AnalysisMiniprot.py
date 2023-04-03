@@ -6,9 +6,14 @@ import pandas as pd
 from enum import Enum
 from Bio import SeqIO
 from collections import defaultdict
+from .utils import MinibuscoLogger
+
+logger = MinibuscoLogger().getlog(__name__)
 
 AminoAcid = ["A", "R", "N", "D", "C", "Q", "E", "G", "H", "I",
              "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V"]
+
+
 
 
 class GeneLabel(Enum):
@@ -59,9 +64,6 @@ class MiniprotGffItems:
                 self.frameshift_events,
                 self.frameshift_lengths,
                 self.frame_shifts]
-
-    def print(self):
-        print(self.show())
 
 
 def get_region_clusters(regions):
@@ -345,8 +347,7 @@ class MiniprotAlignmentParser:
                         raise ValueError
                     return output
             else:
-                print("Error")
-                print(label_length)
+                logger.error("Error: wrong permutation of label_length!")
                 raise ValueError
 
     @staticmethod
@@ -453,7 +454,6 @@ class MiniprotAlignmentParser:
                  Strand, Score, Rank, Identity, Positive, Codons, Frameshift_events, Frameshift_lengths,
                  Frame_shifts) = items.show()
                 Target_species = Target_id.split("_")[0]
-                # items.print()
                 records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
                                 Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                 Stop, Stop - Start, Strand, Rank, Identity, Positive,
@@ -518,19 +518,19 @@ class MiniprotAlignmentParser:
             elif output.gene_label == GeneLabel.Missing:
                 missing_genes.append(gene_id)
             else:
-                print("Error")
+                logger.error("Error: output.gene_label!")
                 raise ValueError
         full_table_writer.close()
 
         total_genes = len(protein_names.keys())
         d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(
             interspaced_genes) - len(missing_genes)
-        print("S:{:.2f}%, {}".format(len(single_genes) / total_genes * 100, len(single_genes)))
-        print("D:{:.2f}%, {}".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
-        print("F:{:.2f}%, {}".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
-        print("I:{:.2f}%, {}".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
-        print("M:{:.2f}%, {}".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
-        print("N:{}".format(total_genes))
+        logger.info("S:{:.2f}%, {}".format(len(single_genes) / total_genes * 100, len(single_genes)))
+        logger.info("D:{:.2f}%, {}".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
+        logger.info("F:{:.2f}%, {}".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
+        logger.info("I:{:.2f}%, {}".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
+        logger.info("M:{:.2f}%, {}".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
+        logger.info("N:{}".format(total_genes))
         with open(self.completeness_output_file, 'a') as fout:
             fout.write("## lineage: {}\n".format(os.path.dirname(self.lineage_file).split("/")[-1]))
             fout.write("S:{:.2f}%, {}\n".format(len(single_genes) / total_genes * 100, len(single_genes)))
@@ -540,12 +540,6 @@ class MiniprotAlignmentParser:
             fout.write(
                 "M:{:.2f}%, {}\n".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
             fout.write("N:{}\n".format(total_genes))
-        # print("Duplicate genes:")
-        # print(duplicate_genes)
-        # print("Fragmented genes:")
-        # print(fragmented_genes)
-        # print("Missing genes:")
-        # print(missing_genes)
 
         with open(self.marker_gene_path, "w") as fout:
             for x in single_complete_proteins:
@@ -567,7 +561,6 @@ class MiniprotAlignmentParser:
                  Strand, Score, Rank, Identity, Positive, Codons, Frameshift_events, Frameshift_lengths,
                  Frame_shifts) = items.show()
                 Target_species = Target_id.split("_")[0]
-                # items.print()
                 records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
                                 Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                 Stop, Stop - Start, Strand, Rank, Identity, Positive,
@@ -628,7 +621,7 @@ class MiniprotAlignmentParser:
             elif output.gene_label == GeneLabel.Missing:
                 missing_genes.append(gene_id)
             else:
-                print("Error")
+                logger.error("Error: output.gene_label!")
                 raise ValueError
         full_table_writer.close()
 
@@ -644,12 +637,12 @@ class MiniprotAlignmentParser:
 
         d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(
             interspaced_genes) - len(missing_genes)
-        print("S:{:.2f}%, {}".format(len(single_genes) / total_genes * 100, len(single_genes)))
-        print("D:{:.2f}%, {}".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
-        print("F:{:.2f}%, {}".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
-        print("I:{:.2f}%, {}".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
-        print("M:{:.2f}%, {}".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
-        print("N:{}".format(total_genes))
+        logger.info("S:{:.2f}%, {}".format(len(single_genes) / total_genes * 100, len(single_genes)))
+        logger.info("D:{:.2f}%, {}".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
+        logger.info("F:{:.2f}%, {}".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
+        logger.info("I:{:.2f}%, {}".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
+        logger.info("M:{:.2f}%, {}".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
+        logger.info("N:{}".format(total_genes))
         with open(completeness_output_file, 'a') as fout:
             fout.write("## lineage: xx_xx\n")
             fout.write("S:{:.2f}%, {}\n".format(len(single_genes) / total_genes * 100, len(single_genes)))

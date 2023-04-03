@@ -1,5 +1,6 @@
 import os.path
 import argparse
+import shutil
 
 # 1. run miniprot on lineage ["archaea_odb10", "bacteria_odb10", "eukaryota_odb10"]
 # 2. run AnalisisMiniprot on the output of miniprot
@@ -14,7 +15,9 @@ from .RunMiniprot import MiniprotRunner
 from .AnalysisMiniprot import MiniprotAlignmentParser
 from .DownloadLineage import Downloader
 from .AutoLineage import AutoLineager
+from .utils import MinibuscoLogger
 
+logger = MinibuscoLogger().getlog(__name__)
 
 class BuscoprotRunner:
     def __init__(self, config):
@@ -48,7 +51,7 @@ class BuscoprotRunner:
             lineage = self.lineage
 
         self.downloader.download_lineage(lineage)
-        print("lineage: {}".format(lineage))
+        logger.info("lineage: {}".format(lineage))
         lineage_filepath = os.path.join(self.downloader.lineage_description[lineage][3], "refseq_db.faa.gz")
         output_dir = os.path.join(self.output_folder, lineage)
         if not os.path.exists(output_dir):
@@ -62,7 +65,7 @@ class BuscoprotRunner:
         if self.autolineage:
             marker_genes_filapath = miniprot_alignment_parser.marker_gene_path
             best_match_lineage = self.lineage_searcher.Run(marker_genes_filapath)
-            print("best_match_lineage: {}".format(best_match_lineage))
+            logger.info("best_match_lineage: {}".format(best_match_lineage))
             if best_match_lineage == lineage:
                 return
             self.downloader.download_lineage(best_match_lineage)
@@ -75,6 +78,8 @@ class BuscoprotRunner:
             miniprot_alignment_parser = MiniprotAlignmentParser(output_dir, miniprot_output_path, lineage_filepath,
                                                                 self.config)
             miniprot_alignment_parser.Run()
+        if os.path.exists("logs"):
+            shutil.move("logs", os.path.join(self.output_folder))
 
 def main():
     parser = argparse.ArgumentParser()
