@@ -5,7 +5,7 @@ import shutil
 import urllib.request
 from .utils import Error, MinibuscoLogger
 
-logger = MinibuscoLogger().getlog(__name__)
+logger = MinibuscoLogger(__name__).getlog()
 
 
 class URLError(OSError):

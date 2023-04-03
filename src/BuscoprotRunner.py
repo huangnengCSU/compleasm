@@ -17,7 +17,7 @@ from .DownloadLineage import Downloader
 from .AutoLineage import AutoLineager
 from .utils import MinibuscoLogger
 
-logger = MinibuscoLogger().getlog(__name__)
+logger = MinibuscoLogger(__name__).getlog()
 
 class BuscoprotRunner:
     def __init__(self, config):

@@ -6,7 +6,7 @@ import shutil
 from .DownloadLineage import Downloader
 from .utils import Error, MinibuscoLogger
 
-logger = MinibuscoLogger().getlog(__name__)
+logger = MinibuscoLogger(__name__).getlog()
 
 
 class AutoLineager:

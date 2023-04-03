@@ -44,7 +44,7 @@ class MinibuscoLogger():
         self.log_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         self.pid = str(os.getpid())
         self.log_path = "logs"
-        self.log_name = logger
+        self.log_name = logger.split('.')[-1]+'.log'
 
         if not os.path.exists(self.log_path):
             os.mkdir(self.log_path)

@@ -8,7 +8,7 @@ from Bio import SeqIO
 from collections import defaultdict
 from .utils import MinibuscoLogger
 
-logger = MinibuscoLogger().getlog(__name__)
+logger = MinibuscoLogger(__name__).getlog()
 
 AminoAcid = ["A", "R", "N", "D", "C", "Q", "E", "G", "H", "I",
              "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V"]
