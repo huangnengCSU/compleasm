@@ -525,12 +525,12 @@ class MiniprotAlignmentParser:
         total_genes = len(protein_names.keys())
         d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(
             interspaced_genes) - len(missing_genes)
-        logger.info("S:{:.2f}%, {}".format(len(single_genes) / total_genes * 100, len(single_genes)))
-        logger.info("D:{:.2f}%, {}".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
-        logger.info("F:{:.2f}%, {}".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
-        logger.info("I:{:.2f}%, {}".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
-        logger.info("M:{:.2f}%, {}".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
-        logger.info("N:{}".format(total_genes))
+        print("S:{:.2f}%, {}".format(len(single_genes) / total_genes * 100, len(single_genes)))
+        print("D:{:.2f}%, {}".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
+        print("F:{:.2f}%, {}".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
+        print("I:{:.2f}%, {}".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
+        print("M:{:.2f}%, {}".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
+        print("N:{}".format(total_genes))
         with open(self.completeness_output_file, 'a') as fout:
             fout.write("## lineage: {}\n".format(os.path.dirname(self.lineage_file).split("/")[-1]))
             fout.write("S:{:.2f}%, {}\n".format(len(single_genes) / total_genes * 100, len(single_genes)))
@@ -637,12 +637,12 @@ class MiniprotAlignmentParser:
 
         d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(
             interspaced_genes) - len(missing_genes)
-        logger.info("S:{:.2f}%, {}".format(len(single_genes) / total_genes * 100, len(single_genes)))
-        logger.info("D:{:.2f}%, {}".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
-        logger.info("F:{:.2f}%, {}".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
-        logger.info("I:{:.2f}%, {}".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
-        logger.info("M:{:.2f}%, {}".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
-        logger.info("N:{}".format(total_genes))
+        print("S:{:.2f}%, {}".format(len(single_genes) / total_genes * 100, len(single_genes)))
+        print("D:{:.2f}%, {}".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
+        print("F:{:.2f}%, {}".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
+        print("I:{:.2f}%, {}".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
+        print("M:{:.2f}%, {}".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
+        print("N:{}".format(total_genes))
         with open(completeness_output_file, 'a') as fout:
             fout.write("## lineage: xx_xx\n")
             fout.write("S:{:.2f}%, {}\n".format(len(single_genes) / total_genes * 100, len(single_genes)))
