@@ -46,6 +46,7 @@ class AutoLineager:
         os.system(sepp_process)
         return search_lineage
 
+    # Code from https://gitlab.com/ezlab/busco
     def pick_dataset(self, search_lineage):
         # run_folder = self.run_folder
 
