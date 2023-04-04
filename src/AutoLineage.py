@@ -4,9 +4,9 @@ import re
 import shutil
 
 from .DownloadLineage import Downloader
-from .utils import Error, MinibuscoLogger
+from .utils import Error
 
-logger = MinibuscoLogger(__name__).getlog()
+# logger = MinibuscoLogger(__name__).getlog()
 
 
 class AutoLineager:
@@ -35,9 +35,9 @@ class AutoLineager:
         tree_nwk_path = self.placement_description["tree.{}.nwk".format(search_lineage)][3]
         tree_metadata_path = self.placement_description["tree_metadata.{}.txt".format(search_lineage)][3]
         supermaxtix_path = self.placement_description["supermatrix.aln.{}.faa".format(search_lineage)][3]
-        logger.info("tree_nwk_path: {}".format(tree_nwk_path))
-        logger.info("tree_metadata_path: {}".format(tree_metadata_path))
-        logger.info("supermaxtix_path: {}".format(supermaxtix_path))
+        print("tree_nwk_path: {}".format(tree_nwk_path))
+        print("tree_metadata_path: {}".format(tree_metadata_path))
+        print("supermaxtix_path: {}".format(supermaxtix_path))
         if os.path.exists(sepp_output_folder):
             shutil.rmtree(sepp_output_folder)
         if os.path.exists(tmp_file_folder):
@@ -134,16 +134,10 @@ class AutoLineager:
                 else:
                     node_weight[taxid_dataset[taxid]] = 1
                 break  # Break here to keep only the best match. In my experience, keeping all does not change much.
-        # type(self)._logger.debug("Placements counts by node are: %s" % node_weight)
 
         # from here, define which placement can be trusted
         max_markers = 0
         choice = []
-
-        # for key in node_weight:
-        #     type(self)._logger.debug(
-        #         "%s markers assigned to the taxid %s" % (node_weight[key], key)
-        #     )
 
         # taxid for which no threshold or minimal amount of placement should be considered.
         # If it is the best, go for it.
@@ -185,21 +179,11 @@ class AutoLineager:
                 key_taxid = "2759"
             else:
                 key_taxid = None  # unexpected. Should throw an exception or use assert.
-            # type(self)._logger.info(
-            #     "Not enough markers were placed on the tree (%s). Root lineage %s is kept"
-            #     % (max_markers, datasets_mapping[taxid_dataset[key_taxid]])
-            # )
+
             lineage = datasets_mapping[taxid_dataset[key_taxid]]
 
         else:
-            # type(self)._logger.info(
-            #     "Lineage %s is selected, supported by %s markers out of %s"
-            #     % (
-            #         datasets_mapping[taxid_dataset[choice[0]]],
-            #         max_markers,
-            #         sum(node_weight.values()),
-            #     )
-            # )
+
             lineage = datasets_mapping[taxid_dataset[choice[0]]]
         lineage = "{}_{}".format(lineage, "odb10")
         placed_markers = sum(node_weight.values())

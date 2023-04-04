@@ -6,9 +6,9 @@ import pandas as pd
 from enum import Enum
 from Bio import SeqIO
 from collections import defaultdict
-from .utils import MinibuscoLogger
+# from .utils import MinibuscoLogger
 
-logger = MinibuscoLogger(__name__).getlog()
+# logger = MinibuscoLogger(__name__).getlog()
 
 AminoAcid = ["A", "R", "N", "D", "C", "Q", "E", "G", "H", "I",
              "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V"]
@@ -347,7 +347,7 @@ class MiniprotAlignmentParser:
                         raise ValueError
                     return output
             else:
-                logger.error("Error: wrong permutation of label_length!")
+                print("Error: wrong permutation of label_length!")
                 raise ValueError
 
     @staticmethod
@@ -518,7 +518,7 @@ class MiniprotAlignmentParser:
             elif output.gene_label == GeneLabel.Missing:
                 missing_genes.append(gene_id)
             else:
-                logger.error("Error: output.gene_label!")
+                print("Error: output.gene_label!")
                 raise ValueError
         full_table_writer.close()
 
@@ -623,7 +623,7 @@ class MiniprotAlignmentParser:
             elif output.gene_label == GeneLabel.Missing:
                 missing_genes.append(gene_id)
             else:
-                logger.error("Error: output.gene_label!")
+                print("Error: output.gene_label!")
                 raise ValueError
         full_table_writer.close()
 

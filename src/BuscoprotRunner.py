@@ -16,9 +16,9 @@ from .RunMiniprot import MiniprotRunner
 from .AnalysisMiniprot import MiniprotAlignmentParser
 from .DownloadLineage import Downloader
 from .AutoLineage import AutoLineager
-from .utils import MinibuscoLogger
+# from .utils import MinibuscoLogger
 
-logger = MinibuscoLogger(__name__).getlog()
+# logger = MinibuscoLogger(__name__).getlog()
 
 class BuscoprotRunner:
     def __init__(self, config):
@@ -54,7 +54,7 @@ class BuscoprotRunner:
         download_lineage_start_time = time.time()
         self.downloader.download_lineage(lineage)
         download_lineage_end_time = time.time()
-        logger.info("lineage: {}".format(lineage))
+        print("lineage: {}".format(lineage))
         lineage_filepath = os.path.join(self.downloader.lineage_description[lineage][3], "refseq_db.faa.gz")
         output_dir = os.path.join(self.output_folder, lineage)
         if not os.path.exists(output_dir):
@@ -74,7 +74,7 @@ class BuscoprotRunner:
             autolineage_start_time = time.time()
             marker_genes_filapath = miniprot_alignment_parser.marker_gene_path
             best_match_lineage = self.lineage_searcher.Run(marker_genes_filapath)
-            logger.info("best_match_lineage: {}".format(best_match_lineage))
+            print("best_match_lineage: {}".format(best_match_lineage))
             autolineage_end_time = time.time()
             if best_match_lineage == lineage:
                 return

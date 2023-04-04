@@ -3,9 +3,9 @@ import hashlib
 import tarfile
 import shutil
 import urllib.request
-from .utils import Error, MinibuscoLogger
+from .utils import Error
 
-logger = MinibuscoLogger(__name__).getlog()
+# logger = MinibuscoLogger(__name__).getlog()
 
 
 class URLError(OSError):
@@ -46,7 +46,7 @@ class Downloader:
         if not os.path.exists(self.placement_dir):
             os.mkdir(self.placement_dir)
         self.lineage_description, self.placement_description = self.download_file_version_document()
-        logger.info("Get file version description done.")
+        print("Get file version description done.")
         self.download_placement()  # download placement files
         for lineage in self.default_lineage:
             try:
@@ -64,15 +64,15 @@ class Downloader:
             urllib.request.urlretrieve(remote_filepath, local_filepath)
             observed_hash = md5(local_filepath)
             if observed_hash != expected_hash:
-                logger.info("md5 hash is incorrect: {} while {} expected".format(str(observed_hash), str(expected_hash)))
-                logger.info("deleting corrupted file {}".format(local_filepath))
+                print("md5 hash is incorrect: {} while {} expected".format(str(observed_hash), str(expected_hash)))
+                print("deleting corrupted file {}".format(local_filepath))
                 # os.remove(local_filepath)
-                logger.error("Unable to download necessary files")
+                print("Unable to download necessary files")
                 raise Error("Unable to download necessary files")
             else:
-                logger.info("Success download from {}".format(remote_filepath))
+                print("Success download from {}".format(remote_filepath))
         except URLError:
-            logger.error("Cannot reach {}".format(remote_filepath))
+            print("Cannot reach {}".format(remote_filepath))
             return False
         return True
 
@@ -87,7 +87,7 @@ class Downloader:
             try:
                 urllib.request.urlretrieve(hash_url, hash_download_path)
             except URLError:
-                logger.error("Cannot reach {}".format(hash_url))
+                print("Cannot reach {}".format(hash_url))
                 raise Error("Unable to download necessary files")
         expected_file_version_hash = ""
         with open(hash_download_path, 'r') as fin:
@@ -139,7 +139,7 @@ class Downloader:
                 tar = tarfile.open(download_path)
                 tar.extractall(self.download_dir)
                 tar.close()
-                logger.info("Lineage file extraction path: {}/{}".format(self.download_dir, lineage))
+                print("Lineage file extraction path: {}/{}".format(self.download_dir, lineage))
                 local_lineage_dir = os.path.join(self.download_dir, lineage)
                 self.lineage_description[lineage].append(local_lineage_dir)
 
@@ -164,7 +164,7 @@ class Downloader:
                     tar = tarfile.open(download_path)
                     tar.extractall(self.placement_dir)
                     tar.close()
-                    logger.info("Placement file extraction path: {}/{}".format(self.placement_dir,
+                    print("Placement file extraction path: {}/{}".format(self.placement_dir,
                                                                          download_file_name.replace(".tar.gz", "")))
                     self.placement_description[strain].append(
                         os.path.join(self.placement_dir, download_file_name.replace(".tar.gz", "")))
