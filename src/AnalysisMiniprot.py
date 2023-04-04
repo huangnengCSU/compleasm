@@ -424,7 +424,7 @@ class MiniprotAlignmentParser:
         tid = identity_plus_length[0][0]
         output = OutputFormat()
         sub_dataframe = dataframe[dataframe["Target_id"] == tid]
-        if sub_dataframe.shape[0] > 1 and identity_plus_length[0][1] > sub_dataframe.iloc[0]["I+L"]:
+        if sub_dataframe.shape[0] > 1 and identity_plus_length[0][1] > dataframe.iloc[0]["I+L"]:
             output.gene_label = GeneLabel.Interspaced
             output.data_record = sub_dataframe.iloc[0]
         else:
