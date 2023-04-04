@@ -20,7 +20,7 @@ from .AutoLineage import AutoLineager
 
 # logger = MinibuscoLogger(__name__).getlog()
 
-class BuscoprotRunner:
+class MinibuscoRunner:
     def __init__(self, config):
         autolineage = config.autolineage
         library_path = config.library_path
@@ -136,8 +136,8 @@ def main():
     if args.autolineage is False:
         assert args.lineage is not None, "lineage name is required when auto is False! e.g. -l eukaryota"
 
-    buscoprot_runner = BuscoprotRunner(args)
-    buscoprot_runner.Run()
+    minibusco_runner = MinibuscoRunner(args)
+    minibusco_runner.Run()
 
 
 if __name__ == "__main__":

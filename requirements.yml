@@ -1,4 +1,4 @@
-name: buscoprot
+name: minibusco
 channels:
   - bioconda
   - conda-forge

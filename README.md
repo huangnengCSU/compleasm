@@ -2,6 +2,6 @@ Installation
 ------------
 ```
 conda env create -f requirements.yml
-conda activate buscoprot
+conda activate minibusco
 python setup.py install
 ```

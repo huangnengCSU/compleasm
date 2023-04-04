@@ -5,7 +5,7 @@ with open("src/_version.py") as version_file:
     exec(version_file.read(), version)
 
 setup(
-    name="buscoprot",
+    name="minibusco",
     version=version["__version__"],
     author="neng huang",
     license="Licensed under the Apache License. See LICENSE file.",
@@ -16,7 +16,7 @@ setup(
     download_url="",
     entry_points={
             'console_scripts': [
-                'buscoprot=src.BuscoprotRunner:main',
+                'minibusco=src.MinibuscoRunner:main',
                 ],
             },
     platforms="Unix like",
