@@ -157,7 +157,7 @@ class MiniprotAlignmentParser:
                     items.contig_id = fields[5]
                     items.contig_start = int(fields[7])
                     items.contig_end = int(fields[8])
-                    items.score = int(fields[12].strip().split(":")[2])
+                    items.score = int(fields[13].strip().split(":")[2])
                     # Score = fields[12].strip().split(":")[2]
                     cg = fields[17].replace("cg:Z:", "")
                     cs = fields[18].replace("cs:Z:", "")
