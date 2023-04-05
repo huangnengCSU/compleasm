@@ -457,8 +457,7 @@ class MiniprotAlignmentParser:
                 records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
                                 Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                 Stop, Stop - Start, Strand, Rank, Identity, Positive,
-                                (Protein_End - Protein_Start) / Protein_length * Identity, Frameshift_events,
-                                Frameshift_lengths, Score, Atn_seq, Ata_seq])
+                                Score*Identity, Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq])
         except StopIteration:
             pass
         records_df = pd.DataFrame(records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
@@ -566,8 +565,7 @@ class MiniprotAlignmentParser:
                 records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
                                 Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                 Stop, Stop - Start, Strand, Rank, Identity, Positive,
-                                (Protein_End - Protein_Start) / Protein_length * Identity, Frameshift_events,
-                                Frameshift_lengths, Score, Atn_seq, Ata_seq])
+                                Score*Identity, Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq])
         except StopIteration:
             pass
         records_df = pd.DataFrame(records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
