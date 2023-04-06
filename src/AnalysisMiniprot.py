@@ -471,7 +471,7 @@ class MiniprotAlignmentParser:
         grouped_df = records_df.groupby(["Target_species"])
         full_table_writer = open(self.full_table_output_file, "w")
         full_table_writer.write(
-            "Gene\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tFrameshift events\tBest gene\n")
+            "Gene\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tIdentity\tFraction\tFrameshift events\tBest gene\n")
         for gene_id in all_species:
             mapped_records = grouped_df.get_group(gene_id)
             mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
@@ -497,7 +497,7 @@ class MiniprotAlignmentParser:
             else:
                 assert gene_id == output.data_record["Target_species"]
                 full_table_writer.write(
-                    "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(output.data_record["Target_species"],
+                    "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(output.data_record["Target_species"],
                                                                   output.gene_label,
                                                                   output.data_record["Contig_id"],
                                                                   output.data_record["Start"],
@@ -505,6 +505,8 @@ class MiniprotAlignmentParser:
                                                                   output.data_record["Strand"],
                                                                   output.data_record["Score"],
                                                                   output.data_record["Protein_length"],
+                                                                  output.data_record["Identity"],
+                                                                  output.data_record["Protein_mapped_rate"],
                                                                   output.data_record["Frameshift_events"],
                                                                   output.data_record["Target_id"]))
 
@@ -581,7 +583,7 @@ class MiniprotAlignmentParser:
         grouped_df = records_df.groupby(["Target_species"])
         full_table_writer = open(full_table_output_file, "w")
         full_table_writer.write(
-            "Gene\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tFrameshift events\n")
+            "Gene\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tIdentity\tFraction\tFrameshift events\n")
         for gene_id in all_species:
             mapped_records = grouped_df.get_group(gene_id)
             mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
@@ -603,7 +605,7 @@ class MiniprotAlignmentParser:
             else:
                 assert gene_id == output.data_record["Target_species"]
                 full_table_writer.write(
-                    "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(output.data_record["Target_species"],
+                    "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(output.data_record["Target_species"],
                                                                   output.gene_label,
                                                                   output.data_record["Contig_id"],
                                                                   output.data_record["Start"],
@@ -611,6 +613,8 @@ class MiniprotAlignmentParser:
                                                                   output.data_record["Strand"],
                                                                   output.data_record["Score"],
                                                                   output.data_record["Protein_length"],
+                                                                  output.data_record["Identity"],
+                                                                  output.data_record["Protein_mapped_rate"],
                                                                   output.data_record["Frameshift_events"],
                                                                   output.data_record["Target_id"]))
 
