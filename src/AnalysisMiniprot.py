@@ -62,7 +62,7 @@ class MiniprotGffItems:
                 self.rank,
                 self.identity,
                 self.positive,
-                self.codons,
+                "|".join(self.codons),
                 self.frameshift_events,
                 self.frameshift_lengths,
                 self.frame_shifts]
@@ -198,7 +198,8 @@ class MiniprotAlignmentParser:
                         info_dict = dict(x.split("=") for x in fields[8].split()[0].split(";"))
                         target_id = info_dict["Target"]
                         assert target_id == items.target_id and seq_id == items.contig_id
-                        items.codons.append([codon_start, codon_end, codon_strand])
+                        items.codons.append("{}_{}_{}".format(codon_start, codon_end, codon_strand))
+                        # items.codons.append([codon_start, codon_end, codon_strand])
 
     @staticmethod
     def record_1st_gene_label(dataframe, min_identity, min_complete):
@@ -460,7 +461,7 @@ class MiniprotAlignmentParser:
                                 Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                 Stop, Stop - Start, Strand, Rank, Identity, Positive,
                                 (Protein_End - Protein_Start) / Protein_length * Identity,
-                                Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq])
+                                Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq, Codons])
         except StopIteration:
             pass
         records_df = pd.DataFrame(records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
@@ -468,12 +469,12 @@ class MiniprotAlignmentParser:
                                                     "Protein_mapped_rate", "Start", "Stop", "Genome_mapped_length",
                                                     "Strand", "Rank", "Identity", "Positive", "I+L",
                                                     "Frameshift_events", "Frameshift_lengths", "Score", "Atn_seq",
-                                                    "Ata_seq"])
+                                                    "Ata_seq", "Codons"])
         all_species = records_df["Target_species"].unique()
         grouped_df = records_df.groupby(["Target_species"])
         full_table_writer = open(self.full_table_output_file, "w")
         full_table_writer.write(
-            "Gene\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tIdentity\tFraction\tFrameshift events\tBest gene\n")
+            "Gene\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tIdentity\tFraction\tFrameshift events\tBest gene\tCodons\n")
         for gene_id in all_species:
             mapped_records = grouped_df.get_group(gene_id)
             mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
@@ -512,7 +513,7 @@ class MiniprotAlignmentParser:
             else:
                 assert gene_id == output.data_record["Target_species"]
                 full_table_writer.write(
-                    "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(output.data_record["Target_species"],
+                    "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(output.data_record["Target_species"],
                                                                   output.gene_label,
                                                                   output.data_record["Contig_id"],
                                                                   output.data_record["Start"],
@@ -523,7 +524,8 @@ class MiniprotAlignmentParser:
                                                                   output.data_record["Identity"],
                                                                   output.data_record["Protein_mapped_rate"],
                                                                   output.data_record["Frameshift_events"],
-                                                                  output.data_record["Target_id"]))
+                                                                  output.data_record["Target_id"],
+                                                                  output.data_record["Codons"]))
 
             if output.gene_label == GeneLabel.Single:
                 single_genes.append(gene_id)
@@ -585,7 +587,7 @@ class MiniprotAlignmentParser:
                                 Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                 Stop, Stop - Start, Strand, Rank, Identity, Positive,
                                 (Protein_End - Protein_Start) / Protein_length * Identity,
-                                Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq])
+                                Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq, Codons])
         except StopIteration:
             pass
         records_df = pd.DataFrame(records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
@@ -593,12 +595,12 @@ class MiniprotAlignmentParser:
                                                     "Protein_mapped_rate", "Start", "Stop", "Genome_mapped_length",
                                                     "Strand", "Rank", "Identity", "Positive", "I+L",
                                                     "Frameshift_events", "Frameshift_lengths", "Score", "Atn_seq",
-                                                    "Ata_seq"])
+                                                    "Ata_seq", "Codons"])
         all_species = records_df["Target_species"].unique()
         grouped_df = records_df.groupby(["Target_species"])
         full_table_writer = open(full_table_output_file, "w")
         full_table_writer.write(
-            "Gene\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tIdentity\tFraction\tFrameshift events\n")
+            "Gene\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tIdentity\tFraction\tFrameshift events\tCodons\n")
         for gene_id in all_species:
             mapped_records = grouped_df.get_group(gene_id)
             mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
@@ -633,7 +635,7 @@ class MiniprotAlignmentParser:
             else:
                 assert gene_id == output.data_record["Target_species"]
                 full_table_writer.write(
-                    "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(output.data_record["Target_species"],
+                    "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(output.data_record["Target_species"],
                                                                   output.gene_label,
                                                                   output.data_record["Contig_id"],
                                                                   output.data_record["Start"],
@@ -644,7 +646,8 @@ class MiniprotAlignmentParser:
                                                                   output.data_record["Identity"],
                                                                   output.data_record["Protein_mapped_rate"],
                                                                   output.data_record["Frameshift_events"],
-                                                                  output.data_record["Target_id"]))
+                                                                  output.data_record["Target_id"],
+                                                                  output.data_record["Codons"]))
 
             if output.gene_label == GeneLabel.Single:
                 single_genes.append(gene_id)
