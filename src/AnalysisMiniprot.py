@@ -2,6 +2,8 @@ import argparse
 import os
 import gzip
 import re
+
+import numpy as np
 import pandas as pd
 from enum import Enum
 from Bio import SeqIO
@@ -478,6 +480,19 @@ class MiniprotAlignmentParser:
             pass_tids = mapped_records[(mapped_records["Protein_mapped_rate"] >= self.min_length_percent) | (
                         mapped_records["Identity"] >= self.min_identity)]["Target_id"].unique()
 
+            # mean std filter
+            if len(pass_tids) >= 5:
+                lengths_dict = {}
+                for tid in pass_tids:
+                    lengths_dict[tid] = mapped_records[mapped_records["Target_id"] == tid].iloc[0]["Protein_length"]
+                length_df = pd.DataFrame.from_dict(lengths_dict, orient="index", columns=["Protein_length"])
+                mean_v = length_df["Protein_length"].mean()
+                std_v = length_df["Protein_length"].std()
+                lower_bound = mean_v - 1.5*std_v
+                upper_bound = mean_v + 1.5*std_v
+                pass_tids = length_df[(length_df["Protein_length"]>lower_bound) &
+                                      (length_df["Protein_length"]<upper_bound)].index.tolist()
+
             if len(pass_tids) > 0:
                 mapped_records = mapped_records[mapped_records["Target_id"].isin(pass_tids)]
                 output = self.Ost_eval(mapped_records, self.min_diff, self.min_identity, self.min_complete,
@@ -589,6 +604,19 @@ class MiniprotAlignmentParser:
             mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
             pass_tids = mapped_records[(mapped_records["Protein_mapped_rate"] >= min_length_percent) | (
                     mapped_records["Identity"] >= min_identity)]["Target_id"].unique()
+
+            # mean std filter
+            if len(pass_tids) >= 5:
+                lengths_dict = {}
+                for tid in pass_tids:
+                    lengths_dict[tid] = mapped_records[mapped_records["Target_id"] == tid].iloc[0]["Protein_length"]
+                length_df = pd.DataFrame.from_dict(lengths_dict, orient="index", columns=["Protein_length"])
+                mean_v = length_df["Protein_length"].mean()
+                std_v = length_df["Protein_length"].std()
+                lower_bound = mean_v - 1.5*std_v
+                upper_bound = mean_v + 1.5*std_v
+                pass_tids = length_df[(length_df["Protein_length"]>lower_bound) &
+                                      (length_df["Protein_length"]<upper_bound)].index.tolist()
 
             if len(pass_tids)>0:
                 mapped_records = mapped_records[mapped_records["Target_id"].isin(pass_tids)]
