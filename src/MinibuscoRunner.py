@@ -104,32 +104,7 @@ class MinibuscoRunner:
             print("## Second analyze miniprot: {:.2f}(s)".format(second_analysis_miniprot_end_time - second_analysis_miniprot_start_time))
         print("## Total runtime: {:.2f}(s)".format(end_time - begin_time))
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-o", "--output_dir", type=str, help="Run miniprot folder", required=True)
-    parser.add_argument("-a", "--assembly_path", type=str, help="Assembly file path", required=True)
-    parser.add_argument("-t", "--threads", type=int, default=1, help="Number of threads to use")
-    parser.add_argument("-l", "--lineage", type=str, help="Lineage file path", default=None)
-    parser.add_argument("--library_path", type=str, help="Library path", default="downloads")
-    parser.add_argument("--autolineage", action="store_true", help="Auto lineage")
-
-    parser.add_argument("--min_diff",
-                        help="The thresholds for the best matching and second best matching. (1st-2nd)/2nd >= d, [0, 1]",
-                        type=float, default=0.2)
-    parser.add_argument("--min_identity", help="The identity threshold for valid mapping results. [0, 1]", type=float,
-                        default=0.4)
-    parser.add_argument("--min_length_percent",
-                        help="The protein sequence length threshold for valid mapping results. (mapped_gene_length/full_gene_length)>=l, [0, 1]",
-                        type=float, default=0.6)
-    parser.add_argument("--min_complete",
-                        help="The length threshold for complete gene. (mapped_gene_length/full_gene_length)>=c, [0, 1]",
-                        type=float, default=0.9)
-    parser.add_argument("--min_rise",
-                        help="Minimum length threshold to make dupicate take precedence over single or fragmented over single/duplicate. l1>=l2*(1+s), [0, 1]",
-                        type=float, default=0.5)
-
-    args = parser.parse_args()
-
+def run(args):
     if not os.path.exists(args.output_dir):
         os.mkdir(args.output_dir)
 
@@ -138,6 +113,106 @@ def main():
 
     minibusco_runner = MinibuscoRunner(args)
     minibusco_runner.Run()
+
+def download(args):
+    dest = args.destination
+    lineage = args.lineage+"_odb10"
+
+    if not os.path.exists(dest):
+        os.mkdir(dest)
+
+    d = Downloader(dest)
+    d.download_lineage(lineage)
+
+
+def analysis(args):
+    if not os.path.exists(args.output_dir):
+        os.mkdir(args.output_dir)
+
+    full_table_output_file = os.path.join(args.output_dir, "full_table.tsv")
+    completeness_output_file = os.path.join(args.output_dir, "gene_completeness.tsv")
+
+    if args.lineage is not None:
+        MiniprotAlignmentParser.Local_Run(gff_file=args.gff,
+                                      full_table_output_file=full_table_output_file,
+                                      completeness_output_file=completeness_output_file,
+                                      min_diff=args.min_diff,
+                                      min_identity=args.min_identity,
+                                      min_length_percent=args.min_length_percent,
+                                      min_complete=args.min_complete,
+                                      min_rise=args.min_rise,
+                                      lineage_file=args.lineage)
+    else:
+        MiniprotAlignmentParser.Local_Run(gff_file=args.gff,
+                                          full_table_output_file=full_table_output_file,
+                                          completeness_output_file=completeness_output_file,
+                                          min_diff=args.min_diff,
+                                          min_identity=args.min_identity,
+                                          min_length_percent=args.min_length_percent,
+                                          min_complete=args.min_complete,
+                                          min_rise=args.min_rise)
+
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    subparser = parser.add_subparsers(dest="command", help="Minibusco sub-command help", required=True)
+
+    run_parser = subparser.add_parser("run", help="Easy run minibusco")
+    run_parser.add_argument("-o", "--output_dir", type=str, help="Output folder", required=True)
+    run_parser.add_argument("-a", "--assembly_path", type=str, help="Assembly file path", required=True)
+    run_parser.add_argument("-t", "--threads", type=int, default=1, help="Number of threads to use")
+    run_parser.add_argument("-l", "--lineage", type=str, help="Lineage file path", default=None)
+    run_parser.add_argument("--library_path", type=str, help="Library path", default="downloads")
+    run_parser.add_argument("--autolineage", action="store_true", help="Auto lineage")
+    run_parser.add_argument("--min_diff",
+                        help="The thresholds for the best matching and second best matching. (1st-2nd)/2nd >= d, [0, 1]",
+                        type=float, default=0.2)
+    run_parser.add_argument("--min_identity", help="The identity threshold for valid mapping results. [0, 1]", type=float,
+                        default=0.4)
+    run_parser.add_argument("--min_length_percent",
+                        help="The protein sequence length threshold for valid mapping results. (mapped_gene_length/full_gene_length)>=l, [0, 1]",
+                        type=float, default=0.6)
+    run_parser.add_argument("--min_complete",
+                        help="The length threshold for complete gene. (mapped_gene_length/full_gene_length)>=c, [0, 1]",
+                        type=float, default=0.9)
+    run_parser.add_argument("--min_rise",
+                        help="Minimum length threshold to make dupicate take precedence over single or fragmented over single/duplicate. l1>=l2*(1+s), [0, 1]",
+                        type=float, default=0.5)
+    run_parser.set_defaults(func=run)
+
+    download_parser = subparser.add_parser("download", help="Download lineage")
+    download_parser.add_argument("-l", "--lineage", type=str, help="Lineage name", required=True)
+    download_parser.add_argument("-d", "--destination", type=str, help="Download folder", required=True)
+    download_parser.set_defaults(func=download)
+
+    analysis_parser = subparser.add_parser("analysis", help="Analysis with miniprot result")
+    analysis_parser.add_argument("-g", "--gff", type=str, help="Miniprot output gff file", required=True)
+    analysis_parser.add_argument("-o", "--output_dir", type=str, help="Output analysis folder", required=True)
+    analysis_parser.add_argument("-l", "--lineage", type=str, help="Lineage file path")
+    analysis_parser.add_argument("--min_diff",
+                            help="The thresholds for the best matching and second best matching. (1st-2nd)/2nd >= d, [0, 1]",
+                            type=float, default=0.2)
+    analysis_parser.add_argument("--min_identity", help="The identity threshold for valid mapping results. [0, 1]",
+                            type=float,
+                            default=0.4)
+    analysis_parser.add_argument("--min_length_percent",
+                            help="The protein sequence length threshold for valid mapping results. (mapped_gene_length/full_gene_length)>=l, [0, 1]",
+                            type=float, default=0.6)
+    analysis_parser.add_argument("--min_complete",
+                            help="The length threshold for complete gene. (mapped_gene_length/full_gene_length)>=c, [0, 1]",
+                            type=float, default=0.9)
+    analysis_parser.add_argument("--min_rise",
+                            help="Minimum length threshold to make dupicate take precedence over single or fragmented over single/duplicate. l1>=l2*(1+s), [0, 1]",
+                            type=float, default=0.5)
+    analysis_parser.set_defaults(func=analysis)
+
+
+
+
+
+    args = parser.parse_args()
+    args.func(args)
 
 
 if __name__ == "__main__":
