@@ -57,7 +57,7 @@ minibusco run -a genome.fasta -o output_dir -t 8 --autolineage
 # with custom specified already downloaded lineage folder
 minibusco run -a genome.fasta -o output_dir -l eukaryota -t 8 --library_path /path/to/lineages_folder
 
-# specified contigs
+# specify contigs
 minibusco run -a genome.fasta -o output_dir -l eukaryota -t 8 --specified_contigs chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22
 ```
 
@@ -80,7 +80,7 @@ minibusco analysis -g miniprot.gff -o output_dir -p /path/to/lineage_folder/line
 # without specified protein sequence file
 minibusco analysis -g miniprot.gff -o output_dir
 
-# specified contigs
+# specify contigs
 minibusco analysis -g miniprot.gff -o output_dir --specified_contigs chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22
 ```
 
