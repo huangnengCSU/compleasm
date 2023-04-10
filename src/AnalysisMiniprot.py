@@ -458,9 +458,6 @@ class MiniprotAlignmentParser:
                  Strand, Score, Rank, Identity, Positive, Codons, Frameshift_events, Frameshift_lengths,
                  Frame_shifts) = items.show()
                 Target_species = Target_id.split("_")[0]
-                if self.specified_contigs is not None:
-                    if Contig_id not in self.specified_contigs:
-                        continue
                 records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
                                 Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                 Stop, Stop - Start, Strand, Rank, Identity, Positive,
@@ -475,6 +472,10 @@ class MiniprotAlignmentParser:
                                                     "Frameshift_events", "Frameshift_lengths", "Score", "Atn_seq",
                                                     "Ata_seq", "Codons"])
         all_species = records_df["Target_species"].unique()
+        all_contigs = records_df["Contig_id"].unique()
+        if self.specified_contigs is not None:
+            if len(set(all_contigs) & set(self.specified_contigs))==0:
+                raise Exception("No contigs found in the specified contigs!")
         grouped_df = records_df.groupby(["Target_species"])
         full_table_writer = open(self.full_table_output_file, "w")
         full_table_writer.write(
@@ -482,6 +483,8 @@ class MiniprotAlignmentParser:
         for gene_id in all_species:
             mapped_records = grouped_df.get_group(gene_id)
             mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
+            if self.specified_contigs is not None:
+                mapped_records = mapped_records[mapped_records["Contig_id"].isin(self.specified_contigs)]
             pass_tids = mapped_records[(mapped_records["Protein_mapped_rate"] >= self.min_length_percent) | (
                         mapped_records["Identity"] >= self.min_identity)]["Target_id"].unique()
 
@@ -587,9 +590,6 @@ class MiniprotAlignmentParser:
                  Strand, Score, Rank, Identity, Positive, Codons, Frameshift_events, Frameshift_lengths,
                  Frame_shifts) = items.show()
                 Target_species = Target_id.split("_")[0]
-                if specified_contigs is not None:
-                    if Contig_id not in specified_contigs:
-                        continue
                 records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
                                 Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                 Stop, Stop - Start, Strand, Rank, Identity, Positive,
@@ -604,6 +604,10 @@ class MiniprotAlignmentParser:
                                                     "Frameshift_events", "Frameshift_lengths", "Score", "Atn_seq",
                                                     "Ata_seq", "Codons"])
         all_species = records_df["Target_species"].unique()
+        all_contigs = records_df["Contig_id"].unique()
+        if specified_contigs is not None:
+            if len(set(all_contigs) & set(specified_contigs))==0:
+                raise Exception("No contigs found in the specified contigs!")
         grouped_df = records_df.groupby(["Target_species"])
         full_table_writer = open(full_table_output_file, "w")
         full_table_writer.write(
@@ -611,6 +615,8 @@ class MiniprotAlignmentParser:
         for gene_id in all_species:
             mapped_records = grouped_df.get_group(gene_id)
             mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
+            if specified_contigs is not None:
+                mapped_records = mapped_records[mapped_records["Contig_id"].isin(specified_contigs)]
             pass_tids = mapped_records[(mapped_records["Protein_mapped_rate"] >= min_length_percent) | (
                     mapped_records["Identity"] >= min_identity)]["Target_id"].unique()
 
