@@ -58,7 +58,7 @@ minibusco run -a genome.fasta -o output_dir -l eukaryota -t 8 --library_path /pa
 ```
 
 ### Using minibusco analysis to evaluate genome completeness:
-This will directly parse the provided miniprot alignment result to evaluate genome completeness.
+This will directly parse the provided miniprot alignment result to evaluate genome completeness. The execute command of miniprot should be like `miniprot --gff ref-file protein.faa > output.gff`.
 #### Important parameters:
 ```angular2html
   -g, --gff                 Miniprot output gff file
