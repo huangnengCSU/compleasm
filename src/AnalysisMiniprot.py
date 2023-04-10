@@ -132,6 +132,7 @@ class MiniprotAlignmentParser:
         self.min_identity = config.min_identity
         self.min_complete = config.min_complete
         self.min_rise = config.min_rise
+        self.specified_contigs = config.specified_contigs
         self.marker_gene_path = os.path.join(self.run_folder, "gene_marker.fasta")
 
     @staticmethod
@@ -457,6 +458,9 @@ class MiniprotAlignmentParser:
                  Strand, Score, Rank, Identity, Positive, Codons, Frameshift_events, Frameshift_lengths,
                  Frame_shifts) = items.show()
                 Target_species = Target_id.split("_")[0]
+                if self.specified_contigs is not None:
+                    if Contig_id not in self.specified_contigs:
+                        continue
                 records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
                                 Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                 Stop, Stop - Start, Strand, Rank, Identity, Positive,
@@ -569,7 +573,7 @@ class MiniprotAlignmentParser:
 
     @staticmethod
     def Local_Run(gff_file, full_table_output_file, completeness_output_file, min_diff, min_identity,
-                  min_complete, min_rise, min_length_percent, lineage_file=None, autolineage=False):
+                  min_complete, min_rise, min_length_percent, lineage_file=None, autolineage=False, specified_contigs=None):
         single_genes = []
         duplicate_genes = []
         fragmented_genes = []
@@ -583,6 +587,9 @@ class MiniprotAlignmentParser:
                  Strand, Score, Rank, Identity, Positive, Codons, Frameshift_events, Frameshift_lengths,
                  Frame_shifts) = items.show()
                 Target_species = Target_id.split("_")[0]
+                if specified_contigs is not None:
+                    if Contig_id not in specified_contigs:
+                        continue
                 records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
                                 Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                 Stop, Stop - Start, Strand, Rank, Identity, Positive,
@@ -702,6 +709,7 @@ if __name__ == "__main__":
     parser_a.add_argument("-g", "--gff", help="GFF file", required=True)
     parser_a.add_argument("--complete_file", help="Complete file", type=str)
     parser_a.add_argument("--full_table_file", help="Full table file", type=str)
+    parser_a.add_argument("--specified_contigs", help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.", type=str, nargs='+', default=None)
     parser_a.add_argument("-d", "--min_diff",
                           help="The thresholds for the best matching and second best matching. (1st-2nd)/2nd >= d, [0, 1]",
                           type=float, default=0.2)
@@ -727,4 +735,5 @@ if __name__ == "__main__":
                                       min_identity=args.min_identity,
                                       min_length_percent=args.min_length_percent,
                                       min_complete=args.min_complete,
-                                      min_rise=args.min_rise)
+                                      min_rise=args.min_rise,
+                                      specified_contigs=args.specified_contigs)

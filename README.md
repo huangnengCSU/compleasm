@@ -35,6 +35,7 @@ evaluate genome completeness.
   --library_path         Folder path to download lineages or already downloaded lineages. 
                          If not specified, a folder named "downloads" will be created on the current running path by default to store the downloaded lineage files.
   --autolineage          Automatically search for the best matching lineage without specifying lineage file.
+  --specified_contigs    Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.
 ```
 
 #### Threshold parameters:
@@ -55,6 +56,9 @@ minibusco run -a genome.fasta -o output_dir -t 8 --autolineage
 
 # with custom specified already downloaded lineage folder
 minibusco run -a genome.fasta -o output_dir -l eukaryota -t 8 --library_path /path/to/lineages_folder
+
+# specified contigs
+minibusco run -a genome.fasta -o output_dir -l eukaryota -t 8 --specified_contigs chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22
 ```
 
 ### Using minibusco analysis to evaluate genome completeness:
@@ -64,6 +68,7 @@ This will directly parse the provided miniprot alignment result to evaluate geno
   -g, --gff                 Miniprot output gff file
   -o, --output_dir          Output analysis folder
   -p,--path_to_proteins     Path to protein sequence file in lineage for count the number of total genes
+  --specified_contigs       Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.
 ```
 Threshold parameters are same as `minibuso run` module.
 
@@ -74,6 +79,9 @@ minibusco analysis -g miniprot.gff -o output_dir -p /path/to/lineage_folder/line
 
 # without specified protein sequence file
 minibusco analysis -g miniprot.gff -o output_dir
+
+# specified contigs
+minibusco analysis -g miniprot.gff -o output_dir --specified_contigs chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22
 ```
 
 ### Using minibusco download to download lineage:

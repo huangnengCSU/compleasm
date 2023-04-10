@@ -147,7 +147,8 @@ def analysis(args):
                                           min_length_percent=args.min_length_percent,
                                           min_complete=args.min_complete,
                                           min_rise=args.min_rise,
-                                          lineage_file=args.path_to_proteins)
+                                          lineage_file=args.path_to_proteins,
+                                          specified_contigs=args.specified_contigs)
     else:
         MiniprotAlignmentParser.Local_Run(gff_file=args.gff,
                                           full_table_output_file=full_table_output_file,
@@ -156,7 +157,8 @@ def analysis(args):
                                           min_identity=args.min_identity,
                                           min_length_percent=args.min_length_percent,
                                           min_complete=args.min_complete,
-                                          min_rise=args.min_rise)
+                                          min_rise=args.min_rise,
+                                          specified_contigs=args.specified_contigs)
 
 
 def main():
@@ -174,6 +176,7 @@ def main():
                                  "If not specified, a folder named \"downloads\" will be created on the current running path by default to store the downloaded lineage files.",
                             default="downloads")
     run_parser.add_argument("--autolineage", action="store_true", help="Automatically search for the best matching lineage without specifying lineage file.")
+    run_parser.add_argument("--specified_contigs", help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.", type=str, nargs='+', default=None)
     run_parser.add_argument("--min_diff",
                             help="The thresholds for the best matching and second best matching.",
                             type=float, default=0.2)
@@ -201,6 +204,8 @@ def main():
     analysis_parser.add_argument("-g", "--gff", type=str, help="Miniprot output gff file", required=True)
     analysis_parser.add_argument("-o", "--output_dir", type=str, help="Output analysis folder", required=True)
     analysis_parser.add_argument("-p", "--path_to_proteins", type=str, help="Path to protein sequence file in lineage for count the number of total genes", default=None)
+    analysis_parser.add_argument("--specified_contigs", help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.",
+                            type=str, nargs='+', default=None)
     analysis_parser.add_argument("--min_diff",
                                  help="The thresholds for the best matching and second best matching.",
                                  type=float, default=0.2)
