@@ -39,7 +39,7 @@ evaluate genome completeness.
 
 #### Threshold parameters:
 ```angular2html
-  --min_diff               The thresholds for the best matching and second best matching. (1st-2nd)/2nd >= min_diff, default=0.2
+  --min_diff               The thresholds for the best matching and second best matching. default=0.2
   --min_identity           The identity threshold for valid mapping results. default=0.4
   --min_length_percent     The fraction of protein for valid mapping results. default=0.6
   --min_complete           The length threshold for complete gene. default=0.9
