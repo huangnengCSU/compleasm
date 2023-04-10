@@ -491,8 +491,8 @@ class MiniprotAlignmentParser:
                 std_v = length_df["Protein_length"].std()
                 lower_bound = mean_v - 1.5*std_v
                 upper_bound = mean_v + 1.5*std_v
-                pass_tids = length_df[(length_df["Protein_length"]>lower_bound) &
-                                      (length_df["Protein_length"]<upper_bound)].index.tolist()
+                pass_tids = length_df[(length_df["Protein_length"]>=lower_bound) &
+                                      (length_df["Protein_length"]<=upper_bound)].index.tolist()
 
             if len(pass_tids) > 0:
                 mapped_records = mapped_records[mapped_records["Target_id"].isin(pass_tids)]
@@ -617,8 +617,8 @@ class MiniprotAlignmentParser:
                 std_v = length_df["Protein_length"].std()
                 lower_bound = mean_v - 1.5*std_v
                 upper_bound = mean_v + 1.5*std_v
-                pass_tids = length_df[(length_df["Protein_length"]>lower_bound) &
-                                      (length_df["Protein_length"]<upper_bound)].index.tolist()
+                pass_tids = length_df[(length_df["Protein_length"]>=lower_bound) &
+                                      (length_df["Protein_length"]<=upper_bound)].index.tolist()
 
             if len(pass_tids)>0:
                 mapped_records = mapped_records[mapped_records["Target_id"].isin(pass_tids)]
