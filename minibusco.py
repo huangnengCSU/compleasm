@@ -12,6 +12,8 @@ import hashlib
 import sys
 import tarfile
 import urllib.request
+import subprocess
+import shlex
 
 
 ### utils
@@ -213,6 +215,78 @@ class Downloader:
             os.remove(self.placement_dir + ".tmp")
 
 
+### miniprot ###
+def listfiles(folder):
+    for root, folders, files in os.walk(folder):
+        for filename in folders + files:
+            yield os.path.join(root, filename)
+
+
+class MiniprotRunner:
+    def __init__(self, miniprot_execute_command, nthreads=1, autolineage_mode=False):
+        if miniprot_execute_command is None:
+            miniprot_execute_command = self.search_miniprot()
+
+        print("miniprot execute command:\n {}".format(miniprot_execute_command))
+        self.miniprot_execute_command = miniprot_execute_command
+        self.threads = nthreads
+        self.autolineage = autolineage_mode
+
+    def search_miniprot(self):
+        ## Search for miniprot in the path where "minibusco.py" is located
+        print("Searching for miniprot in the path where minibusco.py is located")
+        script_path = os.path.dirname(os.path.realpath(__file__))
+        for fpath in listfiles(script_path):
+            path, file = os.path.split(fpath)
+            if file == "miniprot" and os.path.isfile(fpath):
+                miniprot_execute_command = fpath
+                return miniprot_execute_command
+        ## Search miniprot in the current execution path
+        print("Searching for miniprot in the current execution path")
+        execute_path = os.getcwd()
+        for fpath in listfiles(execute_path):
+            path, file = os.path.split(fpath)
+            if file == "miniprot" and os.path.isfile(fpath):
+                miniprot_execute_command = fpath
+                return miniprot_execute_command
+        ## Search for miniprot in PATH
+        print("Searching for miniprot in $PATH")
+        env_dict = os.environ
+        if "PATH" in env_dict:
+            path_list = env_dict["PATH"].split(":")
+            for path in path_list:
+                for fpath in listfiles(path):
+                    path, file = os.path.split(fpath)
+                    if file == "miniprot" and os.path.isfile(fpath):
+                        miniprot_execute_command = fpath
+                        return miniprot_execute_command
+        sys.exit(
+            "miniprot is not found in the path where minibusco.py is located, the current execution path, or PATH. Please check the installation of miniprot.")
+
+    def run_miniprot(self, assembly_filepath, lineage_filepath, alignment_outdir):
+        if not os.path.exists(alignment_outdir):
+            os.mkdir(alignment_outdir)
+        output_filepath = os.path.join(alignment_outdir, "miniprot_output.gff")
+
+        fout = open(output_filepath, "w")
+        if self.autolineage:
+            ### if autolineage mode, use --aln option to output Ata_seq ###
+            miniprot_process = subprocess.Popen(shlex.split(
+                "{} -u -I --outs=0.95 -t {} --aln --gff {} {}".format(self.miniprot_execute_command, self.threads,
+                                                                      assembly_filepath, lineage_filepath,
+                                                                      output_filepath)), stdout=fout, bufsize=8388608)
+        else:
+            miniprot_process = subprocess.Popen(shlex.split(
+                "{} -u -I --outs=0.95 -t {} --gff {} {}".format(self.miniprot_execute_command, self.threads,
+                                                                assembly_filepath, lineage_filepath,
+                                                                output_filepath)), stdout=fout, bufsize=8388608)
+        miniprot_process.wait()
+        fout.close()
+        return output_filepath
+
+
+### main function ###
+
 def download(args):
     downloader = Downloader(args.library_path)
     downloader.download_lineage(args.lineage)
@@ -241,6 +315,11 @@ def list_lineages(args):
             print(lineage)
 
 
+def run_miniprot(args):
+    mr = MiniprotRunner(args.exec_path, args.threads, args.autolineage)
+    mr.run_miniprot(args.assembly, args.protein, args.outdir)
+
+
 ### main.py
 def main():
     parser = argparse.ArgumentParser(description="MiniBusco")
@@ -261,6 +340,17 @@ def main():
     list_parser.add_argument("--local", action="store_true", help="List local BUSCO lineages")
     list_parser.add_argument("--library_path", type=str, help="Folder path to stored lineages. ", default=None)
     list_parser.set_defaults(func=list_lineages)
+
+    ### sub-command: run_miniprot
+    run_miniprot_parser = subparser.add_parser("run_miniprot", help="Run miniprot")
+    run_miniprot_parser.add_argument("-a", "--assembly", type=str, help="Assembly file path", required=True)
+    run_miniprot_parser.add_argument("-p", "--protein", type=str, help="Protein file path", required=True)
+    run_miniprot_parser.add_argument("-o", "--outdir", type=str, help="Miniprot alignment output directory",
+                                     required=True)
+    run_miniprot_parser.add_argument("-t", "--threads", type=int, help="Number of threads", default=1)
+    run_miniprot_parser.add_argument("--exec_path", type=str, help="Path to miniprot executable", default=None)
+    run_miniprot_parser.add_argument("--autolineage", action="store_true", help="Run miniprot in autolineage mode")
+    run_miniprot_parser.set_defaults(func=run_miniprot)
 
     args = parser.parse_args()
     args.func(args)
