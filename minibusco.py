@@ -45,7 +45,7 @@ def md5(fname):
 
 
 class Downloader:
-    def __init__(self, download_dir=None):
+    def __init__(self, download_dir=None, download_lineage=True, download_placement=True):
         self.base_url = "https://busco-data.ezlab.org/v5/data/"
         self.default_lineage = ["eukaryota_odb10"]
         if download_dir is None:
@@ -53,20 +53,21 @@ class Downloader:
         else:
             self.download_dir = download_dir
 
+        self.placement_dir = os.path.join(self.download_dir, "placement_files")
+
         if not os.path.exists(self.download_dir):
             os.mkdir(self.download_dir)
 
-        self.placement_dir = os.path.join(self.download_dir, "placement_files")
-
-        if not os.path.exists(self.placement_dir):
-            os.mkdir(self.placement_dir)
-
         self.lineage_description, self.placement_description = self.download_file_version_document()
 
-        self.download_placement()  # download placement files
+        if download_placement:
+            if not os.path.exists(self.placement_dir):
+                os.mkdir(self.placement_dir)
+            self.download_placement()  # download placement files
 
-        for lineage in self.default_lineage:
-            self.download_lineage(lineage)
+        if download_lineage:
+            for lineage in self.default_lineage:
+                self.download_lineage(lineage)
 
     def download_single_file(self, remote_filepath, local_filepath, expected_hash):
         try:
@@ -189,6 +190,9 @@ class Downloader:
                     prefix, version, sufix = strain.split(".")
                     download_file_name = "{}.{}.{}.{}.tar.gz".format(prefix, version, date, sufix)
 
+                if "eukaryota" not in download_file_name:
+                    continue
+
                 remote_url = self.base_url + "placement_files/{}".format(download_file_name)
                 download_path = os.path.join(self.placement_dir, download_file_name)
                 download_success = self.download_single_file(remote_url, download_path, expected_hash)
@@ -209,16 +213,60 @@ class Downloader:
             os.remove(self.placement_dir + ".tmp")
 
 
+def download(args):
+    if args.destination is not None:
+        downloader = Downloader(args.destination)
+    else:
+        downloader = Downloader()
+    downloader.download_lineage(args.lineage)
+
+
+def list_lineages(args):
+    if not args.local and not args.remote:
+        sys.exit("\n Usage error: Please specify whether to list local or remote lineages."
+                 "\n e.g. minibusco.py list --remote or minibusco.py list --local --library_path /path/to/lineage_folder\n")
+    if args.local:
+        if args.library_path is None:
+            sys.exit("\n Usage error: Please specify the folder path to stored lineages."
+                     "\n e.g. minibusco list --local --library_path /path/to/lineages_folder\n")
+        else:
+            print("Local available lineages:")
+            for file in os.path.listdir(args.library_path):
+                if file.endswith("_odb10.done"):
+                    print(file.replace("_odb10.done", ""))
+    if args.remote:
+        if args.library_path is not None:
+            downloader = Downloader(args.library_path, download_lineage=False, download_placement=False)
+        else:
+            downloader = Downloader(download_lineage=False, download_placement=False)
+        print("Remote available lineages:")
+        for lineage in downloader.lineage_description.keys():
+            print(lineage)
+
+
 ### main.py
 def main():
-    parser = argparse.ArgumentParser(description="Download specified BUSCO lineage")
-    parser.add_argument("-l", "--lineage", type=str,
-                        help="Specify the name of the BUSCO lineage to be downloaded. (e.g. eukaryota, primates, saccharomycetes etc.)",
-                        required=True)
-    parser.add_argument("-d", "--destination", type=str, help="Folder path to download folder")
+    parser = argparse.ArgumentParser(description="MiniBusco")
+    subparser = parser.add_subparsers(dest="command", help="Minibusco modules help", required=True)
+
+    ### sub-command: download
+    download_parser = subparser.add_parser("download", help="Download BUSCO lineage")
+    download_parser = subparser.add_parser("download", help="Download specified BUSCO lineage")
+    download_parser.add_argument("-l", "--lineage", type=str,
+                                 help="Specify the name of the BUSCO lineage to be downloaded. (e.g. eukaryota, primates, saccharomycetes etc.)",
+                                 required=True)
+    download_parser.add_argument("-d", "--destination", type=str, help="Folder path to download folder", default=None)
+    download_parser.set_defaults(func=download)
+
+    ### sub-command: list
+    list_parser = subparser.add_parser("list", help="List local or remote BUSCO lineages")
+    list_parser.add_argument("--remote", action="store_true", help="List remote BUSCO lineages")
+    list_parser.add_argument("--local", action="store_true", help="List local BUSCO lineages")
+    list_parser.add_argument("--library_path", type=str, help="Folder path to stored lineages. ", default=None)
+    list_parser.set_defaults(func=list_lineages)
+
     args = parser.parse_args()
-    download = Downloader(args.destination)
-    download.download_lineage(args.lineage)
+    args.func(args)
 
 
 if __name__ == "__main__":
