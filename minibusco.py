@@ -315,7 +315,7 @@ def list_lineages(args):
             print(lineage)
 
 
-def run_miniprot(args):
+def miniprot(args):
     mr = MiniprotRunner(args.exec_path, args.threads, args.autolineage)
     mr.run_miniprot(args.assembly, args.protein, args.outdir)
 
@@ -350,7 +350,7 @@ def main():
     run_miniprot_parser.add_argument("-t", "--threads", type=int, help="Number of threads", default=1)
     run_miniprot_parser.add_argument("--exec_path", type=str, help="Path to miniprot executable", default=None)
     run_miniprot_parser.add_argument("--autolineage", action="store_true", help="Run miniprot in autolineage mode")
-    run_miniprot_parser.set_defaults(func=run_miniprot)
+    run_miniprot_parser.set_defaults(func=miniprot)
 
     args = parser.parse_args()
     args.func(args)
