@@ -214,10 +214,7 @@ class Downloader:
 
 
 def download(args):
-    if args.destination is not None:
-        downloader = Downloader(args.destination)
-    else:
-        downloader = Downloader()
+    downloader = Downloader(args.library_path)
     downloader.download_lineage(args.lineage)
 
 
@@ -231,7 +228,7 @@ def list_lineages(args):
                      "\n e.g. minibusco list --local --library_path /path/to/lineages_folder\n")
         else:
             print("Local available lineages:")
-            for file in os.path.listdir(args.library_path):
+            for file in os.listdir(args.library_path):
                 if file.endswith("_odb10.done"):
                     print(file.replace("_odb10.done", ""))
     if args.remote:
@@ -255,7 +252,7 @@ def main():
     download_parser.add_argument("-l", "--lineage", type=str,
                                  help="Specify the name of the BUSCO lineage to be downloaded. (e.g. eukaryota, primates, saccharomycetes etc.)",
                                  required=True)
-    download_parser.add_argument("-d", "--destination", type=str, help="Folder path to download folder", default=None)
+    download_parser.add_argument("--library_path", type=str, help="Folder path to download lineages", required=True)
     download_parser.set_defaults(func=download)
 
     ### sub-command: list
