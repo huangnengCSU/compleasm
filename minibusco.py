@@ -1234,7 +1234,7 @@ def list_lineages(args):
 
 
 def miniprot(args):
-    mr = MiniprotRunner(args.exec_path, args.threads, args.autolineage)
+    mr = MiniprotRunner(args.exec_path, args.threads, autolineage_mode=False)
     mr.run_miniprot(args.assembly, args.protein, args.outdir)
 
 
@@ -1302,7 +1302,8 @@ def main():
     download_parser.add_argument("-l", "--lineage", type=str, nargs='+',
                                  help="Specify the names of the BUSCO lineages to be downloaded. (e.g. eukaryota, primates, saccharomycetes etc.)",
                                  required=True)
-    download_parser.add_argument("--library_path", type=str, help="Folder path to download lineages", required=True)
+    download_parser.add_argument("--library_path", type=str,
+                                 help="The destination folder to store the downloaded lineage files.", required=True)
     download_parser.set_defaults(func=download)
 
     ### sub-command: list
@@ -1313,18 +1314,18 @@ def main():
     list_parser.set_defaults(func=list_lineages)
 
     ### sub-command: run_miniprot
-    run_miniprot_parser = subparser.add_parser("run_miniprot", help="Run miniprot")
-    run_miniprot_parser.add_argument("-a", "--assembly", type=str, help="Assembly file path", required=True)
-    run_miniprot_parser.add_argument("-p", "--protein", type=str, help="Protein file path", required=True)
+    run_miniprot_parser = subparser.add_parser("run_miniprot", help="Run miniprot alignment")
+    run_miniprot_parser.add_argument("-a", "--assembly", type=str, help="Input genome file in FASTA format", required=True)
+    run_miniprot_parser.add_argument("-p", "--protein", type=str, help="Input protein file", required=True)
     run_miniprot_parser.add_argument("-o", "--outdir", type=str, help="Miniprot alignment output directory",
                                      required=True)
-    run_miniprot_parser.add_argument("-t", "--threads", type=int, help="Number of threads", default=1)
+    run_miniprot_parser.add_argument("-t", "--threads", type=int, help="Number of threads to use", default=1)
     run_miniprot_parser.add_argument("--exec_path", type=str, help="Path to miniprot executable", default=None)
-    run_miniprot_parser.add_argument("--autolineage", action="store_true", help="Run miniprot in autolineage mode")
     run_miniprot_parser.set_defaults(func=miniprot)
 
     ### sub-command: analysis
-    analysis_parser = subparser.add_parser("analysis", help="Analysis with miniprot result")
+    analysis_parser = subparser.add_parser("analysis",
+                                           help="Evaluate genome completeness from provided miniprot alignment")
     analysis_parser.add_argument("-g", "--gff", type=str, help="Miniprot output gff file", required=True)
     analysis_parser.add_argument("-o", "--output_dir", type=str, help="Output analysis folder", required=True)
     analysis_parser.add_argument("--specified_contigs", type=str, nargs='+', default=None,
