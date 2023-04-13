@@ -1299,8 +1299,7 @@ def main():
     subparser = parser.add_subparsers(dest="command", help="Minibusco modules help", required=True)
 
     ### sub-command: download
-    download_parser = subparser.add_parser("download", help="Download BUSCO lineage")
-    download_parser = subparser.add_parser("download", help="Download specified BUSCO lineage")
+    download_parser = subparser.add_parser("download", help="Download specified BUSCO lineages")
     download_parser.add_argument("-l", "--lineage", type=str, nargs='+',
                                  help="Specify the names of the BUSCO lineages to be downloaded. (e.g. eukaryota, primates, saccharomycetes etc.)",
                                  required=True)
