@@ -310,19 +310,14 @@ class MiniprotRunner:
 ### auto lineage ###
 class AutoLineager:
     def __init__(self, sepp_output_directory, sepp_tmp_directory, library_path, threads, sepp_execute_command=None):
-
         self.sepp_output_folder = sepp_output_directory
         self.sepp_tmp_folder = sepp_tmp_directory
-
         self.threads = threads
         self.downloader = Downloader(library_path)
-
         self.lineage_description = self.downloader.lineage_description
         self.placement_description = self.downloader.placement_description
         self.library_folder = self.downloader.download_dir
         self.placement_file_folder = self.downloader.placement_dir
-
-        # TODO: get sepp path
         self.sepp_execute_command = sepp_execute_command
 
     def run_sepp(self, marker_genes_filapath):
@@ -569,7 +564,6 @@ class MiniprotGffItems:
 
 
 def get_region_clusters(regions):
-    # TODO: use contig_id, check whether the algorithm is correct
     sorted_regions = sorted(regions, key=lambda x: x[0], reverse=False)
     clusters = []
     for (start, stop) in sorted_regions:
