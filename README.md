@@ -2,8 +2,8 @@
 - [Installation](#installation)
 - [Running](#running)
   - [Main Modules](#main-modules)
-  - [Using `run` submodule to evaluate genome completeness](#using-run-submodule-to-evaluate-genome-completeness)
-  - [Using `analysis` submodule to evaluate genome completeness](#using-analysis-submodule-to-evaluate-genome-completeness)
+  - [Using `run` submodule to evaluate genome completeness from genome assembly](#using-run-submodule-to-evaluate-genome-completeness-from-genome-assembly)
+  - [Using `analysis` submodule to evaluate genome completeness from provided miniprot alignment](#using-analysis-submodule-to-evaluate-genome-completeness-from-provided-miniprot-alignment)
   - [Using `download` submodule to download lineage](#using-download-submodule-to-download-lineage)
   - [Using `list` submodule to list local or remote lineages](#using-list-submodule-to-list-local-or-remote-lineages)
   - [Using `run_miniprot` submodule to run miniprot](#using-run_miniprot-submodule-to-run-miniprot)
@@ -33,7 +33,7 @@ analysis        Evaluate genome completeness from provided miniprot alignment
 run             Run minibusco including miniprot alignment and completeness evaluation
 ```
 
-### Using `run` submodule to evaluate genome completeness:
+### Using `run` submodule to evaluate genome completeness from genome assembly:
 
 This will download the specified lineage (or automatically search for the best lineage with autolineage mode), align the
 protein sequences in the lineage file to the genome sequence with miniprot, and parse the miniprot alignment result to
@@ -85,7 +85,7 @@ python minibusco.py run -a genome.fasta -o output_dir -l eukaryota -t 8 --librar
 python minibusco.py run -a genome.fasta -o output_dir -l eukaryota -t 8 --specified_contigs chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22
 ```
 
-### Using `analysis` submodule to evaluate genome completeness:
+### Using `analysis` submodule to evaluate genome completeness from provided miniprot alignment:
 This will directly parse the provided miniprot alignment result to evaluate genome completeness. The execute command of miniprot should be like `miniprot -u -I --outs=0.95 --gff -t 8 ref-file protein.faa > output.gff`.
 #### Usage:
 ```angular2html
