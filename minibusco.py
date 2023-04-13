@@ -747,7 +747,7 @@ class MiniprotAlignmentParser:
                 ctgs = [x[0] for x in complete_regions]
                 if len(set(ctgs)) > 1:
                     output.gene_label = GeneLabel.Duplicate
-                    output.data_record = dataframe.iloc[0]
+                    output.data_record = dataframe
                     return output
                 regions = [(x[1], x[2]) for x in complete_regions]
                 clusters = get_region_clusters(regions)
@@ -757,7 +757,7 @@ class MiniprotAlignmentParser:
                     return output
                 else:
                     output.gene_label = GeneLabel.Duplicate
-                    output.data_record = dataframe.iloc[0]
+                    output.data_record = dataframe
                     return output
 
     @staticmethod
@@ -796,7 +796,7 @@ class MiniprotAlignmentParser:
                 return output
             elif label_length.keys() == {GeneLabel.Duplicate}:
                 output.gene_label = GeneLabel.Duplicate
-                output.data_record = dataframe_1st.iloc[0]
+                output.data_record = dataframe_1st
                 return output
             elif label_length.keys() == {GeneLabel.Single, GeneLabel.Fragmented}:
                 if label_length[GeneLabel.Fragmented][0] > label_length[GeneLabel.Single][0] * (1 + min_rise):
@@ -821,9 +821,9 @@ class MiniprotAlignmentParser:
                 if label_length[GeneLabel.Duplicate][0] > label_length[GeneLabel.Single][0] * (1 + min_rise):
                     output.gene_label = GeneLabel.Duplicate
                     if out1.gene_label == GeneLabel.Duplicate:
-                        output.data_record = dataframe_1st.iloc[0]
+                        output.data_record = dataframe_1st
                     elif out2.gene_label == GeneLabel.Duplicate:
-                        output.data_record = dataframe_2nd.iloc[0]
+                        output.data_record = dataframe_2nd
                     else:
                         raise ValueError
                     return output
@@ -849,9 +849,9 @@ class MiniprotAlignmentParser:
                 else:
                     output.gene_label = GeneLabel.Duplicate
                     if out1.gene_label == GeneLabel.Duplicate:
-                        output.data_record = dataframe_1st.iloc[0]
+                        output.data_record = dataframe_1st
                     elif out2.gene_label == GeneLabel.Duplicate:
-                        output.data_record = dataframe_2nd.iloc[0]
+                        output.data_record = dataframe_2nd
                     else:
                         raise ValueError
                     return output
@@ -1018,24 +1018,38 @@ class MiniprotAlignmentParser:
                 full_table_writer.write("{}\t{}\n".format(gene_id, output.gene_label))
             else:
                 assert gene_id == output.data_record["Target_species"]
-                full_table_writer.write(
-                    "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(output.data_record["Target_species"],
-                                                                                  output.gene_label,
-                                                                                  output.data_record["Contig_id"],
-                                                                                  output.data_record["Start"],
-                                                                                  output.data_record["Stop"],
-                                                                                  output.data_record["Strand"],
-                                                                                  output.data_record["Score"],
-                                                                                  output.data_record[
-                                                                                      "Protein_mapped_length"],
-                                                                                  output.data_record["Identity"],
-                                                                                  output.data_record[
-                                                                                      "Protein_mapped_rate"],
-                                                                                  output.data_record[
-                                                                                      "Frameshift_events"],
-                                                                                  output.data_record["Target_id"],
-                                                                                  output.data_record["Codons"]))
-
+                assert output.data_record.shape[0] >= 1
+                if output.data_record.shape[0] == 1:
+                    full_table_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
+                                            format(output.data_record["Target_species"],
+                                                   output.gene_label,
+                                                   output.data_record["Contig_id"],
+                                                   output.data_record["Start"],
+                                                   output.data_record["Stop"],
+                                                   output.data_record["Strand"],
+                                                   output.data_record["Score"],
+                                                   output.data_record["Protein_mapped_length"],
+                                                   output.data_record["Identity"],
+                                                   output.data_record["Protein_mapped_rate"],
+                                                   output.data_record["Frameshift_events"],
+                                                   output.data_record["Target_id"],
+                                                   output.data_record["Codons"]))
+                else:
+                    for dri in range(output.data_record.shape[0]):
+                        full_table_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
+                                                format(output.data_record["Target_species"].iloc[dri],
+                                                       output.gene_label,
+                                                       output.data_record["Contig_id"].iloc[dri],
+                                                       output.data_record["Start"].iloc[dri],
+                                                       output.data_record["Stop"].iloc[dri],
+                                                       output.data_record["Strand"].iloc[dri],
+                                                       output.data_record["Score"].iloc[dri],
+                                                       output.data_record["Protein_mapped_length"].iloc[dri],
+                                                       output.data_record["Identity"].iloc[dri],
+                                                       output.data_record["Protein_mapped_rate"].iloc[dri],
+                                                       output.data_record["Frameshift_events"].iloc[dri],
+                                                       output.data_record["Target_id"].iloc[dri],
+                                                       output.data_record["Codons"].iloc[dri]))
             if output.gene_label == GeneLabel.Single:
                 single_genes.append(gene_id)
             elif output.gene_label == GeneLabel.Duplicate:
@@ -1123,7 +1137,9 @@ class MinibuscoRunner:
             os.makedirs(alignment_output_dir)
 
         run_miniprot_start_time = time.time()
-        miniprot_output_path = self.miniprot_runner.run_miniprot(self.assembly_path, lineage_filepath, alignment_output_dir)
+        miniprot_output_path = self.miniprot_runner.run_miniprot(self.assembly_path,
+                                                                 lineage_filepath,
+                                                                 alignment_output_dir)
         run_miniprot_end_time = time.time()
         analysis_miniprot_start_time = time.time()
         miniprot_alignment_parser = MiniprotAlignmentParser(run_folder=self.output_folder,
@@ -1151,7 +1167,8 @@ class MinibuscoRunner:
                 end_time = time.time()
                 print("## Download lineage: {:.2f}(s)".format(download_lineage_end_time - download_lineage_start_time))
                 print("## Run miniprot: {:.2f}(s)".format(run_miniprot_end_time - run_miniprot_start_time))
-                print("## Analyze miniprot: {:.2f}(s)".format(analysis_miniprot_end_time - analysis_miniprot_start_time))
+                print(
+                    "## Analyze miniprot: {:.2f}(s)".format(analysis_miniprot_end_time - analysis_miniprot_start_time))
                 print("## Autolineage: {:.2f}(s)".format(autolineage_end_time - autolineage_start_time))
                 print("## Total runtime: {:.2f}(s)".format(end_time - begin_time))
                 return
@@ -1162,7 +1179,9 @@ class MinibuscoRunner:
             if not os.path.exists(alignment_output_dir):
                 os.makedirs(alignment_output_dir)
             second_run_miniprot_start_time = time.time()
-            miniprot_output_path = self.miniprot_runner.run_miniprot(self.assembly_path, lineage_filepath, alignment_output_dir)
+            miniprot_output_path = self.miniprot_runner.run_miniprot(self.assembly_path,
+                                                                     lineage_filepath,
+                                                                     alignment_output_dir)
             second_run_miniprot_end_time = time.time()
             second_analysis_miniprot_start_time = time.time()
             miniprot_alignment_parser = MiniprotAlignmentParser(run_folder=self.output_folder,
