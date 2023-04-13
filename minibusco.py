@@ -17,6 +17,9 @@ import shlex
 import shutil
 import re
 import json
+from enum import Enum
+from collections import defaultdict
+import pandas as pd
 
 
 ### utils
@@ -494,6 +497,573 @@ class AutoLineager:
         return lineage
 
 
+### Analysis miniprot alignment ###
+AminoAcid = ["A", "R", "N", "D", "C", "Q", "E", "G", "H", "I",
+             "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V"]
+
+
+class GeneLabel(Enum):
+    Single = 1
+    Duplicate = 2
+    Fragmented = 3
+    Interspaced = 4
+    Missing = 5
+
+
+class MiniprotGffItems:
+    def __init__(self):
+        self.atn_seq = ""
+        self.ata_seq = ""
+        self.target_id = ""
+        self.contig_id = ""
+        self.protein_length = 0
+        self.protein_start = 0
+        self.protein_end = 0
+        self.contig_start = 0
+        self.contig_end = 0
+        self.strand = ""
+        self.score = 0
+        self.rank = 0
+        self.identity = 0
+        self.positive = 0
+        self.codons = []
+        self.frameshift_events = 0
+        self.frameshift_lengths = 0
+        self.frame_shifts = []
+
+    def show(self):
+        return [self.atn_seq,
+                self.ata_seq,
+                self.target_id,
+                self.contig_id,
+                self.protein_length,
+                self.protein_start,
+                self.protein_end,
+                self.contig_start,
+                self.contig_end,
+                self.strand,
+                self.score,
+                self.rank,
+                self.identity,
+                self.positive,
+                "|".join(self.codons),
+                self.frameshift_events,
+                self.frameshift_lengths,
+                self.frame_shifts]
+
+
+def get_region_clusters(regions):
+    # TODO: use contig_id, check whether the algorithm is correct
+    sorted_regions = sorted(regions, key=lambda x: x[0], reverse=False)
+    clusters = []
+    for (start, stop) in sorted_regions:
+        if not clusters:
+            clusters.append([start, stop])
+        else:
+            last_cluster = clusters[-1]
+            if last_cluster[0] <= start <= last_cluster[1]:
+                # has overlap
+                clusters[-1][0] = min(last_cluster[0], start)
+                clusters[-1][1] = max(last_cluster[1], stop)
+            else:
+                clusters.append([start, stop])
+    return clusters
+
+
+class OutputFormat:
+    def __init__(self):
+        self.gene_label = None
+        self.data_record = None
+
+
+def find_frameshifts(cs_seq):
+    frameshifts = []
+    frameshift_events = 0
+    frameshift_lengths = 0
+    pt = r"[0-9]+[MIDFGNUV]"
+    it = re.finditer(pt, cs_seq)
+    for m in it:
+        if m.group(0).endswith("F") or m.group(0).endswith("G"):
+            frameshifts.append(m.group(0))
+            frameshift_events += 1
+            frameshift_lengths += int(m.group(0)[:-1])
+    return frameshifts, frameshift_events, frameshift_lengths
+
+
+class MiniprotAlignmentParser:
+    def __init__(self, run_folder, gff_file, lineage, min_length_percent, min_diff, min_identity, min_complete,
+                 min_rise, specified_contigs, autolineage):
+        self.autolineage = autolineage
+        self.run_folder = run_folder  # output_dir/lineage/
+        if not os.path.exists(run_folder):
+            os.makedirs(run_folder)
+        if lineage is None:
+            self.completeness_output_file = os.path.join(self.run_folder, "gene_completeness.tsv")
+            self.full_table_output_file = os.path.join(self.run_folder, "full_table.tsv")
+        else:
+            if not lineage.endswith("_odb10"):
+                lineage = lineage + "_odb10"
+            self.run_folder = os.path.join(run_folder, lineage)
+            if not os.path.exists(self.run_folder):
+                os.makedirs(self.run_folder)
+            self.completeness_output_file = os.path.join(run_folder, "gene_completeness.tsv")
+            self.full_table_output_file = os.path.join(self.run_folder, "full_table.tsv")
+        self.gff_file = gff_file
+        self.lineage = lineage
+        self.min_length_percent = min_length_percent
+        self.min_diff = min_diff
+        self.min_identity = min_identity
+        self.min_complete = min_complete
+        self.min_rise = min_rise
+        self.specified_contigs = specified_contigs
+        self.marker_gene_path = os.path.join(self.run_folder, "gene_marker.fasta")
+
+    @staticmethod
+    def parse_miniprot_records(gff_file, autolineage=False):
+        items = MiniprotGffItems()
+        with open(gff_file, "r") as gff:
+            while True:
+                line = gff.readline()
+                if not line:
+                    if items.target_id != "":
+                        yield items
+                    return
+                if line.startswith("##gff-version"):
+                    continue
+                if line.startswith("##PAF"):
+                    if items.target_id != "":
+                        yield items
+                    items.__init__()
+                    fields = line.strip().split("\t")[1:]
+                    items.target_id = fields[0]
+                    items.protein_length = int(fields[1])
+                    items.protein_start = int(fields[2])
+                    items.protein_end = int(fields[3])
+                    items.strand = fields[4]
+                    items.contig_id = fields[5]
+                    items.contig_start = int(fields[7])
+                    items.contig_end = int(fields[8])
+                    if fields[5] == "*":
+                        ## Unmapped protein
+                        items.score = 0
+                        items.frameshift_events = 0
+                        items.frameshift_lengths = 0
+                        items.frame_shifts = []
+                        continue
+                    items.score = int(fields[13].strip().split(":")[2])
+                    # Score = fields[12].strip().split(":")[2]
+                    cg = fields[17].replace("cg:Z:", "")
+                    cs = fields[18].replace("cs:Z:", "")
+                    frame_shifts, frameshift_events, frameshift_lengths = find_frameshifts(cg)
+                    items.frameshift_events = frameshift_events
+                    items.frameshift_lengths = frameshift_lengths
+                    items.frame_shifts = frame_shifts
+
+                    if autolineage:
+                        # This is for parse the ATN/ATA/AAS/AQA sequences in miniprot --aln
+                        atn_line = gff.readline()
+                        ata_line = gff.readline()
+                        aas_line = gff.readline()
+                        aqa_line = gff.readline()
+                        items.atn_seq = atn_line.strip().split("\t")[1].replace("-", "")
+                        ata_seq = ata_line.strip().split("\t")[1]
+                        new_ata = []
+                        for i in range(len(ata_seq)):
+                            if ata_seq[i].upper() not in AminoAcid:
+                                continue
+                            else:
+                                new_ata.append(ata_seq[i])
+                        items.ata_seq = "".join(new_ata)
+                else:
+                    fields = line.strip().split("\t")
+                    if fields[2] == "mRNA":
+                        info_dict = dict(v.split("=") for v in fields[8].split()[0].split(";"))
+                        items.rank = int(info_dict["Rank"])
+                        items.identity = float(info_dict["Identity"])
+                        items.positive = float(info_dict["Positive"])
+                    if fields[2] == "CDS":
+                        seq_id = fields[0]
+                        codon_start = int(fields[3])  # 1-based
+                        codon_end = int(fields[4])  # 1-based
+                        codon_strand = fields[6]
+                        info_dict = dict(x.split("=") for x in fields[8].split()[0].split(";"))
+                        target_id = info_dict["Target"]
+                        assert target_id == items.target_id and seq_id == items.contig_id
+                        items.codons.append("{}_{}_{}".format(codon_start, codon_end, codon_strand))
+
+    @staticmethod
+    def record_1st_gene_label(dataframe, min_identity, min_complete):
+        # check records with same tid of the best record
+        output = OutputFormat()
+        gene_id = dataframe.iloc[0]["Target_id"]
+        # dataframe = dataframe[dataframe["Identity"] >= min_identity]
+        if dataframe.shape[0] == 0:
+            output.gene_label = GeneLabel.Missing
+            return output
+        elif dataframe.shape[0] == 1:
+            if dataframe.iloc[0]["Protein_mapped_rate"] >= min_complete:
+                output.gene_label = GeneLabel.Single
+                output.data_record = dataframe.iloc[0]
+                return output
+            else:
+                output.gene_label = GeneLabel.Fragmented
+                output.data_record = dataframe.iloc[0]
+                return output
+        else:
+            complete_regions = []
+            fragmented_regions = []
+            for i in range(dataframe.shape[0]):
+                if dataframe.iloc[i]["Protein_mapped_rate"] >= min_complete:
+                    complete_regions.append(
+                        (dataframe.iloc[i]["Contig_id"], dataframe.iloc[i]["Start"], dataframe.iloc[i]["Stop"]))
+                else:
+                    fragmented_regions.append(
+                        (dataframe.iloc[i]["Contig_id"], dataframe.iloc[i]["Start"], dataframe.iloc[i]["Stop"]))
+            if len(complete_regions) == 0:
+                output.gene_label = GeneLabel.Fragmented
+                output.data_record = dataframe.iloc[0]
+                return output
+            elif len(complete_regions) == 1:
+                output.gene_label = GeneLabel.Single
+                output.data_record = dataframe.iloc[0]
+                return output
+            else:
+                ctgs = [x[0] for x in complete_regions]
+                if len(set(ctgs)) > 1:
+                    output.gene_label = GeneLabel.Duplicate
+                    output.data_record = dataframe.iloc[0]
+                    return output
+                regions = [(x[1], x[2]) for x in complete_regions]
+                clusters = get_region_clusters(regions)
+                if len(clusters) == 1:
+                    output.gene_label = GeneLabel.Single
+                    output.data_record = dataframe.iloc[0]
+                    return output
+                else:
+                    output.gene_label = GeneLabel.Duplicate
+                    output.data_record = dataframe.iloc[0]
+                    return output
+
+    @staticmethod
+    def record_1st_2nd_gene_label(dataframe_1st, dataframe_2nd, min_identity, min_complete, min_rise):
+        # check top 1st and 2nd records whether they are the same gene
+        output = OutputFormat()
+        # dataframe_1st = dataframe_1st[dataframe_1st["Identity"] >= min_identity]
+        # dataframe_2nd = dataframe_2nd[dataframe_2nd["Identity"] >= min_identity]
+        if dataframe_1st.shape[0] >= 1 and dataframe_2nd.shape[0] == 0:
+            out = MiniprotAlignmentParser.record_1st_gene_label(dataframe_1st, min_identity, min_complete)
+            return out
+        if dataframe_1st.shape[0] == 0 and dataframe_2nd.shape[0] >= 1:
+            out = MiniprotAlignmentParser.record_1st_gene_label(dataframe_2nd, min_identity, min_complete)
+            return out
+        if dataframe_1st.shape[0] == 0 and dataframe_2nd.shape[0] == 0:
+            output.gene_label = GeneLabel.Missing
+            return output
+        else:
+            gene_id1 = dataframe_1st.iloc[0]["Target_id"]
+            gene_id2 = dataframe_2nd.iloc[0]["Target_id"]
+            protein_length1 = dataframe_1st.iloc[0]["Protein_length"]
+            protein_length2 = dataframe_2nd.iloc[0]["Protein_length"]
+
+            label_length = defaultdict(list)
+            out1 = MiniprotAlignmentParser.record_1st_gene_label(dataframe_1st, min_identity, min_complete)
+            label_length[out1.gene_label].append(protein_length1)
+            out2 = MiniprotAlignmentParser.record_1st_gene_label(dataframe_2nd, min_identity, min_complete)
+            label_length[out2.gene_label].append(protein_length2)
+            if label_length.keys() == {GeneLabel.Single}:
+                output.gene_label = GeneLabel.Single
+                output.data_record = dataframe_1st.iloc[0]
+                return output
+            elif label_length.keys() == {GeneLabel.Fragmented}:
+                output.gene_label = GeneLabel.Fragmented
+                output.data_record = dataframe_1st.iloc[0]
+                return output
+            elif label_length.keys() == {GeneLabel.Duplicate}:
+                output.gene_label = GeneLabel.Duplicate
+                output.data_record = dataframe_1st.iloc[0]
+                return output
+            elif label_length.keys() == {GeneLabel.Single, GeneLabel.Fragmented}:
+                if label_length[GeneLabel.Fragmented][0] > label_length[GeneLabel.Single][0] * (1 + min_rise):
+                    output.gene_label = GeneLabel.Fragmented
+                    if out1.gene_label == GeneLabel.Fragmented:
+                        output.data_record = dataframe_1st.iloc[0]
+                    elif out2.gene_label == GeneLabel.Fragmented:
+                        output.data_record = dataframe_2nd.iloc[0]
+                    else:
+                        raise ValueError
+                    return output
+                else:
+                    output.gene_label = GeneLabel.Single
+                    if out1.gene_label == GeneLabel.Single:
+                        output.data_record = dataframe_1st.iloc[0]
+                    elif out2.gene_label == GeneLabel.Single:
+                        output.data_record = dataframe_2nd.iloc[0]
+                    else:
+                        raise ValueError
+                    return output
+            elif label_length.keys() == {GeneLabel.Single, GeneLabel.Duplicate}:
+                if label_length[GeneLabel.Duplicate][0] > label_length[GeneLabel.Single][0] * (1 + min_rise):
+                    output.gene_label = GeneLabel.Duplicate
+                    if out1.gene_label == GeneLabel.Duplicate:
+                        output.data_record = dataframe_1st.iloc[0]
+                    elif out2.gene_label == GeneLabel.Duplicate:
+                        output.data_record = dataframe_2nd.iloc[0]
+                    else:
+                        raise ValueError
+                    return output
+                else:
+                    output.gene_label = GeneLabel.Single
+                    if out1.gene_label == GeneLabel.Single:
+                        output.data_record = dataframe_1st.iloc[0]
+                    elif out2.gene_label == GeneLabel.Single:
+                        output.data_record = dataframe_2nd.iloc[0]
+                    else:
+                        raise ValueError
+                    return output
+            elif label_length.keys() == {GeneLabel.Fragmented, GeneLabel.Duplicate}:
+                if label_length[GeneLabel.Fragmented][0] > label_length[GeneLabel.Duplicate][0] * (1 + min_rise):
+                    output.gene_label = GeneLabel.Fragmented
+                    if out1.gene_label == GeneLabel.Fragmented:
+                        output.data_record = dataframe_1st.iloc[0]
+                    elif out2.gene_label == GeneLabel.Fragmented:
+                        output.data_record = dataframe_2nd.iloc[0]
+                    else:
+                        raise ValueError
+                    return output
+                else:
+                    output.gene_label = GeneLabel.Duplicate
+                    if out1.gene_label == GeneLabel.Duplicate:
+                        output.data_record = dataframe_1st.iloc[0]
+                    elif out2.gene_label == GeneLabel.Duplicate:
+                        output.data_record = dataframe_2nd.iloc[0]
+                    else:
+                        raise ValueError
+                    return output
+            else:
+                print("Error: wrong permutation of label_length!")
+                raise ValueError
+
+    @staticmethod
+    def Ost_eval(dataframe, difficial_rate, min_identity, min_complete, min_rise):
+        if dataframe.shape[0] == 0:
+            output = OutputFormat()
+            output.gene_label = GeneLabel.Missing
+            return output
+        if dataframe.shape[0] == 1:
+            return MiniprotAlignmentParser.record_1st_gene_label(
+                dataframe[dataframe["Target_id"] == dataframe.iloc[0]["Target_id"]], min_identity, min_complete)
+        record_1st = dataframe.iloc[0]
+        record_1st_tid = record_1st["Target_id"]
+        record_2nd = dataframe.iloc[1]
+        record_2nd_tid = record_2nd["Target_id"]
+        if (record_1st["I+L"] - record_2nd["I+L"]) / (record_2nd["I+L"] + 1e-9) >= difficial_rate:
+            return MiniprotAlignmentParser.record_1st_gene_label(dataframe[dataframe["Target_id"] == record_1st_tid],
+                                                                 min_identity, min_complete)
+        else:
+            if record_1st_tid == record_2nd_tid:
+                return MiniprotAlignmentParser.record_1st_gene_label(
+                    dataframe[dataframe["Target_id"] == record_1st_tid], min_identity, min_complete)
+            else:
+                return MiniprotAlignmentParser.record_1st_2nd_gene_label(
+                    dataframe[dataframe["Target_id"] == record_1st_tid],
+                    dataframe[dataframe["Target_id"] == record_2nd_tid], min_identity, min_complete, min_rise)
+
+    @staticmethod
+    def refine_fragmented(dataframe):
+        target_ids = dataframe["Target_id"].unique()
+        identity_plus_length = defaultdict(int)
+        for tid in target_ids:
+            sub_dataframe = dataframe[dataframe["Target_id"] == tid]
+            if sub_dataframe.shape[0] == 1:
+                identity_plus_length[tid] = sub_dataframe["I+L"].iloc[0]
+            else:
+                regions = sorted(sub_dataframe[["Protein_Start", "Protein_End", "Contig_id", "Start", "Stop",
+                                                "I+L"]].values.tolist(), key=lambda x: x[0])
+                clusters = []
+                for region in regions:
+                    if len(clusters) == 0:
+                        clusters.append(region)
+                    else:
+                        if region[0] > clusters[-1][1]:
+                            clusters.append(region)
+                        else:
+                            if region[1] - region[0] > clusters[-1][1] - clusters[-1][0]:
+                                clusters[-1] = region
+                            else:
+                                pass
+                if len(clusters) == 1:
+                    identity_plus_length[tid] = clusters[0][5]
+                else:
+                    new_clusters = defaultdict(list)
+                    for region in clusters:
+                        if len(new_clusters.keys()) == 0:
+                            new_clusters[region[2]].append(region)
+                        else:
+                            if region[2] not in new_clusters:
+                                new_clusters[region[2]].append(region)
+                            else:
+                                cid = region[2]
+                                if region[3] > new_clusters[cid][-1][4]:
+                                    new_clusters[cid].append(region)
+                                else:
+                                    if region[4] - region[3] > new_clusters[cid][-1][4] - new_clusters[cid][-1][3]:
+                                        new_clusters[cid][-1] = region
+                                    else:
+                                        pass
+                    for cid in new_clusters.keys():
+                        for region in new_clusters[cid]:
+                            identity_plus_length[tid] += region[5]
+        identity_plus_length = sorted(identity_plus_length.items(), key=lambda x: x[1], reverse=True)
+        tid = identity_plus_length[0][0]
+        output = OutputFormat()
+        sub_dataframe = dataframe[dataframe["Target_id"] == tid]
+        if sub_dataframe.shape[0] > 1 and identity_plus_length[0][1] > dataframe.iloc[0]["I+L"]:
+            output.gene_label = GeneLabel.Interspaced
+            output.data_record = sub_dataframe.iloc[0]
+        else:
+            output.gene_label = GeneLabel.Fragmented
+            output.data_record = sub_dataframe.iloc[0]
+        return output
+
+    def Run(self):
+        single_genes = []
+        duplicate_genes = []
+        fragmented_genes = []
+        interspaced_genes = []
+        missing_genes = []
+        records = []
+        single_complete_proteins = []
+        gff_file = self.gff_file
+        try:
+            reader = iter(self.parse_miniprot_records(gff_file, self.autolineage))
+            for items in reader:
+                (Atn_seq, Ata_seq, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End, Start, Stop,
+                 Strand, Score, Rank, Identity, Positive, Codons, Frameshift_events, Frameshift_lengths,
+                 Frame_shifts) = items.show()
+                Target_species = Target_id.split("_")[0]
+                records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
+                                Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
+                                Stop, Stop - Start, Strand, Rank, Identity, Positive,
+                                (Protein_End - Protein_Start) / Protein_length * Identity,
+                                Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq, Codons])
+        except StopIteration:
+            pass
+        records_df = pd.DataFrame(records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
+                                                    "Protein_Start", "Protein_End", "Protein_mapped_length",
+                                                    "Protein_mapped_rate", "Start", "Stop", "Genome_mapped_length",
+                                                    "Strand", "Rank", "Identity", "Positive", "I+L",
+                                                    "Frameshift_events", "Frameshift_lengths", "Score", "Atn_seq",
+                                                    "Ata_seq", "Codons"])
+        all_species = records_df["Target_species"].unique()
+        all_contigs = records_df["Contig_id"].unique()
+        if self.specified_contigs is not None:
+            if len(set(all_contigs) & set(self.specified_contigs)) == 0:
+                raise Exception("No contigs found in the specified contigs!")
+        grouped_df = records_df.groupby(["Target_species"])
+        full_table_writer = open(self.full_table_output_file, "w")
+        full_table_writer.write(
+            "Gene\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tIdentity\tFraction\tFrameshift events\tBest gene\tCodons\n")
+        for gene_id in all_species:
+            mapped_records = grouped_df.get_group(gene_id)
+            mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
+            if self.specified_contigs is not None:
+                mapped_records = mapped_records[mapped_records["Contig_id"].isin(self.specified_contigs)]
+            pass_tids = mapped_records[(mapped_records["Protein_mapped_rate"] >= self.min_length_percent) | (
+                    mapped_records["Identity"] >= self.min_identity)]["Target_id"].unique()
+
+            # mean std filter
+            if len(pass_tids) >= 5:
+                lengths_dict = {}
+                for tid in pass_tids:
+                    lengths_dict[tid] = mapped_records[mapped_records["Target_id"] == tid].iloc[0]["Protein_length"]
+                length_df = pd.DataFrame.from_dict(lengths_dict, orient="index", columns=["Protein_length"])
+                mean_v = length_df["Protein_length"].mean()
+                std_v = length_df["Protein_length"].std()
+                lower_bound = mean_v - 1.5 * std_v
+                upper_bound = mean_v + 1.5 * std_v
+                pass_tids = length_df[(length_df["Protein_length"] >= lower_bound) &
+                                      (length_df["Protein_length"] <= upper_bound)].index.tolist()
+
+            if len(pass_tids) > 0:
+                mapped_records = mapped_records[mapped_records["Target_id"].isin(pass_tids)]
+                output = self.Ost_eval(mapped_records, self.min_diff, self.min_identity, self.min_complete,
+                                       self.min_rise)
+                if output.gene_label == GeneLabel.Single:
+                    single_complete_proteins.append(
+                        ">{}\n{}\n".format(output.data_record["Target_id"], output.data_record["Ata_seq"]))
+
+                if output.gene_label == GeneLabel.Fragmented:
+                    output = self.refine_fragmented(mapped_records)
+            else:
+                output = OutputFormat()
+                output.gene_label = GeneLabel.Missing
+
+            if output.gene_label == GeneLabel.Missing:
+                full_table_writer.write("{}\t{}\n".format(gene_id, output.gene_label))
+            else:
+                assert gene_id == output.data_record["Target_species"]
+                full_table_writer.write(
+                    "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(output.data_record["Target_species"],
+                                                                                  output.gene_label,
+                                                                                  output.data_record["Contig_id"],
+                                                                                  output.data_record["Start"],
+                                                                                  output.data_record["Stop"],
+                                                                                  output.data_record["Strand"],
+                                                                                  output.data_record["Score"],
+                                                                                  output.data_record[
+                                                                                      "Protein_mapped_length"],
+                                                                                  output.data_record["Identity"],
+                                                                                  output.data_record[
+                                                                                      "Protein_mapped_rate"],
+                                                                                  output.data_record[
+                                                                                      "Frameshift_events"],
+                                                                                  output.data_record["Target_id"],
+                                                                                  output.data_record["Codons"]))
+
+            if output.gene_label == GeneLabel.Single:
+                single_genes.append(gene_id)
+            elif output.gene_label == GeneLabel.Duplicate:
+                duplicate_genes.append(gene_id)
+            elif output.gene_label == GeneLabel.Fragmented:
+                fragmented_genes.append(gene_id)
+            elif output.gene_label == GeneLabel.Interspaced:
+                interspaced_genes.append(gene_id)
+            elif output.gene_label == GeneLabel.Missing:
+                missing_genes.append(gene_id)
+            else:
+                print("Error: output.gene_label!")
+                raise ValueError
+        full_table_writer.close()
+
+        total_genes = len(all_species)
+        d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(
+            interspaced_genes) - len(missing_genes)
+        print()
+        print("S:{:.2f}%, {}".format(len(single_genes) / total_genes * 100, len(single_genes)))
+        print("D:{:.2f}%, {}".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
+        print("F:{:.2f}%, {}".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
+        print("I:{:.2f}%, {}".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
+        print("M:{:.2f}%, {}".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
+        print("N:{}".format(total_genes))
+        print()
+        with open(self.completeness_output_file, 'a') as fout:
+            if self.lineage is not None:
+                fout.write("## lineage: {}\n".format(os.path.dirname(self.lineage).split("/")[-1]))
+            else:
+                fout.write("## lineage: xx_xx\n")
+            fout.write("S:{:.2f}%, {}\n".format(len(single_genes) / total_genes * 100, len(single_genes)))
+            fout.write("D:{:.2f}%, {}\n".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
+            fout.write("F:{:.2f}%, {}\n".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
+            fout.write("I:{:.2f}%, {}\n".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
+            fout.write(
+                "M:{:.2f}%, {}\n".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
+            fout.write("N:{}\n".format(total_genes))
+
+        with open(self.marker_gene_path, "w") as fout:
+            for x in single_complete_proteins:
+                fout.write(x)
+
+
 ### main function ###
 
 def download(args):
@@ -529,6 +1099,22 @@ def miniprot(args):
     mr.run_miniprot(args.assembly, args.protein, args.outdir)
 
 
+def analysis(args):
+    ar = MiniprotAlignmentParser(run_folder=args.output_dir,
+                                 gff_file=args.gff,
+                                 lineage=None,
+                                 min_length_percent=args.min_length_percent,
+                                 min_diff=args.min_diff,
+                                 min_identity=args.min_identity,
+                                 min_complete=args.min_complete,
+                                 min_rise=args.min_rise,
+                                 specified_contigs=args.specified_contigs,
+                                 autolineage=False)
+    ar.Run()
+
+
+
+
 ### main.py
 def main():
     parser = argparse.ArgumentParser(description="MiniBusco")
@@ -560,6 +1146,30 @@ def main():
     run_miniprot_parser.add_argument("--exec_path", type=str, help="Path to miniprot executable", default=None)
     run_miniprot_parser.add_argument("--autolineage", action="store_true", help="Run miniprot in autolineage mode")
     run_miniprot_parser.set_defaults(func=miniprot)
+
+    ### sub-command: analysis
+    analysis_parser = subparser.add_parser("analysis", help="Analysis with miniprot result")
+    analysis_parser.add_argument("-g", "--gff", type=str, help="Miniprot output gff file", required=True)
+    analysis_parser.add_argument("-o", "--output_dir", type=str, help="Output analysis folder", required=True)
+    analysis_parser.add_argument("--specified_contigs",
+                                 help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.",
+                                 type=str, nargs='+', default=None)
+    analysis_parser.add_argument("--min_diff",
+                                 help="The thresholds for the best matching and second best matching.",
+                                 type=float, default=0.2)
+    analysis_parser.add_argument("--min_identity", help="The identity threshold for valid mapping results. [0, 1]",
+                                 type=float,
+                                 default=0.4)
+    analysis_parser.add_argument("--min_length_percent",
+                                 help="The fraction of protein for valid mapping results.",
+                                 type=float, default=0.6)
+    analysis_parser.add_argument("--min_complete",
+                                 help="The length threshold for complete gene.",
+                                 type=float, default=0.9)
+    analysis_parser.add_argument("--min_rise",
+                                 help="Minimum length threshold to make dupicate take precedence over single or fragmented over single/duplicate.",
+                                 type=float, default=0.5)
+    analysis_parser.set_defaults(func=analysis)
 
     args = parser.parse_args()
     args.func(args)
