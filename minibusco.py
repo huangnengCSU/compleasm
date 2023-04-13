@@ -1011,9 +1011,8 @@ class MiniprotAlignmentParser:
             if output.gene_label == GeneLabel.Missing:
                 full_table_writer.write("{}\t{}\n".format(gene_id, output.gene_label))
             else:
-                assert gene_id == output.data_record["Target_species"]
                 assert output.data_record.shape[0] >= 1
-                if output.data_record.shape[0] == 1:
+                if output.data_record.ndim == 1:
                     full_table_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
                                             format(output.data_record["Target_species"],
                                                    output.gene_label,
@@ -1031,19 +1030,19 @@ class MiniprotAlignmentParser:
                 else:
                     for dri in range(output.data_record.shape[0]):
                         full_table_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                                format(output.data_record["Target_species"].iloc[dri],
+                                                format(output.data_record.iloc[dri]["Target_species"],
                                                        output.gene_label,
-                                                       output.data_record["Contig_id"].iloc[dri],
-                                                       output.data_record["Start"].iloc[dri],
-                                                       output.data_record["Stop"].iloc[dri],
-                                                       output.data_record["Strand"].iloc[dri],
-                                                       output.data_record["Score"].iloc[dri],
-                                                       output.data_record["Protein_mapped_length"].iloc[dri],
-                                                       output.data_record["Identity"].iloc[dri],
-                                                       output.data_record["Protein_mapped_rate"].iloc[dri],
-                                                       output.data_record["Frameshift_events"].iloc[dri],
-                                                       output.data_record["Target_id"].iloc[dri],
-                                                       output.data_record["Codons"].iloc[dri]))
+                                                       output.data_record.iloc[dri]["Contig_id"],
+                                                       output.data_record.iloc[dri]["Start"],
+                                                       output.data_record.iloc[dri]["Stop"],
+                                                       output.data_record.iloc[dri]["Strand"],
+                                                       output.data_record.iloc[dri]["Score"],
+                                                       output.data_record.iloc[dri]["Protein_mapped_length"],
+                                                       output.data_record.iloc[dri]["Identity"],
+                                                       output.data_record.iloc[dri]["Protein_mapped_rate"],
+                                                       output.data_record.iloc[dri]["Frameshift_events"],
+                                                       output.data_record.iloc[dri]["Target_id"],
+                                                       output.data_record.iloc[dri]["Codons"]))
             if output.gene_label == GeneLabel.Single:
                 single_genes.append(gene_id)
             elif output.gene_label == GeneLabel.Duplicate:
