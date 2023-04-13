@@ -20,6 +20,7 @@ import json
 from enum import Enum
 from collections import defaultdict
 import pandas as pd
+import time
 
 
 ### utils
@@ -181,6 +182,8 @@ class Downloader:
                 self.lineage_description[lineage].append(local_lineage_dir)
                 open(os.path.join(self.download_dir, lineage) + ".done", 'w').close()
                 os.remove(os.path.join(self.download_dir, lineage) + ".tmp")
+        else:
+            self.lineage_description[lineage].append(os.path.join(self.download_dir, lineage))
 
     def download_placement(self):
         if os.path.exists(self.placement_dir + ".tmp"):
@@ -219,6 +222,19 @@ class Downloader:
                         os.path.join(self.placement_dir, download_file_name.replace(".tar.gz", "")))
             open(self.placement_dir + ".done", 'w').close()
             os.remove(self.placement_dir + ".tmp")
+        else:
+            for strain in self.placement_description.keys():
+                date, expected_hash, category = self.placement_description[strain]
+                if strain.startswith("supermatrix"):
+                    prefix, aln, version, sufix = strain.split(".")
+                    download_file_name = "{}.{}.{}.{}.{}.tar.gz".format(prefix, aln, version, date, sufix)
+                else:
+                    prefix, version, sufix = strain.split(".")
+                    download_file_name = "{}.{}.{}.{}.tar.gz".format(prefix, version, date, sufix)
+                if "eukaryota" not in download_file_name:
+                    continue
+                self.placement_description[strain].append(
+                    os.path.join(self.placement_dir, download_file_name.replace(".tar.gz", "")))
 
 
 ### miniprot ###
@@ -327,9 +343,9 @@ class AutoLineager:
         sepp_process = "python {} --cpu {} --outdir {} -t {} -r {} -a {} -f {} -F 15 -m amino -p {}".format(
             self.sepp_execute_command, self.threads, sepp_output_folder, tree_nwk_path, tree_metadata_path,
             supermaxtix_path, marker_genes_filapath, tmp_file_folder)
-        # os.system(sepp_process)
-        sepp = subprocess.Popen(sepp_process)
-        sepp.wait()
+        os.system(sepp_process)
+        # sepp = subprocess.Popen(sepp_process)
+        # sepp.wait()
         return search_lineage
 
     # Code from https://gitlab.com/ezlab/busco
@@ -594,7 +610,7 @@ class MiniprotAlignmentParser:
     def __init__(self, run_folder, gff_file, lineage, min_length_percent, min_diff, min_identity, min_complete,
                  min_rise, specified_contigs, autolineage):
         self.autolineage = autolineage
-        self.run_folder = run_folder  # output_dir/lineage/
+        self.run_folder = run_folder
         if not os.path.exists(run_folder):
             os.makedirs(run_folder)
         if lineage is None:
@@ -1048,7 +1064,7 @@ class MiniprotAlignmentParser:
         print()
         with open(self.completeness_output_file, 'a') as fout:
             if self.lineage is not None:
-                fout.write("## lineage: {}\n".format(os.path.dirname(self.lineage).split("/")[-1]))
+                fout.write("## lineage: {}\n".format(self.lineage))
             else:
                 fout.write("## lineage: xx_xx\n")
             fout.write("S:{:.2f}%, {}\n".format(len(single_genes) / total_genes * 100, len(single_genes)))
@@ -1062,6 +1078,116 @@ class MiniprotAlignmentParser:
         with open(self.marker_gene_path, "w") as fout:
             for x in single_complete_proteins:
                 fout.write(x)
+
+
+### Minibusco Runner ###
+class MinibuscoRunner:
+    def __init__(self, assembly_path, output_folder, library_path, lineage, autolineage, nthreads,
+                 miniprot_execute_command, sepp_execute_command, min_diff, min_length_percent, min_identity,
+                 min_complete, min_rise, specified_contigs):
+        if lineage is not None:
+            if not lineage.endswith("_odb10"):
+                lineage = lineage + "_odb10"
+        self.lineage = lineage
+        self.autolineage = autolineage
+        self.output_folder = output_folder
+        self.assembly_path = assembly_path
+        self.min_diff = min_diff
+        self.min_length_percent = min_length_percent
+        self.min_identity = min_identity
+        self.min_complete = min_complete
+        self.min_rise = min_rise
+        self.specified_contigs = specified_contigs
+
+        self.miniprot_runner = MiniprotRunner(miniprot_execute_command, nthreads, autolineage)
+        self.downloader = Downloader(library_path)
+
+        sepp_output_path = os.path.join(output_folder, "sepp_output")
+        sepp_tmp_path = os.path.join(output_folder, "sepp_tmp")
+        self.lineage_searcher = AutoLineager(sepp_output_path, sepp_tmp_path, library_path, nthreads,
+                                             sepp_execute_command)
+
+    def Run(self):
+        begin_time = time.time()
+        if self.autolineage:
+            lineage = "eukaryota_odb10"
+        else:
+            lineage = self.lineage
+        download_lineage_start_time = time.time()
+        self.downloader.download_lineage(lineage)
+        download_lineage_end_time = time.time()
+        print("lineage: {}".format(lineage))
+        lineage_filepath = os.path.join(self.downloader.lineage_description[lineage][3], "refseq_db.faa.gz")
+        alignment_output_dir = os.path.join(self.output_folder, lineage)
+        if not os.path.exists(alignment_output_dir):
+            os.makedirs(alignment_output_dir)
+
+        run_miniprot_start_time = time.time()
+        miniprot_output_path = self.miniprot_runner.run_miniprot(self.assembly_path, lineage_filepath, alignment_output_dir)
+        run_miniprot_end_time = time.time()
+        analysis_miniprot_start_time = time.time()
+        miniprot_alignment_parser = MiniprotAlignmentParser(run_folder=self.output_folder,
+                                                            gff_file=miniprot_output_path,
+                                                            lineage=lineage,
+                                                            min_diff=self.min_diff,
+                                                            min_length_percent=self.min_length_percent,
+                                                            min_identity=self.min_identity,
+                                                            min_complete=self.min_complete,
+                                                            min_rise=self.min_rise,
+                                                            specified_contigs=self.specified_contigs,
+                                                            autolineage=self.autolineage)
+
+        if os.path.exists(miniprot_alignment_parser.completeness_output_file):
+            os.remove(miniprot_alignment_parser.completeness_output_file)
+        miniprot_alignment_parser.Run()
+        analysis_miniprot_end_time = time.time()
+        if self.autolineage:
+            autolineage_start_time = time.time()
+            marker_genes_filepath = miniprot_alignment_parser.marker_gene_path
+            best_match_lineage = self.lineage_searcher.Run(marker_genes_filepath)
+            print("best_match_lineage: {}".format(best_match_lineage))
+            autolineage_end_time = time.time()
+            if best_match_lineage == lineage:
+                end_time = time.time()
+                print("## Download lineage: {:.2f}(s)".format(download_lineage_end_time - download_lineage_start_time))
+                print("## Run miniprot: {:.2f}(s)".format(run_miniprot_end_time - run_miniprot_start_time))
+                print("## Analyze miniprot: {:.2f}(s)".format(analysis_miniprot_end_time - analysis_miniprot_start_time))
+                print("## Autolineage: {:.2f}(s)".format(autolineage_end_time - autolineage_start_time))
+                print("## Total runtime: {:.2f}(s)".format(end_time - begin_time))
+                return
+            self.downloader.download_lineage(best_match_lineage)
+            lineage = best_match_lineage
+            lineage_filepath = os.path.join(self.downloader.lineage_description[lineage][3], "refseq_db.faa.gz")
+            alignment_output_dir = os.path.join(self.output_folder, lineage)
+            if not os.path.exists(alignment_output_dir):
+                os.makedirs(alignment_output_dir)
+            second_run_miniprot_start_time = time.time()
+            miniprot_output_path = self.miniprot_runner.run_miniprot(self.assembly_path, lineage_filepath, alignment_output_dir)
+            second_run_miniprot_end_time = time.time()
+            second_analysis_miniprot_start_time = time.time()
+            miniprot_alignment_parser = MiniprotAlignmentParser(run_folder=self.output_folder,
+                                                                gff_file=miniprot_output_path,
+                                                                lineage=lineage,
+                                                                min_diff=self.min_diff,
+                                                                min_length_percent=self.min_length_percent,
+                                                                min_identity=self.min_identity,
+                                                                min_complete=self.min_complete,
+                                                                min_rise=self.min_rise,
+                                                                specified_contigs=self.specified_contigs,
+                                                                autolineage=self.autolineage)
+            miniprot_alignment_parser.Run()
+            second_analysis_miniprot_end_time = time.time()
+        end_time = time.time()
+        print("## Download lineage: {:.2f}(s)".format(download_lineage_end_time - download_lineage_start_time))
+        print("## Run miniprot: {:.2f}(s)".format(run_miniprot_end_time - run_miniprot_start_time))
+        print("## Analyze miniprot: {:.2f}(s)".format(analysis_miniprot_end_time - analysis_miniprot_start_time))
+        if self.autolineage:
+            print("## Autolineage: {:.2f}(s)".format(autolineage_end_time - autolineage_start_time))
+            print("## Second run miniprot: {:.2f}(s)".format(
+                second_run_miniprot_end_time - second_run_miniprot_start_time))
+            print("## Second analyze miniprot: {:.2f}(s)".format(
+                second_analysis_miniprot_end_time - second_analysis_miniprot_start_time))
+        print("## Total runtime: {:.2f}(s)".format(end_time - begin_time))
 
 
 ### main function ###
@@ -1113,6 +1239,44 @@ def analysis(args):
     ar.Run()
 
 
+def run(args):
+    assembly_path = args.assembly_path
+    output_folder = args.output_dir
+    library_path = args.library_path
+    lineage = args.lineage
+    autolineage = args.autolineage
+    nthreads = args.threads
+    miniprot_execute_command = args.miniprot_execute_path
+    sepp_execute_command = args.sepp_execute_path
+    min_diff = args.min_diff
+    min_length_percent = args.min_length_percent
+    min_identity = args.min_identity
+    min_complete = args.min_complete
+    min_rise = args.min_rise
+    specified_contigs = args.specified_contigs
+
+    if lineage is None and autolineage is False:
+        sys.exit(
+            "\n Usage error: Please specify the lineage name with -l. e.g. eukaryota, primates, saccharomycetes etc."
+            "\n Or specify --autolineage and --sepp_execute_path to automaticly search the best matching lineage\n")
+    if autolineage and sepp_execute_command is None:
+        sys.exit("\n Usage error: Please specify the path to SEPP executable file with --sepp_execute_path\n")
+
+    mr = MinibuscoRunner(assembly_path=assembly_path,
+                         output_folder=output_folder,
+                         library_path=library_path,
+                         lineage=lineage,
+                         autolineage=autolineage,
+                         nthreads=nthreads,
+                         miniprot_execute_command=miniprot_execute_command,
+                         sepp_execute_command=sepp_execute_command,
+                         min_diff=min_diff,
+                         min_length_percent=min_length_percent,
+                         min_identity=min_identity,
+                         min_complete=min_complete,
+                         min_rise=min_rise,
+                         specified_contigs=specified_contigs)
+    mr.Run()
 
 
 ### main.py
@@ -1170,6 +1334,41 @@ def main():
                                  help="Minimum length threshold to make dupicate take precedence over single or fragmented over single/duplicate.",
                                  type=float, default=0.5)
     analysis_parser.set_defaults(func=analysis)
+
+    ### sub-command: run
+    run_parser = subparser.add_parser("run",
+                                      help="Run minibusco including miniprot alignment and completeness evaluation")
+    run_parser.add_argument("-a", "--assembly_path", type=str, help="Input genome file in FASTA format.", required=True)
+    run_parser.add_argument("-o", "--output_dir", type=str, help="The output folder.", required=True)
+    run_parser.add_argument("-t", "--threads", type=int, default=1, help="Number of threads to use")
+    run_parser.add_argument("-l", "--lineage", type=str, default=None,
+                            help="Specify the name of the BUSCO lineage to be used. (e.g. eukaryota, primates, saccharomycetes etc.)")
+    run_parser.add_argument("--library_path", type=str,
+                            help="Folder path to download lineages or already downloaded lineages. "
+                                 "If not specified, a folder named \"mb_downloads\" will be created on the current running path by default to store the downloaded lineage files.",
+                            default="mb_downloads")
+    run_parser.add_argument("--specified_contigs",
+                            help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.",
+                            type=str, nargs='+', default=None)
+    run_parser.add_argument("--miniprot_execute_path", type=str, help="Path to miniprot executable", default=None)
+    run_parser.add_argument("--autolineage", action="store_true",
+                            help="Automatically search for the best matching lineage without specifying lineage file.")
+    run_parser.add_argument("--sepp_execute_path", type=str, help="Path to sepp executable", default=None)
+    run_parser.add_argument("--min_diff",
+                            help="The thresholds for the best matching and second best matching.",
+                            type=float, default=0.2)
+    run_parser.add_argument("--min_identity", help="The identity threshold for valid mapping results.",
+                            type=float, default=0.4)
+    run_parser.add_argument("--min_length_percent",
+                            help="The fraction of protein for valid mapping results.",
+                            type=float, default=0.6)
+    run_parser.add_argument("--min_complete",
+                            help="The length threshold for complete gene.",
+                            type=float, default=0.9)
+    run_parser.add_argument("--min_rise",
+                            help="Minimum length threshold to make dupicate take precedence over single or fragmented over single/duplicate.",
+                            type=float, default=0.5)
+    run_parser.set_defaults(func=run)
 
     args = parser.parse_args()
     args.func(args)
