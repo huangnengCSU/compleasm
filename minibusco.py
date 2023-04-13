@@ -1213,7 +1213,8 @@ class MinibuscoRunner:
 
 def download(args):
     downloader = Downloader(args.library_path)
-    downloader.download_lineage(args.lineage)
+    for lineage in args.lineage:
+        downloader.download_lineage(lineage)
 
 
 def list_lineages(args):
@@ -1306,8 +1307,8 @@ def main():
     ### sub-command: download
     download_parser = subparser.add_parser("download", help="Download BUSCO lineage")
     download_parser = subparser.add_parser("download", help="Download specified BUSCO lineage")
-    download_parser.add_argument("-l", "--lineage", type=str,
-                                 help="Specify the name of the BUSCO lineage to be downloaded. (e.g. eukaryota, primates, saccharomycetes etc.)",
+    download_parser.add_argument("-l", "--lineage", type=str, nargs='+',
+                                 help="Specify the names of the BUSCO lineages to be downloaded. (e.g. eukaryota, primates, saccharomycetes etc.)",
                                  required=True)
     download_parser.add_argument("--library_path", type=str, help="Folder path to download lineages", required=True)
     download_parser.set_defaults(func=download)
@@ -1334,24 +1335,18 @@ def main():
     analysis_parser = subparser.add_parser("analysis", help="Analysis with miniprot result")
     analysis_parser.add_argument("-g", "--gff", type=str, help="Miniprot output gff file", required=True)
     analysis_parser.add_argument("-o", "--output_dir", type=str, help="Output analysis folder", required=True)
-    analysis_parser.add_argument("--specified_contigs",
-                                 help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.",
-                                 type=str, nargs='+', default=None)
-    analysis_parser.add_argument("--min_diff",
-                                 help="The thresholds for the best matching and second best matching.",
-                                 type=float, default=0.2)
-    analysis_parser.add_argument("--min_identity", help="The identity threshold for valid mapping results. [0, 1]",
-                                 type=float,
-                                 default=0.4)
-    analysis_parser.add_argument("--min_length_percent",
-                                 help="The fraction of protein for valid mapping results.",
-                                 type=float, default=0.6)
-    analysis_parser.add_argument("--min_complete",
-                                 help="The length threshold for complete gene.",
-                                 type=float, default=0.9)
-    analysis_parser.add_argument("--min_rise",
-                                 help="Minimum length threshold to make dupicate take precedence over single or fragmented over single/duplicate.",
-                                 type=float, default=0.5)
+    analysis_parser.add_argument("--specified_contigs", type=str, nargs='+', default=None,
+                                 help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.")
+    analysis_parser.add_argument("--min_diff", type=float, default=0.2,
+                                 help="The thresholds for the best matching and second best matching.")
+    analysis_parser.add_argument("--min_identity", type=float, default=0.4,
+                                 help="The identity threshold for valid mapping results. [0, 1]")
+    analysis_parser.add_argument("--min_length_percent", type=float, default=0.6,
+                                 help="The fraction of protein for valid mapping results.")
+    analysis_parser.add_argument("--min_complete", type=float, default=0.9,
+                                 help="The length threshold for complete gene.")
+    analysis_parser.add_argument("--min_rise", type=float, default=0.5,
+                                 help="Minimum length threshold to make dupicate take precedence over single or fragmented over single/duplicate.")
     analysis_parser.set_defaults(func=analysis)
 
     ### sub-command: run
@@ -1362,31 +1357,27 @@ def main():
     run_parser.add_argument("-t", "--threads", type=int, default=1, help="Number of threads to use")
     run_parser.add_argument("-l", "--lineage", type=str, default=None,
                             help="Specify the name of the BUSCO lineage to be used. (e.g. eukaryota, primates, saccharomycetes etc.)")
-    run_parser.add_argument("--library_path", type=str,
+    run_parser.add_argument("--library_path", type=str, default="mb_downloads",
                             help="Folder path to download lineages or already downloaded lineages. "
-                                 "If not specified, a folder named \"mb_downloads\" will be created on the current running path by default to store the downloaded lineage files.",
-                            default="mb_downloads")
-    run_parser.add_argument("--specified_contigs",
-                            help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.",
-                            type=str, nargs='+', default=None)
-    run_parser.add_argument("--miniprot_execute_path", type=str, help="Path to miniprot executable", default=None)
+                                 "If not specified, a folder named \"mb_downloads\" will be created on the current running path by default to store the downloaded lineage files.")
+    run_parser.add_argument("--specified_contigs", type=str, nargs='+', default=None,
+                            help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.")
+    run_parser.add_argument("--miniprot_execute_path", type=str, default=None,
+                            help="Path to miniprot executable")
     run_parser.add_argument("--autolineage", action="store_true",
                             help="Automatically search for the best matching lineage without specifying lineage file.")
-    run_parser.add_argument("--sepp_execute_path", type=str, help="Path to sepp executable", default=None)
-    run_parser.add_argument("--min_diff",
-                            help="The thresholds for the best matching and second best matching.",
-                            type=float, default=0.2)
-    run_parser.add_argument("--min_identity", help="The identity threshold for valid mapping results.",
-                            type=float, default=0.4)
-    run_parser.add_argument("--min_length_percent",
-                            help="The fraction of protein for valid mapping results.",
-                            type=float, default=0.6)
-    run_parser.add_argument("--min_complete",
-                            help="The length threshold for complete gene.",
-                            type=float, default=0.9)
-    run_parser.add_argument("--min_rise",
-                            help="Minimum length threshold to make dupicate take precedence over single or fragmented over single/duplicate.",
-                            type=float, default=0.5)
+    run_parser.add_argument("--sepp_execute_path", type=str, default=None,
+                            help="Path to sepp executable")
+    run_parser.add_argument("--min_diff", type=float, default=0.2,
+                            help="The thresholds for the best matching and second best matching.")
+    run_parser.add_argument("--min_identity", type=float, default=0.4,
+                            help="The identity threshold for valid mapping results.")
+    run_parser.add_argument("--min_length_percent", type=float, default=0.6,
+                            help="The fraction of protein for valid mapping results.")
+    run_parser.add_argument("--min_complete", type=float, default=0.9,
+                            help="The length threshold for complete gene.")
+    run_parser.add_argument("--min_rise", type=float, default=0.5,
+                            help="Minimum length threshold to make dupicate take precedence over single or fragmented over single/duplicate.")
     run_parser.set_defaults(func=run)
 
     args = parser.parse_args()
