@@ -1,5 +1,7 @@
 ## Contents
 - [Installation](#installation)
+  - [Install miniprot](#install-miniprot)
+  - [Install sepp](#install-sepp)
 - [Running](#running)
   - [Main Modules](#main-modules)
   - [Using `run` submodule to evaluate genome completeness from genome assembly](#using-run-submodule-to-evaluate-genome-completeness-from-genome-assembly)
@@ -20,6 +22,12 @@ If you want to use the `--autolineage` mode, you need to install **sepp** and pr
       [sepp](https://github.com/smirarab/sepp) (autolineage mode)
 - Dependencies:  
   [pandas](https://pandas.pydata.org/docs/getting_started/install.html#installing-from-pypi)
+
+### Get minibusco:
+```angular2html
+git clone https://github.com/huangnengCSU/minibusco.git
+```
+You can run the `minibusco.py` script directly or copy it to other locations then run it.
 
 ### Install miniprot:
 ```angular2html
