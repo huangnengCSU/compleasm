@@ -1,5 +1,6 @@
 ## Contents
 - [Installation](#installation)
+  - [Get minibusco](#get-minibusco)
   - [Install miniprot](#install-miniprot)
   - [Install sepp](#install-sepp)
 - [Running](#running)
