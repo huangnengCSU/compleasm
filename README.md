@@ -19,7 +19,22 @@ If you want to use the `--autolineage` mode, you need to install **sepp** and pr
       [miniprot](https://github.com/lh3/miniprot) (submodule: run, run_miniprot)  
       [sepp](https://github.com/smirarab/sepp) (autolineage mode)
 - Dependencies:  
-  [pandas](https://pandas.pydata.org/docs/getting_started/install.html#installing-from-pypi)  
+  [pandas](https://pandas.pydata.org/docs/getting_started/install.html#installing-from-pypi)
+
+### Install miniprot:
+```angular2html
+git clone https://github.com/lh3/miniprot
+cd miniprot && make
+```
+
+### Install sepp:
+```angular2html
+git clone https://github.com/smirarab/sepp.git
+cd sepp
+python setup.py config -c
+python setup.py install
+```
+Sepp executable file is located in `sepp-package/sepp/run_sepp.py`.
 
 ## Running
 
