@@ -515,7 +515,7 @@ AminoAcid = ["A", "R", "N", "D", "C", "Q", "E", "G", "H", "I",
 
 class GeneLabel(Enum):
     Single = 1
-    Duplicate = 2
+    Duplicated = 2
     Fragmented = 3
     Interspaced = 4
     Missing = 5
@@ -599,25 +599,36 @@ def find_frameshifts(cs_seq):
             frameshift_lengths += int(m.group(0)[:-1])
     return frameshifts, frameshift_events, frameshift_lengths
 
+def load_dbinfo(dbinfo_file):
+    dbinfo = {}
+    with open(dbinfo_file, "r") as f:
+        for line in f:
+            gene_id, db, link = line.strip().split("\t")
+            dbinfo[gene_id] = [link, db]
+    return dbinfo
+
 
 class MiniprotAlignmentParser:
     def __init__(self, run_folder, gff_file, lineage, min_length_percent, min_diff, min_identity, min_complete,
-                 min_rise, specified_contigs, autolineage):
+                 min_rise, specified_contigs, autolineage, library_path=None):
         self.autolineage = autolineage
         self.run_folder = run_folder
         if not os.path.exists(run_folder):
             os.makedirs(run_folder)
         if lineage is None:
-            self.completeness_output_file = os.path.join(self.run_folder, "gene_completeness.tsv")
+            self.completeness_output_file = os.path.join(self.run_folder, "summary.txt")
             self.full_table_output_file = os.path.join(self.run_folder, "full_table.tsv")
+            self.full_table_busco_format_output_file = os.path.join(self.run_folder, "full_table_busco_format.tsv")
         else:
             if not lineage.endswith("_odb10"):
                 lineage = lineage + "_odb10"
             self.run_folder = os.path.join(run_folder, lineage)
             if not os.path.exists(self.run_folder):
                 os.makedirs(self.run_folder)
-            self.completeness_output_file = os.path.join(run_folder, "gene_completeness.tsv")
+            self.completeness_output_file = os.path.join(run_folder, "summary.txt")
             self.full_table_output_file = os.path.join(self.run_folder, "full_table.tsv")
+            self.full_table_busco_format_output_file = os.path.join(self.run_folder, "full_table_busco_format.tsv")
+        self.library_path = library_path
         self.gff_file = gff_file
         self.lineage = lineage
         self.min_length_percent = min_length_percent
@@ -740,7 +751,7 @@ class MiniprotAlignmentParser:
             else:
                 ctgs = [x[0] for x in complete_regions]
                 if len(set(ctgs)) > 1:
-                    output.gene_label = GeneLabel.Duplicate
+                    output.gene_label = GeneLabel.Duplicated
                     output.data_record = dataframe
                     return output
                 regions = [(x[1], x[2]) for x in complete_regions]
@@ -750,7 +761,7 @@ class MiniprotAlignmentParser:
                     output.data_record = dataframe.iloc[0]
                     return output
                 else:
-                    output.gene_label = GeneLabel.Duplicate
+                    output.gene_label = GeneLabel.Duplicated
                     output.data_record = dataframe
                     return output
 
@@ -788,8 +799,8 @@ class MiniprotAlignmentParser:
                 output.gene_label = GeneLabel.Fragmented
                 output.data_record = dataframe_1st.iloc[0]
                 return output
-            elif label_length.keys() == {GeneLabel.Duplicate}:
-                output.gene_label = GeneLabel.Duplicate
+            elif label_length.keys() == {GeneLabel.Duplicated}:
+                output.gene_label = GeneLabel.Duplicated
                 output.data_record = dataframe_1st
                 return output
             elif label_length.keys() == {GeneLabel.Single, GeneLabel.Fragmented}:
@@ -811,12 +822,12 @@ class MiniprotAlignmentParser:
                     else:
                         raise ValueError
                     return output
-            elif label_length.keys() == {GeneLabel.Single, GeneLabel.Duplicate}:
-                if label_length[GeneLabel.Duplicate][0] > label_length[GeneLabel.Single][0] * (1 + min_rise):
-                    output.gene_label = GeneLabel.Duplicate
-                    if out1.gene_label == GeneLabel.Duplicate:
+            elif label_length.keys() == {GeneLabel.Single, GeneLabel.Duplicated}:
+                if label_length[GeneLabel.Duplicated][0] > label_length[GeneLabel.Single][0] * (1 + min_rise):
+                    output.gene_label = GeneLabel.Duplicated
+                    if out1.gene_label == GeneLabel.Duplicated:
                         output.data_record = dataframe_1st
-                    elif out2.gene_label == GeneLabel.Duplicate:
+                    elif out2.gene_label == GeneLabel.Duplicated:
                         output.data_record = dataframe_2nd
                     else:
                         raise ValueError
@@ -830,8 +841,8 @@ class MiniprotAlignmentParser:
                     else:
                         raise ValueError
                     return output
-            elif label_length.keys() == {GeneLabel.Fragmented, GeneLabel.Duplicate}:
-                if label_length[GeneLabel.Fragmented][0] > label_length[GeneLabel.Duplicate][0] * (1 + min_rise):
+            elif label_length.keys() == {GeneLabel.Fragmented, GeneLabel.Duplicated}:
+                if label_length[GeneLabel.Fragmented][0] > label_length[GeneLabel.Duplicated][0] * (1 + min_rise):
                     output.gene_label = GeneLabel.Fragmented
                     if out1.gene_label == GeneLabel.Fragmented:
                         output.data_record = dataframe_1st.iloc[0]
@@ -841,10 +852,10 @@ class MiniprotAlignmentParser:
                         raise ValueError
                     return output
                 else:
-                    output.gene_label = GeneLabel.Duplicate
-                    if out1.gene_label == GeneLabel.Duplicate:
+                    output.gene_label = GeneLabel.Duplicated
+                    if out1.gene_label == GeneLabel.Duplicated:
                         output.data_record = dataframe_1st
-                    elif out2.gene_label == GeneLabel.Duplicate:
+                    elif out2.gene_label == GeneLabel.Duplicated:
                         output.data_record = dataframe_2nd
                     else:
                         raise ValueError
@@ -973,6 +984,18 @@ class MiniprotAlignmentParser:
         full_table_writer = open(self.full_table_output_file, "w")
         full_table_writer.write(
             "Gene\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tIdentity\tFraction\tFrameshift events\tBest gene\tCodons\n")
+        dbinfo = None
+        if self.library_path is not None and self.lineage is not None:
+            dbinfo_path = os.path.join(self.library_path, self.lineage, "links_to_ODB10.txt")
+            if os.path.exists(dbinfo_path):
+                dbinfo = load_dbinfo(dbinfo_path)
+        full_table_busco_format_writer = open(self.full_table_busco_format_output_file, "w")
+        if dbinfo is None:
+            full_table_busco_format_writer.write(
+                "# Busco id\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\n")
+        else:
+            full_table_busco_format_writer.write(
+                "# Busco id\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tOrthoDB url\tDescription\n")
         for gene_id in all_species:
             mapped_records = grouped_df.get_group(gene_id)
             mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
@@ -1009,13 +1032,14 @@ class MiniprotAlignmentParser:
                 output.gene_label = GeneLabel.Missing
 
             if output.gene_label == GeneLabel.Missing:
-                full_table_writer.write("{}\t{}\n".format(gene_id, output.gene_label))
+                full_table_writer.write("{}\t{}\n".format(gene_id, output.gene_label.name))
+                full_table_busco_format_writer.write("{}\t{}\n".format(gene_id, output.gene_label.name))
             else:
                 assert output.data_record.shape[0] >= 1
                 if output.data_record.ndim == 1:
                     full_table_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
                                             format(output.data_record["Target_species"],
-                                                   output.gene_label,
+                                                   output.gene_label.name,
                                                    output.data_record["Contig_id"],
                                                    output.data_record["Start"],
                                                    output.data_record["Stop"],
@@ -1027,11 +1051,39 @@ class MiniprotAlignmentParser:
                                                    output.data_record["Frameshift_events"],
                                                    output.data_record["Target_id"],
                                                    output.data_record["Codons"]))
+                    if output.gene_label.name == "Single":
+                        status = "Complete"
+                    elif output.gene_label.name == "Interspaced":
+                        status = "Fragmented"
+                    else:
+                        status = output.gene_label.name
+                    if dbinfo is None:
+                        full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
+                                                             format(output.data_record["Target_species"],
+                                                                    status,
+                                                                    output.data_record["Contig_id"],
+                                                                    output.data_record["Start"],
+                                                                    output.data_record["Stop"],
+                                                                    output.data_record["Strand"],
+                                                                    output.data_record["Score"],
+                                                                    output.data_record["Protein_mapped_length"]))
+                    else:
+                        full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
+                                                             format(output.data_record["Target_species"],
+                                                                    status,
+                                                                    output.data_record["Contig_id"],
+                                                                    output.data_record["Start"],
+                                                                    output.data_record["Stop"],
+                                                                    output.data_record["Strand"],
+                                                                    output.data_record["Score"],
+                                                                    output.data_record["Protein_mapped_length"],
+                                                                    dbinfo[output.data_record["Target_species"]][0],
+                                                                    dbinfo[output.data_record["Target_species"]][1]))
                 else:
                     for dri in range(output.data_record.shape[0]):
                         full_table_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
                                                 format(output.data_record.iloc[dri]["Target_species"],
-                                                       output.gene_label,
+                                                       output.gene_label.name,
                                                        output.data_record.iloc[dri]["Contig_id"],
                                                        output.data_record.iloc[dri]["Start"],
                                                        output.data_record.iloc[dri]["Stop"],
@@ -1043,9 +1095,37 @@ class MiniprotAlignmentParser:
                                                        output.data_record.iloc[dri]["Frameshift_events"],
                                                        output.data_record.iloc[dri]["Target_id"],
                                                        output.data_record.iloc[dri]["Codons"]))
+                        if output.gene_label.name == "Single":
+                            status = "Complete"
+                        elif output.gene_label.name == "Interspaced":
+                            status = "Fragmented"
+                        else:
+                            status = output.gene_label.name
+                        if dbinfo is None:
+                            full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
+                                                                 format(output.data_record.iloc[dri]["Target_species"],
+                                                                        status,
+                                                                        output.data_record.iloc[dri]["Contig_id"],
+                                                                        output.data_record.iloc[dri]["Start"],
+                                                                        output.data_record.iloc[dri]["Stop"],
+                                                                        output.data_record.iloc[dri]["Strand"],
+                                                                        output.data_record.iloc[dri]["Score"],
+                                                                        output.data_record.iloc[dri]["Protein_mapped_length"]))
+                        else:
+                            full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
+                                                                 format(output.data_record.iloc[dri]["Target_species"],
+                                                                        status,
+                                                                        output.data_record.iloc[dri]["Contig_id"],
+                                                                        output.data_record.iloc[dri]["Start"],
+                                                                        output.data_record.iloc[dri]["Stop"],
+                                                                        output.data_record.iloc[dri]["Strand"],
+                                                                        output.data_record.iloc[dri]["Score"],
+                                                                        output.data_record.iloc[dri]["Protein_mapped_length"],
+                                                                        dbinfo[output.data_record.iloc[dri]["Target_species"]][0],
+                                                                        dbinfo[output.data_record.iloc[dri]["Target_species"]][1]))
             if output.gene_label == GeneLabel.Single:
                 single_genes.append(gene_id)
-            elif output.gene_label == GeneLabel.Duplicate:
+            elif output.gene_label == GeneLabel.Duplicated:
                 duplicate_genes.append(gene_id)
             elif output.gene_label == GeneLabel.Fragmented:
                 fragmented_genes.append(gene_id)
@@ -1057,6 +1137,7 @@ class MiniprotAlignmentParser:
                 print("Error: output.gene_label!")
                 raise ValueError
         full_table_writer.close()
+        full_table_busco_format_writer.close()
 
         total_genes = len(all_species)
         d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(
@@ -1098,6 +1179,7 @@ class MinibuscoRunner:
         self.lineage = lineage
         self.autolineage = autolineage
         self.output_folder = output_folder
+        self.library_path = library_path
         self.assembly_path = assembly_path
         self.min_diff = min_diff
         self.min_length_percent = min_length_percent
@@ -1144,7 +1226,8 @@ class MinibuscoRunner:
                                                             min_complete=self.min_complete,
                                                             min_rise=self.min_rise,
                                                             specified_contigs=self.specified_contigs,
-                                                            autolineage=self.autolineage)
+                                                            autolineage=self.autolineage,
+                                                            library_path=self.library_path)
 
         if os.path.exists(miniprot_alignment_parser.completeness_output_file):
             os.remove(miniprot_alignment_parser.completeness_output_file)
@@ -1186,7 +1269,8 @@ class MinibuscoRunner:
                                                                 min_complete=self.min_complete,
                                                                 min_rise=self.min_rise,
                                                                 specified_contigs=self.specified_contigs,
-                                                                autolineage=self.autolineage)
+                                                                autolineage=self.autolineage,
+                                                                library_path=self.library_path)
             miniprot_alignment_parser.Run()
             second_analysis_miniprot_end_time = time.time()
         end_time = time.time()
