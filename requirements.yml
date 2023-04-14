@@ -1,9 +1,0 @@
-name: minibusco
-channels:
-  - bioconda
-  - conda-forge
-  - defaults
-dependencies:
-  - miniprot=0.9
-  - sepp=4.4.0
-  - pandas
