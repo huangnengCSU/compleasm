@@ -1386,8 +1386,9 @@ def main():
     download_parser.add_argument("-l", "--lineage", type=str, nargs='+',
                                  help="Specify the names of the BUSCO lineages to be downloaded. (e.g. eukaryota, primates, saccharomycetes etc.)",
                                  required=True)
-    download_parser.add_argument("--library_path", type=str,
-                                 help="The destination folder to store the downloaded lineage files.", required=True)
+    download_parser.add_argument("--library_path", type=str, default=None,
+                                 help="The destination folder to store the downloaded lineage files."
+                                      "If not specified, a folder named \"mb_downloads\" will be created on the current running path.")
     download_parser.set_defaults(func=download)
 
     ### sub-command: list
@@ -1434,7 +1435,7 @@ def main():
     run_parser.add_argument("-t", "--threads", type=int, default=1, help="Number of threads to use")
     run_parser.add_argument("-l", "--lineage", type=str, default=None,
                             help="Specify the name of the BUSCO lineage to be used. (e.g. eukaryota, primates, saccharomycetes etc.)")
-    run_parser.add_argument("--library_path", type=str, default="mb_downloads",
+    run_parser.add_argument("--library_path", type=str, default=None,
                             help="Folder path to download lineages or already downloaded lineages. "
                                  "If not specified, a folder named \"mb_downloads\" will be created on the current running path by default to store the downloaded lineage files.")
     run_parser.add_argument("--specified_contigs", type=str, nargs='+', default=None,
