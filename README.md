@@ -145,6 +145,7 @@ python minibusco.py download [-h] -l LINEAGE [LINEAGE ...] --library_path LIBRAR
 ```angular2html
   -l, --lineage       Specify the names of the BUSCO lineages to be downloaded. (e.g. eukaryota, primates, saccharomycetes etc.)
   --library_path      The destination folder to store the downloaded lineage files.
+                      If not specified, a folder named "mb_downloads" will be created on the current running path by default.
 ```
 
 #### Example:
