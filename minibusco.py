@@ -169,9 +169,14 @@ class Downloader:
                     tar.extractall(self.download_dir, members=[tar.getmember('{}/refseq_db.faa.gz'.format(lineage)),
                                                                tar.getmember('{}/links_to_ODB10.txt'.format(lineage))])
                 except KeyError:
+                    if "{}/refseq_db.faa.gz".format(lineage) not in tar.getnames():
+                        os.remove(os.path.join(self.download_dir, lineage) + ".tmp")
+                        os.remove(download_path)
+                        sys.exit("No refseq_db.faa.gz in lineage {}, this lineage cannot be used in minibusco!".format(lineage))
                     tar.extractall(self.download_dir, members=[tar.getmember('{}/refseq_db.faa.gz'.format(lineage))])
                 except:
                     os.remove(os.path.join(self.download_dir, lineage) + ".tmp")
+                    os.remove(download_path)
                     raise Error("Unable to extract file: {} or {} from {}".format("refseq_db.faa.gz",
                                                                                   "links_to_ODB10.txt",
                                                                                   download_path))
