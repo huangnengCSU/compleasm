@@ -1068,17 +1068,30 @@ class MiniprotAlignmentParser:
                                                                     output.data_record["Score"],
                                                                     output.data_record["Protein_mapped_length"]))
                     else:
-                        full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                                             format(output.data_record["Target_species"],
-                                                                    status,
-                                                                    output.data_record["Contig_id"],
-                                                                    output.data_record["Start"],
-                                                                    output.data_record["Stop"],
-                                                                    output.data_record["Strand"],
-                                                                    output.data_record["Score"],
-                                                                    output.data_record["Protein_mapped_length"],
-                                                                    dbinfo[output.data_record["Target_species"]][0],
-                                                                    dbinfo[output.data_record["Target_species"]][1]))
+                        try:
+                            full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
+                                                                 format(output.data_record["Target_species"],
+                                                                        status,
+                                                                        output.data_record["Contig_id"],
+                                                                        output.data_record["Start"],
+                                                                        output.data_record["Stop"],
+                                                                        output.data_record["Strand"],
+                                                                        output.data_record["Score"],
+                                                                        output.data_record["Protein_mapped_length"],
+                                                                        dbinfo[output.data_record["Target_species"]][0],
+                                                                        dbinfo[output.data_record["Target_species"]][1]))
+                        except KeyError:
+                            full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
+                                                                 format(output.data_record["Target_species"],
+                                                                        status,
+                                                                        output.data_record["Contig_id"],
+                                                                        output.data_record["Start"],
+                                                                        output.data_record["Stop"],
+                                                                        output.data_record["Strand"],
+                                                                        output.data_record["Score"],
+                                                                        output.data_record["Protein_mapped_length"],
+                                                                        "*",
+                                                                        "*"))
                 else:
                     for dri in range(output.data_record.shape[0]):
                         full_table_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
@@ -1112,17 +1125,30 @@ class MiniprotAlignmentParser:
                                                                         output.data_record.iloc[dri]["Score"],
                                                                         output.data_record.iloc[dri]["Protein_mapped_length"]))
                         else:
-                            full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                                                 format(output.data_record.iloc[dri]["Target_species"],
-                                                                        status,
-                                                                        output.data_record.iloc[dri]["Contig_id"],
-                                                                        output.data_record.iloc[dri]["Start"],
-                                                                        output.data_record.iloc[dri]["Stop"],
-                                                                        output.data_record.iloc[dri]["Strand"],
-                                                                        output.data_record.iloc[dri]["Score"],
-                                                                        output.data_record.iloc[dri]["Protein_mapped_length"],
-                                                                        dbinfo[output.data_record.iloc[dri]["Target_species"]][0],
-                                                                        dbinfo[output.data_record.iloc[dri]["Target_species"]][1]))
+                            try:
+                                full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
+                                                                     format(output.data_record.iloc[dri]["Target_species"],
+                                                                            status,
+                                                                            output.data_record.iloc[dri]["Contig_id"],
+                                                                            output.data_record.iloc[dri]["Start"],
+                                                                            output.data_record.iloc[dri]["Stop"],
+                                                                            output.data_record.iloc[dri]["Strand"],
+                                                                            output.data_record.iloc[dri]["Score"],
+                                                                            output.data_record.iloc[dri]["Protein_mapped_length"],
+                                                                            dbinfo[output.data_record.iloc[dri]["Target_species"]][0],
+                                                                            dbinfo[output.data_record.iloc[dri]["Target_species"]][1]))
+                            except KeyError:
+                                full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
+                                                                     format(output.data_record.iloc[dri]["Target_species"],
+                                                                            status,
+                                                                            output.data_record.iloc[dri]["Contig_id"],
+                                                                            output.data_record.iloc[dri]["Start"],
+                                                                            output.data_record.iloc[dri]["Stop"],
+                                                                            output.data_record.iloc[dri]["Strand"],
+                                                                            output.data_record.iloc[dri]["Score"],
+                                                                            output.data_record.iloc[dri]["Protein_mapped_length"],
+                                                                            "*",
+                                                                            "*"))
             if output.gene_label == GeneLabel.Single:
                 single_genes.append(gene_id)
             elif output.gene_label == GeneLabel.Duplicated:
