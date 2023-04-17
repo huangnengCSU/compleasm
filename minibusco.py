@@ -172,7 +172,9 @@ class Downloader:
                     if "{}/refseq_db.faa.gz".format(lineage) not in tar.getnames():
                         os.remove(os.path.join(self.download_dir, lineage) + ".tmp")
                         os.remove(download_path)
-                        sys.exit("No refseq_db.faa.gz in lineage {}, this lineage cannot be used in minibusco!".format(lineage))
+                        sys.exit(
+                            "No refseq_db.faa.gz in lineage {}, this lineage cannot be used in minibusco! Lineage file has been deleted.".format(
+                                lineage))
                     tar.extractall(self.download_dir, members=[tar.getmember('{}/refseq_db.faa.gz'.format(lineage))])
                 except:
                     os.remove(os.path.join(self.download_dir, lineage) + ".tmp")
@@ -603,6 +605,7 @@ def find_frameshifts(cs_seq):
             frameshift_events += 1
             frameshift_lengths += int(m.group(0)[:-1])
     return frameshifts, frameshift_events, frameshift_lengths
+
 
 def load_dbinfo(dbinfo_file):
     dbinfo = {}
@@ -1084,7 +1087,8 @@ class MiniprotAlignmentParser:
                                                                         output.data_record["Score"],
                                                                         output.data_record["Protein_mapped_length"],
                                                                         dbinfo[output.data_record["Target_species"]][0],
-                                                                        dbinfo[output.data_record["Target_species"]][1]))
+                                                                        dbinfo[output.data_record["Target_species"]][
+                                                                            1]))
                         except KeyError:
                             full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
                                                                  format(output.data_record["Target_species"],
@@ -1128,32 +1132,35 @@ class MiniprotAlignmentParser:
                                                                         output.data_record.iloc[dri]["Stop"],
                                                                         output.data_record.iloc[dri]["Strand"],
                                                                         output.data_record.iloc[dri]["Score"],
-                                                                        output.data_record.iloc[dri]["Protein_mapped_length"]))
+                                                                        output.data_record.iloc[dri][
+                                                                            "Protein_mapped_length"]))
                         else:
                             try:
                                 full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                                                     format(output.data_record.iloc[dri]["Target_species"],
-                                                                            status,
-                                                                            output.data_record.iloc[dri]["Contig_id"],
-                                                                            output.data_record.iloc[dri]["Start"],
-                                                                            output.data_record.iloc[dri]["Stop"],
-                                                                            output.data_record.iloc[dri]["Strand"],
-                                                                            output.data_record.iloc[dri]["Score"],
-                                                                            output.data_record.iloc[dri]["Protein_mapped_length"],
-                                                                            dbinfo[output.data_record.iloc[dri]["Target_species"]][0],
-                                                                            dbinfo[output.data_record.iloc[dri]["Target_species"]][1]))
+                                                                     format(
+                                    output.data_record.iloc[dri]["Target_species"],
+                                    status,
+                                    output.data_record.iloc[dri]["Contig_id"],
+                                    output.data_record.iloc[dri]["Start"],
+                                    output.data_record.iloc[dri]["Stop"],
+                                    output.data_record.iloc[dri]["Strand"],
+                                    output.data_record.iloc[dri]["Score"],
+                                    output.data_record.iloc[dri]["Protein_mapped_length"],
+                                    dbinfo[output.data_record.iloc[dri]["Target_species"]][0],
+                                    dbinfo[output.data_record.iloc[dri]["Target_species"]][1]))
                             except KeyError:
                                 full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                                                     format(output.data_record.iloc[dri]["Target_species"],
-                                                                            status,
-                                                                            output.data_record.iloc[dri]["Contig_id"],
-                                                                            output.data_record.iloc[dri]["Start"],
-                                                                            output.data_record.iloc[dri]["Stop"],
-                                                                            output.data_record.iloc[dri]["Strand"],
-                                                                            output.data_record.iloc[dri]["Score"],
-                                                                            output.data_record.iloc[dri]["Protein_mapped_length"],
-                                                                            "*",
-                                                                            "*"))
+                                                                     format(
+                                    output.data_record.iloc[dri]["Target_species"],
+                                    status,
+                                    output.data_record.iloc[dri]["Contig_id"],
+                                    output.data_record.iloc[dri]["Start"],
+                                    output.data_record.iloc[dri]["Stop"],
+                                    output.data_record.iloc[dri]["Strand"],
+                                    output.data_record.iloc[dri]["Score"],
+                                    output.data_record.iloc[dri]["Protein_mapped_length"],
+                                    "*",
+                                    "*"))
             if output.gene_label == GeneLabel.Single:
                 single_genes.append(gene_id)
             elif output.gene_label == GeneLabel.Duplicated:
@@ -1431,7 +1438,8 @@ def main():
 
     ### sub-command: run_miniprot
     run_miniprot_parser = subparser.add_parser("run_miniprot", help="Run miniprot alignment")
-    run_miniprot_parser.add_argument("-a", "--assembly", type=str, help="Input genome file in FASTA format", required=True)
+    run_miniprot_parser.add_argument("-a", "--assembly", type=str, help="Input genome file in FASTA format",
+                                     required=True)
     run_miniprot_parser.add_argument("-p", "--protein", type=str, help="Input protein file", required=True)
     run_miniprot_parser.add_argument("-o", "--outdir", type=str, help="Miniprot alignment output directory",
                                      required=True)
