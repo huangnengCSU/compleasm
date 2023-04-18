@@ -606,6 +606,7 @@ def find_frameshifts(cs_seq):
             frameshift_lengths += int(m.group(0)[:-1])
     return frameshifts, frameshift_events, frameshift_lengths
 
+
 def find_frameshifts2(cs_seq):
     frameshifts = []
     frameshift_events = 0
@@ -617,31 +618,30 @@ def find_frameshifts2(cs_seq):
         l, type = int(m.group(0)[:-1]), m.group(0)[-1]
         pattern_lst.append((l, type))
     for i in range(len(pattern_lst)):
-        if pattern_lst[i][1]=="F" or pattern_lst[i][1]=="G":
+        if pattern_lst[i][1] == "F" or pattern_lst[i][1] == "G":
             ## left search
-            j = i-1
+            j = i - 1
             left_match_cnt = 0
-            while j>=0:
-                if pattern_lst[j][1]=="M":
-                    left_match_cnt +=pattern_lst[j][0]
-                elif pattern_lst[j][1]=="N" or pattern_lst[j][1]=="U" or pattern_lst[j][1]=="V":
+            while j >= 0:
+                if pattern_lst[j][1] == "M":
+                    left_match_cnt += pattern_lst[j][0]
+                elif pattern_lst[j][1] == "N" or pattern_lst[j][1] == "U" or pattern_lst[j][1] == "V":
                     break
                 j -= 1
             ## right search
-            j = i+1
+            j = i + 1
             right_match_cnt = 0
-            while j<len(pattern_lst):
-                if pattern_lst[j][1]=="M":
-                    right_match_cnt +=pattern_lst[j][0]
-                elif pattern_lst[j][1]=="N" or pattern_lst[j][1]=="U" or pattern_lst[j][1]=="V":
+            while j < len(pattern_lst):
+                if pattern_lst[j][1] == "M":
+                    right_match_cnt += pattern_lst[j][0]
+                elif pattern_lst[j][1] == "N" or pattern_lst[j][1] == "U" or pattern_lst[j][1] == "V":
                     break
                 j += 1
             if left_match_cnt >= 10 and right_match_cnt >= 10:
-                frameshifts.append(str(pattern_lst[i][0])+pattern_lst[i][1])
+                frameshifts.append(str(pattern_lst[i][0]) + pattern_lst[i][1])
                 frameshift_events += 1
                 frameshift_lengths += int(pattern_lst[i][0])
     return frameshifts, frameshift_events, frameshift_lengths
-
 
 
 def load_dbinfo(dbinfo_file):
@@ -1174,7 +1174,7 @@ class MiniprotAlignmentParser:
                         else:
                             try:
                                 full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                                                     format(
+                                format(
                                     output.data_record.iloc[dri]["Target_species"],
                                     status,
                                     output.data_record.iloc[dri]["Contig_id"],
@@ -1187,7 +1187,7 @@ class MiniprotAlignmentParser:
                                     dbinfo[output.data_record.iloc[dri]["Target_species"]][1]))
                             except KeyError:
                                 full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                                                     format(
+                                format(
                                     output.data_record.iloc[dri]["Target_species"],
                                     status,
                                     output.data_record.iloc[dri]["Contig_id"],
