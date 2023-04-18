@@ -637,7 +637,7 @@ def find_frameshifts2(cs_seq):
                 elif pattern_lst[j][1] == "N" or pattern_lst[j][1] == "U" or pattern_lst[j][1] == "V":
                     break
                 j += 1
-            if left_match_cnt >= 10 and right_match_cnt >= 10:
+            if left_match_cnt >= 20 and right_match_cnt >= 20:
                 frameshifts.append(str(pattern_lst[i][0]) + pattern_lst[i][1])
                 frameshift_events += 1
                 frameshift_lengths += int(pattern_lst[i][0])
