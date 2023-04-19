@@ -252,14 +252,13 @@ def listfiles(folder):
 
 
 class MiniprotRunner:
-    def __init__(self, miniprot_execute_command, nthreads=1, autolineage_mode=False):
+    def __init__(self, miniprot_execute_command, nthreads=1):
         if miniprot_execute_command is None:
             miniprot_execute_command = self.search_miniprot()
 
         print("miniprot execute command:\n {}".format(miniprot_execute_command))
         self.miniprot_execute_command = miniprot_execute_command
         self.threads = nthreads
-        self.autolineage = autolineage_mode
 
     def search_miniprot(self):
         ## Search for miniprot in the path where "minibusco.py" is located
@@ -298,17 +297,10 @@ class MiniprotRunner:
         output_filepath = os.path.join(alignment_outdir, "miniprot_output.gff")
 
         fout = open(output_filepath, "w")
-        if self.autolineage:
-            ### if autolineage mode, use --aln option to output Ata_seq ###
-            miniprot_process = subprocess.Popen(shlex.split(
-                "{} -u -I --outs=0.95 -t {} --aln --gff {} {}".format(self.miniprot_execute_command, self.threads,
-                                                                      assembly_filepath, lineage_filepath,
-                                                                      output_filepath)), stdout=fout, bufsize=8388608)
-        else:
-            miniprot_process = subprocess.Popen(shlex.split(
-                "{} -u -I --outs=0.95 -t {} --gff {} {}".format(self.miniprot_execute_command, self.threads,
-                                                                assembly_filepath, lineage_filepath,
-                                                                output_filepath)), stdout=fout, bufsize=8388608)
+        miniprot_process = subprocess.Popen(shlex.split(
+            "{} --trans -u -I --outs=0.95 -t {} --gff {} {}".format(self.miniprot_execute_command, self.threads,
+                                                                    assembly_filepath, lineage_filepath,
+                                                                    output_filepath)), stdout=fout, bufsize=8388608)
         miniprot_process.wait()
         fout.close()
         return output_filepath
@@ -683,9 +675,10 @@ class MiniprotAlignmentParser:
         self.min_rise = min_rise
         self.specified_contigs = specified_contigs
         self.marker_gene_path = os.path.join(self.run_folder, "gene_marker.fasta")
+        self.translated_protein_path = os.path.join(self.run_folder, "translated_protein.fasta")
 
     @staticmethod
-    def parse_miniprot_records(gff_file, autolineage=False):
+    def parse_miniprot_records(gff_file):
         items = MiniprotGffItems()
         with open(gff_file, "r") as gff:
             while True:
@@ -725,21 +718,15 @@ class MiniprotAlignmentParser:
                     items.frameshift_lengths = frameshift_lengths
                     items.frame_shifts = frame_shifts
 
-                    if autolineage:
-                        # This is for parse the ATN/ATA/AAS/AQA sequences in miniprot --aln
-                        atn_line = gff.readline()
-                        ata_line = gff.readline()
-                        aas_line = gff.readline()
-                        aqa_line = gff.readline()
-                        items.atn_seq = atn_line.strip().split("\t")[1].replace("-", "")
-                        ata_seq = ata_line.strip().split("\t")[1]
-                        new_ata = []
-                        for i in range(len(ata_seq)):
-                            if ata_seq[i].upper() not in AminoAcid:
-                                continue
-                            else:
-                                new_ata.append(ata_seq[i])
-                        items.ata_seq = "".join(new_ata)
+                    sta_line = gff.readline()
+                    sta_seq = sta_line.strip().split("\t")[1]
+                    new_sta = []
+                    for i in range(len(sta_seq)):
+                        if sta_seq[i].upper() not in AminoAcid:
+                            continue
+                        else:
+                            new_sta.append(sta_seq[i])
+                        items.ata_seq = "".join(new_sta)
                 else:
                     fields = line.strip().split("\t")
                     if fields[2] == "mRNA":
@@ -1001,7 +988,7 @@ class MiniprotAlignmentParser:
         single_complete_proteins = []
         gff_file = self.gff_file
         try:
-            reader = iter(self.parse_miniprot_records(gff_file, self.autolineage))
+            reader = iter(self.parse_miniprot_records(gff_file))
             for items in reader:
                 (Atn_seq, Ata_seq, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End, Start, Stop,
                  Strand, Score, Rank, Identity, Positive, Codons, Frameshift_events, Frameshift_lengths,
@@ -1035,6 +1022,7 @@ class MiniprotAlignmentParser:
             if os.path.exists(dbinfo_path):
                 dbinfo = load_dbinfo(dbinfo_path)
         full_table_busco_format_writer = open(self.full_table_busco_format_output_file, "w")
+        translated_protein_writer = open(self.translated_protein_path, "w")
         if dbinfo is None:
             full_table_busco_format_writer.write(
                 "# Busco id\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\n")
@@ -1096,6 +1084,8 @@ class MiniprotAlignmentParser:
                                                    output.data_record["Frameshift_events"],
                                                    output.data_record["Target_id"],
                                                    output.data_record["Codons"]))
+                    translated_protein_writer.write(
+                        ">{}\n{}\n".format(output.data_record["Target_species"], output.data_record["Ata_seq"]))
                     if output.gene_label.name == "Single":
                         status = "Complete"
                     elif output.gene_label.name == "Interspaced":
@@ -1154,6 +1144,8 @@ class MiniprotAlignmentParser:
                                                        output.data_record.iloc[dri]["Frameshift_events"],
                                                        output.data_record.iloc[dri]["Target_id"],
                                                        output.data_record.iloc[dri]["Codons"]))
+                        translated_protein_writer.write(">{}\n{}\n".format(output.data_record.iloc[dri]["Target_species"],
+                                                                           output.data_record.iloc[dri]["Ata_seq"]))
                         if output.gene_label.name == "Single":
                             status = "Complete"
                         elif output.gene_label.name == "Interspaced":
@@ -1213,6 +1205,7 @@ class MiniprotAlignmentParser:
                 raise ValueError
         full_table_writer.close()
         full_table_busco_format_writer.close()
+        translated_protein_writer.close()
 
         total_genes = len(all_species)
         d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(
@@ -1263,7 +1256,7 @@ class MinibuscoRunner:
         self.min_rise = min_rise
         self.specified_contigs = specified_contigs
 
-        self.miniprot_runner = MiniprotRunner(miniprot_execute_command, nthreads, autolineage)
+        self.miniprot_runner = MiniprotRunner(miniprot_execute_command, nthreads)
         self.downloader = Downloader(library_path)
 
         sepp_output_path = os.path.join(output_folder, "sepp_output")
@@ -1393,7 +1386,7 @@ def list_lineages(args):
 
 
 def miniprot(args):
-    mr = MiniprotRunner(args.exec_path, args.threads, autolineage_mode=False)
+    mr = MiniprotRunner(args.exec_path, args.threads)
     mr.run_miniprot(args.assembly, args.protein, args.outdir)
 
 
