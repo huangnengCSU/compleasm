@@ -714,6 +714,8 @@ def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
                 target_name = line[0]
                 query_name = line[3]
                 hmm_score = float(line[7])
+                if target_name.split("|")[0].split("_")[0] != query_name:   ## query name must match the target name
+                    continue
                 if target_name == pre_target_name:
                     continue
                 else:
@@ -1144,6 +1146,7 @@ class MiniprotAlignmentParser:
             mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
             if self.specified_contigs is not None:
                 mapped_records = mapped_records[mapped_records["Contig_id"].isin(self.specified_contigs)]
+            mapped_records = mapped_records[mapped_records["Identity"]>0]   # filter genes not passing hmmsearch
             pass_tids = mapped_records[(mapped_records["Protein_mapped_rate"] >= self.min_length_percent) | (
                     mapped_records["Identity"] >= self.min_identity)]["Target_id"].unique()
 
@@ -1538,7 +1541,7 @@ def miniprot(args):
     mr.run_miniprot(args.assembly, args.protein, args.outdir)
 
 
-def analysis(args):
+def analyze(args):
     ar = MiniprotAlignmentParser(run_folder=args.output_dir,
                                  gff_file=args.gff,
                                  lineage=None,
@@ -1607,7 +1610,7 @@ def main():
     download_parser.add_argument("-l", "--lineage", type=str, nargs='+',
                                  help="Specify the names of the BUSCO lineages to be downloaded. (e.g. eukaryota, primates, saccharomycetes etc.)",
                                  required=True)
-    download_parser.add_argument("--library_path", type=str, default="mb_downloads",
+    download_parser.add_argument("-L", "--library_path", type=str, default="mb_downloads",
                                  help="The destination folder to store the downloaded lineage files."
                                       "If not specified, a folder named \"mb_downloads\" will be created on the current running path.")
     download_parser.set_defaults(func=download)
@@ -1616,11 +1619,11 @@ def main():
     list_parser = subparser.add_parser("list", help="List local or remote BUSCO lineages")
     list_parser.add_argument("--remote", action="store_true", help="List remote BUSCO lineages")
     list_parser.add_argument("--local", action="store_true", help="List local BUSCO lineages")
-    list_parser.add_argument("--library_path", type=str, help="Folder path to stored lineages. ", default=None)
+    list_parser.add_argument("-L", "--library_path", type=str, help="Folder path to stored lineages. ", default=None)
     list_parser.set_defaults(func=list_lineages)
 
     ### sub-command: run_miniprot
-    run_miniprot_parser = subparser.add_parser("run_miniprot", help="Run miniprot alignment")
+    run_miniprot_parser = subparser.add_parser("miniprot", help="Run miniprot alignment")
     run_miniprot_parser.add_argument("-a", "--assembly", type=str, help="Input genome file in FASTA format",
                                      required=True)
     run_miniprot_parser.add_argument("-p", "--protein", type=str, help="Input protein file", required=True)
@@ -1630,14 +1633,14 @@ def main():
     run_miniprot_parser.add_argument("--exec_path", type=str, help="Path to miniprot executable", default=None)
     run_miniprot_parser.set_defaults(func=miniprot)
 
-    ### sub-command: analysis
-    analysis_parser = subparser.add_parser("analysis",
+    ### sub-command: analyze
+    analysis_parser = subparser.add_parser("analyze",
                                            help="Evaluate genome completeness from provided miniprot alignment")
     analysis_parser.add_argument("-g", "--gff", type=str, help="Miniprot output gff file", required=True)
     analysis_parser.add_argument("-l", "--lineage", type=str, help="BUSCO lineage name", required=True)
     analysis_parser.add_argument("-o", "--output_dir", type=str, help="Output analysis folder", required=True)
     analysis_parser.add_argument("-t", "--threads", type=int, help="Number of threads to use", default=1)
-    analysis_parser.add_argument("--library_path", type=str, default="mb_downloads",
+    analysis_parser.add_argument("-L", "--library_path", type=str, default="mb_downloads",
                                  help="Folder path to stored lineages. ")
     analysis_parser.add_argument("--hmmsearch_execute_path", type=str, help="Path to hmmsearch executable",
                                  required=True)
@@ -1653,7 +1656,7 @@ def main():
                                  help="The length threshold for complete gene.")
     analysis_parser.add_argument("--min_rise", type=float, default=0.5,
                                  help="Minimum length threshold to make dupicate take precedence over single or fragmented over single/duplicate.")
-    analysis_parser.set_defaults(func=analysis)
+    analysis_parser.set_defaults(func=analyze)
 
     ### sub-command: run
     run_parser = subparser.add_parser("run",
@@ -1663,7 +1666,7 @@ def main():
     run_parser.add_argument("-t", "--threads", type=int, default=1, help="Number of threads to use")
     run_parser.add_argument("-l", "--lineage", type=str, default=None,
                             help="Specify the name of the BUSCO lineage to be used. (e.g. eukaryota, primates, saccharomycetes etc.)")
-    run_parser.add_argument("--library_path", type=str, default="mb_downloads",
+    run_parser.add_argument("-L", "--library_path", type=str, default="mb_downloads",
                             help="Folder path to download lineages or already downloaded lineages. "
                                  "If not specified, a folder named \"mb_downloads\" will be created on the current running path by default to store the downloaded lineage files.")
     run_parser.add_argument("--specified_contigs", type=str, nargs='+', default=None,
