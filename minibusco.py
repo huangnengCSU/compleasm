@@ -1104,20 +1104,29 @@ class MiniprotAlignmentParser:
         cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
         reliable_mappings = load_hmmsearch_output(self.hmm_output_folder, cutoff_dict)
         reliable_mappings = set(reliable_mappings)
-        records_df = pd.DataFrame(records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
+        new_records = []
+        for record in records:
+            if "{}|{}:{}-{}".format(record[1], record[2], record[8], record[9]) in reliable_mappings:
+                new_records.append(record)
+            else:
+                record[7] = 0
+                record[13] = 0
+                record[15] = 0
+                new_records.append(record)
+        records_df = pd.DataFrame(new_records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
                                                     "Protein_Start", "Protein_End", "Protein_mapped_length",
                                                     "Protein_mapped_rate", "Start", "Stop", "Genome_mapped_length",
                                                     "Strand", "Rank", "Identity", "Positive", "I+L",
                                                     "Frameshift_events", "Frameshift_lengths", "Score", "Atn_seq",
                                                     "Ata_seq", "Codons"])
-        for rx in range(records_df.shape[0]):
-            target_id = records_df.iloc[rx]["Target_id"]
-            contig_id = records_df.iloc[rx]["Contig_id"]
-            start = records_df.iloc[rx]["Start"]
-            stop = records_df.iloc[rx]["Stop"]
-            if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) not in reliable_mappings:
-                records_df.loc[rx, "Identity"] = 0
-                records_df.loc[rx, "I+L"] = 0
+        # for rx in range(records_df.shape[0]):
+        #     target_id = records_df.iloc[rx]["Target_id"]
+        #     contig_id = records_df.iloc[rx]["Contig_id"]
+        #     start = records_df.iloc[rx]["Start"]
+        #     stop = records_df.iloc[rx]["Stop"]
+        #     if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) not in reliable_mappings:
+        #         records_df.loc[rx, "Identity"] = 0
+        #         records_df.loc[rx, "I+L"] = 0
         all_species = records_df["Target_species"].unique()
         all_contigs = records_df["Contig_id"].unique()
         if self.specified_contigs is not None:
