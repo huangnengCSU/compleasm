@@ -13,12 +13,14 @@ import sys
 import tarfile
 import urllib.request
 import subprocess
+from multiprocessing import Pool
 import shlex
 import shutil
 import re
 import json
 from enum import Enum
 from collections import defaultdict
+from itertools import repeat
 import pandas as pd
 import time
 
@@ -167,7 +169,11 @@ class Downloader:
                 # tar.extractall(self.download_dir)
                 try:
                     tar.extractall(self.download_dir, members=[tar.getmember('{}/refseq_db.faa.gz'.format(lineage)),
-                                                               tar.getmember('{}/links_to_ODB10.txt'.format(lineage))])
+                                                               tar.getmember('{}/links_to_ODB10.txt'.format(lineage)),
+                                                               tar.getmember('{}/hmms'.format(lineage)),
+                                                               tar.getmember('{}/scores_cutoff'.format(lineage))])
+                    hmm_files = [u for u in tar.getnames() if ".hmm" in u]
+                    tar.extractall(self.download_dir, members=[tar.getmember(u) for u in hmm_files])
                 except KeyError:
                     if "{}/refseq_db.faa.gz".format(lineage) not in tar.getnames():
                         os.remove(os.path.join(self.download_dir, lineage) + ".tmp")
@@ -175,7 +181,11 @@ class Downloader:
                         sys.exit(
                             "No refseq_db.faa.gz in lineage {}, this lineage cannot be used in minibusco! Lineage file has been deleted.".format(
                                 lineage))
-                    tar.extractall(self.download_dir, members=[tar.getmember('{}/refseq_db.faa.gz'.format(lineage))])
+                    tar.extractall(self.download_dir, members=[tar.getmember('{}/refseq_db.faa.gz'.format(lineage)),
+                                                               tar.getmember('{}/hmms'.format(lineage)),
+                                                               tar.getmember('{}/scores_cutoff'.format(lineage))])
+                    hmm_files = [u for u in tar.getnames() if ".hmm" in u]
+                    tar.extractall(self.download_dir, members=[tar.getmember(u) for u in hmm_files])
                 except:
                     os.remove(os.path.join(self.download_dir, lineage) + ".tmp")
                     os.remove(download_path)
@@ -507,6 +517,35 @@ class AutoLineager:
         return lineage
 
 
+### hmmersearch ###
+
+def run_hmmsearch(hmmsearch_execute_command, output_file, hmm_profile, protein_file):
+    hmmer_process = subprocess.Popen(shlex.split(
+        "{} --domtblout {} --cpu 1 {} {}".format(hmmsearch_execute_command, output_file, hmm_profile, protein_file)),
+        stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    hmmer_process.wait()
+
+
+class Hmmersearch:
+    def __init__(self, hmmsearch_execute_command, hmm_profiles, translated_protein_file, threads, output_folder):
+        self.hmmsearch_execute_command = hmmsearch_execute_command
+        self.hmm_profiles = hmm_profiles
+        self.translated_protein_file = translated_protein_file
+        self.threads = threads
+        self.output_folder = output_folder
+
+    def Run(self):
+        pool = Pool(self.threads)
+        for profile in os.listdir(self.hmm_profiles):
+            outfile = profile.replace(".hmm", ".out")
+            absolute_path_outfile = os.path.join(self.output_folder, outfile)
+            absolute_path_profile = os.path.join(self.hmm_profiles, profile)
+            pool.apply_async(run_hmmsearch, args=(self.hmmsearch_execute_command, absolute_path_outfile,
+                                                  absolute_path_profile, self.translated_protein_file))
+        pool.close()
+        pool.join()
+
+
 ### Analysis miniprot alignment ###
 AminoAcid = ["A", "R", "N", "D", "C", "Q", "E", "G", "H", "I",
              "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V"]
@@ -645,9 +684,48 @@ def load_dbinfo(dbinfo_file):
     return dbinfo
 
 
+def load_score_cutoff(scores_cutoff_file):
+    cutoff_dict = {}
+    try:
+        with open(scores_cutoff_file, "r") as f:
+            for line in f:
+                line = line.strip().split()
+                try:
+                    taxid = line[0]
+                    score = float(line[1])
+                    cutoff_dict[taxid] = score
+                except IndexError:
+                    raise Error("Error parsing the scores_cutoff file.")
+    except IOError:
+        raise Error("Impossible to read the scores in {}".format(scores_cutoff_file))
+    return cutoff_dict
+
+
+def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
+    reliable_mappings = []
+    for outfile in os.listdir(hmmsearch_output_folder):
+        outfile = os.path.join(hmmsearch_output_folder, outfile)
+        with open(outfile, 'r') as fin:
+            pre_target_name = None
+            for line in fin:
+                if line.startswith('#'):
+                    continue
+                line = line.strip().split()
+                target_name = line[0]
+                query_name = line[3]
+                hmm_score = float(line[7])
+                if target_name == pre_target_name:
+                    continue
+                else:
+                    if hmm_score >= cutoff_dict[query_name]:
+                        reliable_mappings.append(target_name)
+                    pre_target_name = target_name
+    return reliable_mappings
+
+
 class MiniprotAlignmentParser:
     def __init__(self, run_folder, gff_file, lineage, min_length_percent, min_diff, min_identity, min_complete,
-                 min_rise, specified_contigs, autolineage, library_path=None):
+                 min_rise, specified_contigs, autolineage, hmmsearch_execute_command, nthreads, library_path):
         self.autolineage = autolineage
         self.run_folder = run_folder
         if not os.path.exists(run_folder):
@@ -676,6 +754,13 @@ class MiniprotAlignmentParser:
         self.specified_contigs = specified_contigs
         self.marker_gene_path = os.path.join(self.run_folder, "gene_marker.fasta")
         self.translated_protein_path = os.path.join(self.run_folder, "translated_protein.fasta")
+        self.hmm_profiles = os.path.join(self.library_path, lineage, "hmms")
+        self.hmmsearch_execute_command = hmmsearch_execute_command
+        self.hmm_output_folder = os.path.join(self.run_folder, "hmmer_output")
+        self.nthreads = nthreads
+
+        if not os.path.exists(self.hmm_output_folder):
+            os.makedirs(self.hmm_output_folder)
 
     @staticmethod
     def parse_miniprot_records(gff_file):
@@ -987,6 +1072,7 @@ class MiniprotAlignmentParser:
         records = []
         single_complete_proteins = []
         gff_file = self.gff_file
+        translated_protein_writer = open(self.translated_protein_path, "w")
         try:
             reader = iter(self.parse_miniprot_records(gff_file))
             for items in reader:
@@ -994,19 +1080,44 @@ class MiniprotAlignmentParser:
                  Strand, Score, Rank, Identity, Positive, Codons, Frameshift_events, Frameshift_lengths,
                  Frame_shifts) = items.show()
                 Target_species = Target_id.split("_")[0]
-                records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
-                                Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
-                                Stop, Stop - Start, Strand, Rank, Identity, Positive,
-                                (Protein_End - Protein_Start) / Protein_length * Identity,
-                                Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq, Codons])
+                if Contig_id != "*":
+                    records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
+                                    Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
+                                    Stop, Stop - Start, Strand, Rank, Identity, Positive,
+                                    (Protein_End - Protein_Start) / Protein_length * Identity,
+                                    Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq, Codons])
+                    translated_protein_writer.write(
+                        ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start, Stop, Ata_seq))
+                else:
+                    records.append(
+                        [Target_species, Target_id, Contig_id, 0, 0, 0, 0, 0, 0, 0, 0, "+", 0, 0, 0, 0, 0, 0, 0,
+                         Atn_seq, Ata_seq, Codons])
         except StopIteration:
             pass
+        translated_protein_writer.close()
+        hmmsearcher = Hmmersearch(hmmsearch_execute_command=self.hmmsearch_execute_command,
+                                  hmm_profiles=self.hmm_profiles,
+                                  translated_protein_file=self.translated_protein_path,
+                                  threads=self.nthreads,
+                                  output_folder=self.hmm_output_folder)
+        hmmsearcher.Run()
+        cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
+        reliable_mappings = load_hmmsearch_output(self.hmm_output_folder, cutoff_dict)
+        reliable_mappings = set(reliable_mappings)
         records_df = pd.DataFrame(records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
                                                     "Protein_Start", "Protein_End", "Protein_mapped_length",
                                                     "Protein_mapped_rate", "Start", "Stop", "Genome_mapped_length",
                                                     "Strand", "Rank", "Identity", "Positive", "I+L",
                                                     "Frameshift_events", "Frameshift_lengths", "Score", "Atn_seq",
                                                     "Ata_seq", "Codons"])
+        for rx in range(records_df.shape[0]):
+            target_id = records_df.iloc[rx]["Target_id"]
+            contig_id = records_df.iloc[rx]["Contig_id"]
+            start = records_df.iloc[rx]["Start"]
+            stop = records_df.iloc[rx]["Stop"]
+            if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) not in reliable_mappings:
+                records_df.loc[rx, "Identity"] = 0
+                records_df.loc[rx, "I+L"] = 0
         all_species = records_df["Target_species"].unique()
         all_contigs = records_df["Contig_id"].unique()
         if self.specified_contigs is not None:
@@ -1022,7 +1133,6 @@ class MiniprotAlignmentParser:
             if os.path.exists(dbinfo_path):
                 dbinfo = load_dbinfo(dbinfo_path)
         full_table_busco_format_writer = open(self.full_table_busco_format_output_file, "w")
-        translated_protein_writer = open(self.translated_protein_path, "w")
         if dbinfo is None:
             full_table_busco_format_writer.write(
                 "# Busco id\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\n")
@@ -1084,8 +1194,8 @@ class MiniprotAlignmentParser:
                                                    output.data_record["Frameshift_events"],
                                                    output.data_record["Target_id"],
                                                    output.data_record["Codons"]))
-                    translated_protein_writer.write(
-                        ">{}\n{}\n".format(output.data_record["Target_species"], output.data_record["Ata_seq"]))
+                    # translated_protein_writer.write(
+                    #     ">{}\n{}\n".format(output.data_record["Target_species"], output.data_record["Ata_seq"]))
                     if output.gene_label.name == "Single":
                         status = "Complete"
                     elif output.gene_label.name == "Interspaced":
@@ -1144,8 +1254,9 @@ class MiniprotAlignmentParser:
                                                        output.data_record.iloc[dri]["Frameshift_events"],
                                                        output.data_record.iloc[dri]["Target_id"],
                                                        output.data_record.iloc[dri]["Codons"]))
-                        translated_protein_writer.write(">{}\n{}\n".format(output.data_record.iloc[dri]["Target_species"],
-                                                                           output.data_record.iloc[dri]["Ata_seq"]))
+                        # translated_protein_writer.write(
+                        #     ">{}\n{}\n".format(output.data_record.iloc[dri]["Target_species"],
+                        #                        output.data_record.iloc[dri]["Ata_seq"]))
                         if output.gene_label.name == "Single":
                             status = "Complete"
                         elif output.gene_label.name == "Interspaced":
@@ -1205,7 +1316,7 @@ class MiniprotAlignmentParser:
                 raise ValueError
         full_table_writer.close()
         full_table_busco_format_writer.close()
-        translated_protein_writer.close()
+        # translated_protein_writer.close()
 
         total_genes = len(all_species)
         d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(
@@ -1239,9 +1350,11 @@ class MiniprotAlignmentParser:
 ### Minibusco Runner ###
 class MinibuscoRunner:
     def __init__(self, assembly_path, output_folder, library_path, lineage, autolineage, nthreads,
-                 miniprot_execute_command, sepp_execute_command, min_diff, min_length_percent, min_identity,
-                 min_complete, min_rise, specified_contigs):
-        if lineage is not None:
+                 miniprot_execute_command, hmmsearch_execute_command, sepp_execute_command, min_diff,
+                 min_length_percent, min_identity, min_complete, min_rise, specified_contigs):
+        if lineage is None:
+            lineage = "eukaryota_odb10"
+        else:
             if not lineage.endswith("_odb10"):
                 lineage = lineage + "_odb10"
         self.lineage = lineage
@@ -1255,9 +1368,13 @@ class MinibuscoRunner:
         self.min_complete = min_complete
         self.min_rise = min_rise
         self.specified_contigs = specified_contigs
+        self.nthreads = nthreads
+        self.hmmsearch_execute_command = hmmsearch_execute_command
 
         self.miniprot_runner = MiniprotRunner(miniprot_execute_command, nthreads)
         self.downloader = Downloader(library_path)
+
+        self.hmm_profiles = os.path.join(self.downloader.download_dir, self.lineage, "hmms")
 
         sepp_output_path = os.path.join(output_folder, "sepp_output")
         sepp_tmp_path = os.path.join(output_folder, "sepp_tmp")
@@ -1295,12 +1412,26 @@ class MinibuscoRunner:
                                                             min_rise=self.min_rise,
                                                             specified_contigs=self.specified_contigs,
                                                             autolineage=self.autolineage,
-                                                            library_path=self.library_path)
+                                                            library_path=self.library_path,
+                                                            hmmsearch_execute_command=self.hmmsearch_execute_command,
+                                                            nthreads=self.nthreads)
 
         if os.path.exists(miniprot_alignment_parser.completeness_output_file):
             os.remove(miniprot_alignment_parser.completeness_output_file)
         miniprot_alignment_parser.Run()
         analysis_miniprot_end_time = time.time()
+        # hmmsearch_start_time = time.time()
+        # hmmer_output_dir = os.path.join(self.output_folder, lineage, "hmmer_outputs")
+        # if not os.path.exists(hmmer_output_dir):
+        #     os.makedirs(hmmer_output_dir)
+        # translated_protein_file = os.path.join(self.output_folder, lineage, "translated_protein.fasta")
+        # hmmsearcher = Hmmersearch(hmmsearch_execute_command=self.hmmsearch_execute_command,
+        #                           hmm_profiles=self.hmm_profiles,
+        #                           translated_protein_file=translated_protein_file,
+        #                           threads=self.nthreads,
+        #                           output_folder=hmmer_output_dir)
+        # hmmsearcher.Run()
+        # hmmsearch_end_time = time.time()
         if self.autolineage:
             autolineage_start_time = time.time()
             marker_genes_filepath = miniprot_alignment_parser.marker_gene_path
@@ -1338,19 +1469,36 @@ class MinibuscoRunner:
                                                                 min_rise=self.min_rise,
                                                                 specified_contigs=self.specified_contigs,
                                                                 autolineage=self.autolineage,
-                                                                library_path=self.library_path)
+                                                                library_path=self.library_path,
+                                                                hmmsearch_execute_command=self.hmmsearch_execute_command,
+                                                                nthreads=self.nthreads)
             miniprot_alignment_parser.Run()
             second_analysis_miniprot_end_time = time.time()
+            # second_run_hmmsearch_start_time = time.time()
+            # hmmer_output_dir = os.path.join(self.output_folder, lineage, "hmmer_outputs")
+            # if not os.path.exists(hmmer_output_dir):
+            #     os.makedirs(hmmer_output_dir)
+            # translated_protein_file = os.path.join(self.output_folder, lineage, "translated_protein.fasta")
+            # hmmsearcher = Hmmersearch(hmmsearch_execute_command=self.hmmsearch_execute_command,
+            #                           hmm_profiles=self.hmm_profiles,
+            #                           translated_protein_file=translated_protein_file,
+            #                           threads=self.nthreads,
+            #                           output_folder=hmmer_output_dir)
+            # hmmsearcher.Run()
+            # second_run_hmmsearch_end_time = time.time()
         end_time = time.time()
         print("## Download lineage: {:.2f}(s)".format(download_lineage_end_time - download_lineage_start_time))
         print("## Run miniprot: {:.2f}(s)".format(run_miniprot_end_time - run_miniprot_start_time))
         print("## Analyze miniprot: {:.2f}(s)".format(analysis_miniprot_end_time - analysis_miniprot_start_time))
+        # print("## Hmmersearch: {:.2f}(s)".format(hmmsearch_end_time - hmmsearch_start_time))
         if self.autolineage:
             print("## Autolineage: {:.2f}(s)".format(autolineage_end_time - autolineage_start_time))
             print("## Second run miniprot: {:.2f}(s)".format(
                 second_run_miniprot_end_time - second_run_miniprot_start_time))
             print("## Second analyze miniprot: {:.2f}(s)".format(
                 second_analysis_miniprot_end_time - second_analysis_miniprot_start_time))
+            # print("## Second run Hmmersearch: {:.2f}(s)".format(
+            #     second_run_hmmsearch_end_time - second_run_hmmsearch_start_time))
         print("## Total runtime: {:.2f}(s)".format(end_time - begin_time))
 
 
@@ -1400,7 +1548,10 @@ def analysis(args):
                                  min_complete=args.min_complete,
                                  min_rise=args.min_rise,
                                  specified_contigs=args.specified_contigs,
-                                 autolineage=False)
+                                 autolineage=False,
+                                 library_path=args.library_path,
+                                 hmmsearch_execute_command=args.hmmsearch_execute_path,
+                                 nthreads=args.threads)
     ar.Run()
 
 
@@ -1412,6 +1563,7 @@ def run(args):
     autolineage = args.autolineage
     nthreads = args.threads
     miniprot_execute_command = args.miniprot_execute_path
+    hmmsearch_execute_command = args.hmmsearch_execute_path
     sepp_execute_command = args.sepp_execute_path
     min_diff = args.min_diff
     min_length_percent = args.min_length_percent
@@ -1434,6 +1586,7 @@ def run(args):
                          autolineage=autolineage,
                          nthreads=nthreads,
                          miniprot_execute_command=miniprot_execute_command,
+                         hmmsearch_execute_command=hmmsearch_execute_command,
                          sepp_execute_command=sepp_execute_command,
                          min_diff=min_diff,
                          min_length_percent=min_length_percent,
@@ -1481,7 +1634,13 @@ def main():
     analysis_parser = subparser.add_parser("analysis",
                                            help="Evaluate genome completeness from provided miniprot alignment")
     analysis_parser.add_argument("-g", "--gff", type=str, help="Miniprot output gff file", required=True)
+    analysis_parser.add_argument("-l", "--lineage", type=str, help="BUSCO lineage name", required=True)
     analysis_parser.add_argument("-o", "--output_dir", type=str, help="Output analysis folder", required=True)
+    analysis_parser.add_argument("-t", "--threads", type=int, help="Number of threads to use", default=1)
+    analysis_parser.add_argument("--library_path", type=str, default="mb_downloads",
+                                 help="Folder path to stored lineages. ")
+    analysis_parser.add_argument("--hmmsearch_execute_path", type=str, help="Path to hmmsearch executable",
+                                 required=True)
     analysis_parser.add_argument("--specified_contigs", type=str, nargs='+', default=None,
                                  help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.")
     analysis_parser.add_argument("--min_diff", type=float, default=0.2,
@@ -1511,6 +1670,7 @@ def main():
                             help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.")
     run_parser.add_argument("--miniprot_execute_path", type=str, default=None,
                             help="Path to miniprot executable")
+    run_parser.add_argument("--hmmsearch_execute_path", type=str, help="Path to hmmsearch executable", required=True)
     run_parser.add_argument("--autolineage", action="store_true",
                             help="Automatically search for the best matching lineage without specifying lineage file.")
     run_parser.add_argument("--sepp_execute_path", type=str, default=None,
