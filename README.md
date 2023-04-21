@@ -65,8 +65,8 @@ Sepp executable file is located in `sepp-package/sepp/run_sepp.py`.
 ```angular2html
 download        Download specified BUSCO lineage
 list            List local or remote BUSCO lineages
-run_miniprot    Run miniprot alignment
-analysis        Evaluate genome completeness from provided miniprot alignment
+miniprot        Run miniprot alignment
+analyze         Evaluate genome completeness from provided miniprot alignment
 run             Run minibusco including miniprot alignment and completeness evaluation
 ```
 
@@ -77,11 +77,10 @@ protein sequences in the lineage file to the genome sequence with miniprot, and 
 evaluate genome completeness.
 #### Usage:
 ```angular2html
-python minibusco.py run -a ASSEMBLY_PATH -o OUTPUT_DIR --miniprot_execute_path MINIPROT_EXECUTE_PATH
-                        [-t THREADS] [-l LINEAGE] [--library_path LIBRARY_PATH] [--specified_contigs SPECIFIED_CONTIGS [SPECIFIED_CONTIGS ...]] 
-                        [--miniprot_execute_path MINIPROT_EXECUTE_PATH] [--autolineage] [--sepp_execute_path SEPP_EXECUTE_PATH] 
-                        [--min_diff MIN_DIFF] [--min_identity MIN_IDENTITY] [--min_length_percent MIN_LENGTH_PERCENT] 
-                        [--min_complete MIN_COMPLETE] [--min_rise MIN_RISE][-h] 
+python minibusco.py run [-h] -a ASSEMBLY_PATH -o OUTPUT_DIR --hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH [-t THREADS] [-l LINEAGE] [-L LIBRARY_PATH] 
+                        [--specified_contigs SPECIFIED_CONTIGS [SPECIFIED_CONTIGS ...]] [--miniprot_execute_path MINIPROT_EXECUTE_PATH]
+                        [--autolineage] [--sepp_execute_path SEPP_EXECUTE_PATH] [--min_diff MIN_DIFF] [--min_identity MIN_IDENTITY] 
+                        [--min_length_percent MIN_LENGTH_PERCENT] [--min_complete MIN_COMPLETE] [--min_rise MIN_RISE]
 ```
 
 #### Important parameters:
@@ -90,14 +89,14 @@ python minibusco.py run -a ASSEMBLY_PATH -o OUTPUT_DIR --miniprot_execute_path M
   -o, --output_dir           The output folder
   -t, --threads              Number of threads to use
   -l, --lineage              Specify the name of the BUSCO lineage to be used. (e.g. eukaryota, primates, saccharomycetes etc.)
-  --library_path             Folder path to download lineages or already downloaded lineages. 
+  -L, --library_path         Folder path to download lineages or already downloaded lineages. 
                              If not specified, a folder named "mb_downloads" will be created on the current running path by default to store the downloaded lineage files.
+  --specified_contigs        Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.
   --miniprot_execute_path    Path to miniprot executable file. 
                              If not specified, minibusco will search for miniprot in the directory where minibusco.py is located, the current execution directory, and system environment variables.
   --hmmsearch_execute_path   Path to hmmsearch executable file.
   --autolineage              Automatically search for the best matching lineage without specifying lineage file.
   --sepp_execute_path        Path to sepp executable file. This is required if you want to use the autolineage mode.
-  --specified_contigs        Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.
 ```
 
 #### Threshold parameters:
@@ -117,25 +116,28 @@ python minibusco.py run -a genome.fasta -o output_dir -l eukaryota -t 8 --hmmsea
 python minibusco.py run -a genome.fasta -o output_dir -t 8 --autolineage --hmmsearch_execute_path /path/to/hmmsearch ---sepp_execute_path run_sepp.py
 
 # with custom specified already downloaded lineage folder
-python minibusco.py run -a genome.fasta -o output_dir -l eukaryota -t 8 --hmmsearch_execute_path /path/to/hmmsearch --library_path /path/to/lineages_folder
+python minibusco.py run -a genome.fasta -o output_dir -l eukaryota -t 8 --hmmsearch_execute_path /path/to/hmmsearch -L /path/to/lineages_folder
 
 # specify contigs
 python minibusco.py run -a genome.fasta -o output_dir -l eukaryota -t 8 --hmmsearch_execute_path /path/to/hmmsearch --specified_contigs chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22
 ```
 
-### Using `analysis` submodule to evaluate genome completeness from provided miniprot alignment:
+### Using `analyze` submodule to evaluate genome completeness from provided miniprot alignment:
 This will directly parse the provided miniprot alignment result to evaluate genome completeness. The execute command of miniprot should be like `miniprot -u -I --outs=0.95 --gff -t 8 ref-file protein.faa > output.gff`.
 #### Usage:
 ```angular2html
-python minibusco.py analysis -g GFF -o OUTPUT_DIR -l LINEAGE --hmmsearch_execute_path [--specified_contigs SPECIFIED_CONTIGS [SPECIFIED_CONTIGS ...]] 
-                        [--min_diff MIN_DIFF] [--min_identity MIN_IDENTITY] [--min_length_percent MIN_LENGTH_PERCENT] 
-                        [--min_complete MIN_COMPLETE] [--min_rise MIN_RISE] [-h]
+python minibusco.py analyze [-h] -g GFF -l LINEAGE -o OUTPUT_DIR --hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH 
+                            [-t THREADS] [-L LIBRARY_PATH] [--specified_contigs SPECIFIED_CONTIGS [SPECIFIED_CONTIGS ...]] 
+                            [--min_diff MIN_DIFF] [--min_identity MIN_IDENTITY][--min_length_percent MIN_LENGTH_PERCENT] 
+                            [--min_complete MIN_COMPLETE] [--min_rise MIN_RISE]
 ```
 #### Important parameters:
 ```angular2html
   -g, --gff                 Miniprot output gff file
   -l, --lineage             BUSCO lineage name
   -o, --output_dir          Output analysis folder
+  -t, --threads             Number of threads to use
+  -L, --library_path        Folder path to stored lineages.
   --hmmsearch_execute_path  Path to hmmsearch executable
   --specified_contigs       Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.
 ```
@@ -144,36 +146,36 @@ Threshold parameters are same as `run` module.
 #### Example:
 ```angular2html
 # analysis with miniprot output gff file
-python minibusco.py analysis -g miniprot.gff -o output_dir
+python minibusco.py analyze -g miniprot.gff -o output_dir -l eukaryota -t 8 --hmmsearch_execute_path /path/to/hmmsearch
 
 # specify contigs
-minibusco analysis -g miniprot.gff -o output_dir --specified_contigs chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22
+minibusco analyze -g miniprot.gff -o output_dir -l eukaryota -t 8 --hmmsearch_execute_path /path/to/hmmsearch --specified_contigs chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22
 ```
 
 ### Using `download` submodule to download lineage:
 This will download the specified lineages and save to the specified folder.
 #### Usage:
 ```angular2html
-python minibusco.py download [-h] -l LINEAGE [LINEAGE ...] [--library_path LIBRARY_PATH]
+python minibusco.py download [-h] -l LINEAGE [LINEAGE ...] [-L LIBRARY_PATH]
 ```
 
 #### Important parameters:
 ```angular2html
-  -l, --lineage       Specify the names of the BUSCO lineages to be downloaded. (e.g. eukaryota, primates, saccharomycetes etc.)
-  --library_path      The destination folder to store the downloaded lineage files.
-                      If not specified, a folder named "mb_downloads" will be created on the current running path by default.
+  -l, --lineage           Specify the names of the BUSCO lineages to be downloaded. (e.g. eukaryota, primates, saccharomycetes etc.)
+  -L, --library_path      The destination folder to store the downloaded lineage files.
+                          If not specified, a folder named "mb_downloads" will be created on the current running path by default.
 ```
 
 #### Example:
 ```angular2html
-python minibusco.py download -l primates brassicales --library_path /path/to/lineages_folder
+python minibusco.py download -l primates brassicales -L /path/to/lineages_folder
 ```
 
-### Using `run_miniprot` submodule to run miniprot alignment:
+### Using `miniprot` submodule to run miniprot alignment:
 This will run miniprot alignment and output the gff file.
 #### Usage:
 ```angular2html
-python minibusco.py run_miniprot [-h] -a ASSEMBLY -p PROTEIN -o OUTDIR [-t THREADS] [--exec_path EXEC_PATH]
+python minibusco.py miniprot [-h] -a ASSEMBLY -p PROTEIN -o OUTDIR [-t THREADS] [--exec_path EXEC_PATH]
 ```
 
 #### Important parameters:
@@ -188,27 +190,27 @@ python minibusco.py run_miniprot [-h] -a ASSEMBLY -p PROTEIN -o OUTDIR [-t THREA
 
 #### Example:
 ```angular2html
-python minibusco.py run_miniprot -a genome.fasta -p protein.faa -o output_dir -t 8
+python minibusco.py miniprot -a genome.fasta -p protein.faa -o output_dir -t 8
 ```
 
 ### Using `list` submodule to show local or remote Busco lineages:
 This will list the local or remote BUSCO lineages.
 #### Usage:
 ```angular2html
-python minibusco.py list [-h] [--remote] [--local] [--library_path LIBRARY_PATH]
+python minibusco.py list [-h] [--remote] [--local] [-L LIBRARY_PATH]
 ```
 
 #### Important parameters:
 ```angular2html
-  --remote         List remote BUSCO lineages
-  --local          List local BUSCO lineages
-  --library_path   Folder path to stored lineages.
+  --remote             List remote BUSCO lineages
+  --local              List local BUSCO lineages
+  -L, --library_path   Folder path to stored lineages.
 ```
 
 #### Example
 ```angular2html
 # list local lineages
-python minibusco.py list --local --library_path /path/to/lineages_folder
+python minibusco.py list --local -L /path/to/lineages_folder
 
 # list remote lineages
 python minibusco.py list --remote
