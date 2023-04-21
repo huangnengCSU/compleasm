@@ -7,10 +7,10 @@
 - [Running](#running)
   - [Main Modules](#main-modules)
   - [Using `run` submodule to evaluate genome completeness from genome assembly](#using-run-submodule-to-evaluate-genome-completeness-from-genome-assembly)
-  - [Using `analysis` submodule to evaluate genome completeness from provided miniprot alignment](#using-analysis-submodule-to-evaluate-genome-completeness-from-provided-miniprot-alignment)
+  - [Using `analyze` submodule to evaluate genome completeness from provided miniprot alignment](#using-analysis-submodule-to-evaluate-genome-completeness-from-provided-miniprot-alignment)
   - [Using `download` submodule to download lineage](#using-download-submodule-to-download-lineage)
   - [Using `list` submodule to list local or remote lineages](#using-list-submodule-to-list-local-or-remote-lineages)
-  - [Using `run_miniprot` submodule to run miniprot](#using-run_miniprot-submodule-to-run-miniprot)
+  - [Using `miniprot` submodule to run miniprot](#using-run_miniprot-submodule-to-run-miniprot)
 
 Installation
 ------------
