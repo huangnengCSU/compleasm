@@ -1544,7 +1544,7 @@ def miniprot(args):
 def analyze(args):
     ar = MiniprotAlignmentParser(run_folder=args.output_dir,
                                  gff_file=args.gff,
-                                 lineage=None,
+                                 lineage=args.lineage,
                                  min_length_percent=args.min_length_percent,
                                  min_diff=args.min_diff,
                                  min_identity=args.min_identity,
@@ -1622,7 +1622,7 @@ def main():
     list_parser.add_argument("-L", "--library_path", type=str, help="Folder path to stored lineages. ", default=None)
     list_parser.set_defaults(func=list_lineages)
 
-    ### sub-command: run_miniprot
+    ### sub-command: miniprot
     run_miniprot_parser = subparser.add_parser("miniprot", help="Run miniprot alignment")
     run_miniprot_parser.add_argument("-a", "--assembly", type=str, help="Input genome file in FASTA format",
                                      required=True)
