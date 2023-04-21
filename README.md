@@ -63,11 +63,11 @@ Sepp executable file is located in `sepp-package/sepp/run_sepp.py`.
 ### Main Modules:
 
 ```angular2html
+run             Run minibusco including miniprot alignment and completeness evaluation
+analyze         Evaluate genome completeness from provided miniprot alignment
 download        Download specified BUSCO lineage
 list            List local or remote BUSCO lineages
 miniprot        Run miniprot alignment
-analyze         Evaluate genome completeness from provided miniprot alignment
-run             Run minibusco including miniprot alignment and completeness evaluation
 ```
 
 ### Using `run` submodule to evaluate genome completeness from genome assembly:
