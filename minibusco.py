@@ -1658,8 +1658,6 @@ class MiniprotAlignmentParser:
                                     Stop, Stop - Start, Strand, Rank, Identity, Positive,
                                     (Protein_End - Protein_Start) / Protein_length * Identity,
                                     Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq, Codons])
-                    # translated_protein_writer.write(
-                    #     ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start, Stop, Ata_seq))
                 else:
                     records.append(
                         [Target_species, Target_id, Contig_id, 0, 0, 0, 0, 0, 0, 0, 0, "+", 0, 0, 0, 0, 0, 0, 0,
@@ -1699,7 +1697,6 @@ class MiniprotAlignmentParser:
             mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
             if self.specified_contigs is not None:
                 mapped_records = mapped_records[mapped_records["Contig_id"].isin(self.specified_contigs)]
-            # mapped_records = mapped_records[mapped_records["Identity"]>0]   # filter genes not passing hmmsearch
             pass_tids = mapped_records[(mapped_records["Protein_mapped_rate"] >= self.min_length_percent) | (
                     mapped_records["Identity"] >= self.min_identity)]["Target_id"].unique()
 
@@ -1720,12 +1717,6 @@ class MiniprotAlignmentParser:
                 mapped_records = mapped_records[mapped_records["Target_id"].isin(pass_tids)]
                 output = self.Ost_eval(mapped_records, self.min_diff, self.min_identity, self.min_complete,
                                        self.min_rise)
-                if output.gene_label == GeneLabel.Single:
-                    single_complete_proteins.append(
-                        ">{}\n{}\n".format(output.data_record["Target_id"], output.data_record["Ata_seq"]))
-
-                if output.gene_label == GeneLabel.Fragmented:
-                    output = self.refine_fragmented(mapped_records)
             else:
                 output = OutputFormat()
                 output.gene_label = GeneLabel.Missing
@@ -1748,6 +1739,7 @@ class MiniprotAlignmentParser:
                                                         output.data_record.iloc[dri]["Ata_seq"]))
                         candidate_hits.append(output.data_record.iloc[dri])
         translated_protein_writer.close()
+        ## hmmserarch with best candidate hits
         hmmsearcher = Hmmersearch(hmmsearch_execute_command=self.hmmsearch_execute_command,
                                   hmm_profiles=self.hmm_profiles,
                                   translated_protein_file=self.translated_protein_path,
@@ -1766,8 +1758,8 @@ class MiniprotAlignmentParser:
             if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) not in reliable_mappings:
                 candidate_hits_df.loc[rx, "Identity"] = 0
                 candidate_hits_df.loc[rx, "I+L"] = 0
-        candidate_hits_df = candidate_hits_df[candidate_hits_df["Identity"] > 0]
-        grouped_candidate_hits_df = candidate_hits_df.groupby("Target_id")
+        candidate_hits_df = candidate_hits_df[candidate_hits_df["Identity"] > 0]    # remove unreliable hits
+        grouped_candidate_hits_df = candidate_hits_df.groupby("Target_species")
         candidate_target_species = candidate_hits_df["Target_species"].unique()
         for gene_id in candidate_target_species:
             mapped_records = grouped_candidate_hits_df.get_group(gene_id)
@@ -1781,6 +1773,7 @@ class MiniprotAlignmentParser:
                     output = OutputFormat()
                     output.gene_label = GeneLabel.Fragmented
                     output.data_record = mapped_records.iloc[0]
+                    output = self.refine_fragmented(mapped_records) # refine fragmented
                 full_table_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
                                         format(output.data_record["Target_species"],
                                                output.gene_label.name,
@@ -1901,6 +1894,9 @@ class MiniprotAlignmentParser:
                                 "*",
                                 "*"))
             if output.gene_label == GeneLabel.Single:
+                single_complete_proteins.append(
+                    ">{}\n{}\n".format(output.data_record["Target_id"], output.data_record["Ata_seq"]))
+            if output.gene_label == GeneLabel.Single:
                 single_genes.append(gene_id)
             elif output.gene_label == GeneLabel.Duplicated:
                 duplicate_genes.append(gene_id)
@@ -1919,7 +1915,6 @@ class MiniprotAlignmentParser:
 
         full_table_writer.close()
         full_table_busco_format_writer.close()
-        # translated_protein_writer.close()
 
         total_genes = len(all_species)
         d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(
