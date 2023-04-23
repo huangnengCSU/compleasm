@@ -715,6 +715,7 @@ def load_length_cutoff(lengths_cutoff_file):
                     length = float(line[3])
                     if sigma == 0.0:
                         sigma = 1
+                    cutoff_dict[taxid] = {}
                     cutoff_dict[taxid]["sigma"] = sigma
                     cutoff_dict[taxid]["length"] = length
                 except IndexError:
