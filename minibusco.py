@@ -858,7 +858,7 @@ class MiniprotAlignmentParser:
                         items.codons.append("{}_{}_{}".format(codon_start, codon_end, codon_strand))
 
     @staticmethod
-    def record_1st_gene_label(dataframe, min_identity, min_complete):
+    def record_1st_gene_label(dataframe, min_identity, min_complete, by_length=False):
         # check records with same tid of the best record
         output = OutputFormat()
         gene_id = dataframe.iloc[0]["Target_id"]
@@ -867,24 +867,42 @@ class MiniprotAlignmentParser:
             output.gene_label = GeneLabel.Missing
             return output
         elif dataframe.shape[0] == 1:
-            if dataframe.iloc[0]["Protein_mapped_rate"] >= min_complete:
-                output.gene_label = GeneLabel.Single
-                output.data_record = dataframe.iloc[0]
-                return output
+            if by_length:
+                if dataframe.iloc[0]["Protein_mapped_length"] >= min_complete:
+                    output.gene_label = GeneLabel.Single
+                    output.data_record = dataframe.iloc[0]
+                    return output
+                else:
+                    output.gene_label = GeneLabel.Fragmented
+                    output.data_record = dataframe.iloc[0]
+                    return output
             else:
-                output.gene_label = GeneLabel.Fragmented
-                output.data_record = dataframe.iloc[0]
-                return output
+                if dataframe.iloc[0]["Protein_mapped_rate"] >= min_complete:
+                    output.gene_label = GeneLabel.Single
+                    output.data_record = dataframe.iloc[0]
+                    return output
+                else:
+                    output.gene_label = GeneLabel.Fragmented
+                    output.data_record = dataframe.iloc[0]
+                    return output
         else:
             complete_regions = []
             fragmented_regions = []
             for i in range(dataframe.shape[0]):
-                if dataframe.iloc[i]["Protein_mapped_rate"] >= min_complete:
-                    complete_regions.append(
-                        (dataframe.iloc[i]["Contig_id"], dataframe.iloc[i]["Start"], dataframe.iloc[i]["Stop"]))
+                if by_length:
+                    if dataframe.iloc[i]["Protein_mapped_length"] >= min_complete:
+                        complete_regions.append(
+                            (dataframe.iloc[i]["Contig_id"], dataframe.iloc[i]["Start"], dataframe.iloc[i]["Stop"]))
+                    else:
+                        fragmented_regions.append(
+                            (dataframe.iloc[i]["Contig_id"], dataframe.iloc[i]["Start"], dataframe.iloc[i]["Stop"]))
                 else:
-                    fragmented_regions.append(
-                        (dataframe.iloc[i]["Contig_id"], dataframe.iloc[i]["Start"], dataframe.iloc[i]["Stop"]))
+                    if dataframe.iloc[i]["Protein_mapped_rate"] >= min_complete:
+                        complete_regions.append(
+                            (dataframe.iloc[i]["Contig_id"], dataframe.iloc[i]["Start"], dataframe.iloc[i]["Stop"]))
+                    else:
+                        fragmented_regions.append(
+                            (dataframe.iloc[i]["Contig_id"], dataframe.iloc[i]["Start"], dataframe.iloc[i]["Stop"]))
             if len(complete_regions) == 0:
                 output.gene_label = GeneLabel.Fragmented
                 output.data_record = dataframe.iloc[0]
@@ -911,16 +929,16 @@ class MiniprotAlignmentParser:
                     return output
 
     @staticmethod
-    def record_1st_2nd_gene_label(dataframe_1st, dataframe_2nd, min_identity, min_complete, min_rise):
+    def record_1st_2nd_gene_label(dataframe_1st, dataframe_2nd, min_identity, min_complete, min_rise, by_length=False):
         # check top 1st and 2nd records whether they are the same gene
         output = OutputFormat()
         # dataframe_1st = dataframe_1st[dataframe_1st["Identity"] >= min_identity]
         # dataframe_2nd = dataframe_2nd[dataframe_2nd["Identity"] >= min_identity]
         if dataframe_1st.shape[0] >= 1 and dataframe_2nd.shape[0] == 0:
-            out = MiniprotAlignmentParser.record_1st_gene_label(dataframe_1st, min_identity, min_complete)
+            out = MiniprotAlignmentParser.record_1st_gene_label(dataframe_1st, min_identity, min_complete, by_length)
             return out
         if dataframe_1st.shape[0] == 0 and dataframe_2nd.shape[0] >= 1:
-            out = MiniprotAlignmentParser.record_1st_gene_label(dataframe_2nd, min_identity, min_complete)
+            out = MiniprotAlignmentParser.record_1st_gene_label(dataframe_2nd, min_identity, min_complete, by_length)
             return out
         if dataframe_1st.shape[0] == 0 and dataframe_2nd.shape[0] == 0:
             output.gene_label = GeneLabel.Missing
@@ -932,9 +950,9 @@ class MiniprotAlignmentParser:
             protein_length2 = dataframe_2nd.iloc[0]["Protein_length"]
 
             label_length = defaultdict(list)
-            out1 = MiniprotAlignmentParser.record_1st_gene_label(dataframe_1st, min_identity, min_complete)
+            out1 = MiniprotAlignmentParser.record_1st_gene_label(dataframe_1st, min_identity, min_complete, by_length)
             label_length[out1.gene_label].append(protein_length1)
-            out2 = MiniprotAlignmentParser.record_1st_gene_label(dataframe_2nd, min_identity, min_complete)
+            out2 = MiniprotAlignmentParser.record_1st_gene_label(dataframe_2nd, min_identity, min_complete, by_length)
             label_length[out2.gene_label].append(protein_length2)
             if label_length.keys() == {GeneLabel.Single}:
                 output.gene_label = GeneLabel.Single
@@ -1010,29 +1028,31 @@ class MiniprotAlignmentParser:
                 raise ValueError
 
     @staticmethod
-    def Ost_eval(dataframe, difficial_rate, min_identity, min_complete, min_rise):
+    def Ost_eval(dataframe, difficial_rate, min_identity, min_complete, min_rise, by_length=False):
         if dataframe.shape[0] == 0:
             output = OutputFormat()
             output.gene_label = GeneLabel.Missing
             return output
         if dataframe.shape[0] == 1:
             return MiniprotAlignmentParser.record_1st_gene_label(
-                dataframe[dataframe["Target_id"] == dataframe.iloc[0]["Target_id"]], min_identity, min_complete)
+                dataframe[dataframe["Target_id"] == dataframe.iloc[0]["Target_id"]], min_identity, min_complete,
+                by_length)
         record_1st = dataframe.iloc[0]
         record_1st_tid = record_1st["Target_id"]
         record_2nd = dataframe.iloc[1]
         record_2nd_tid = record_2nd["Target_id"]
         if (record_1st["I+L"] - record_2nd["I+L"]) / (record_2nd["I+L"] + 1e-9) >= difficial_rate:
             return MiniprotAlignmentParser.record_1st_gene_label(dataframe[dataframe["Target_id"] == record_1st_tid],
-                                                                 min_identity, min_complete)
+                                                                 min_identity, min_complete, by_length)
         else:
             if record_1st_tid == record_2nd_tid:
                 return MiniprotAlignmentParser.record_1st_gene_label(
-                    dataframe[dataframe["Target_id"] == record_1st_tid], min_identity, min_complete)
+                    dataframe[dataframe["Target_id"] == record_1st_tid], min_identity, min_complete, by_length)
             else:
                 return MiniprotAlignmentParser.record_1st_2nd_gene_label(
                     dataframe[dataframe["Target_id"] == record_1st_tid],
-                    dataframe[dataframe["Target_id"] == record_2nd_tid], min_identity, min_complete, min_rise)
+                    dataframe[dataframe["Target_id"] == record_2nd_tid], min_identity, min_complete, min_rise,
+                    by_length)
 
     @staticmethod
     def refine_fragmented(dataframe):
@@ -1200,7 +1220,8 @@ class MiniprotAlignmentParser:
             if mapped_records.shape[0] > 0:
                 min_identity = 0
                 min_complete = length_cutoff_dict[gene_id]["length"] - 2 * length_cutoff_dict[gene_id]["sigma"]
-                output = self.Ost_eval(mapped_records, self.min_diff, min_identity, min_complete, self.min_rise)
+                output = self.Ost_eval(mapped_records, self.min_diff, min_identity, min_complete, self.min_rise,
+                                       by_length=True)
                 if output.gene_label == GeneLabel.Single:
                     single_complete_proteins.append(
                         ">{}\n{}\n".format(output.data_record["Target_id"], output.data_record["Ata_seq"]))
@@ -1483,7 +1504,7 @@ class MiniprotAlignmentParser:
             if len(pass_tids) > 0:
                 mapped_records = mapped_records[mapped_records["Target_id"].isin(pass_tids)]
                 output = self.Ost_eval(mapped_records, self.min_diff, self.min_identity, self.min_complete,
-                                       self.min_rise)
+                                       self.min_rise, by_length=False)
                 if output.gene_label == GeneLabel.Single:
                     single_complete_proteins.append(
                         ">{}\n{}\n".format(output.data_record["Target_id"], output.data_record["Ata_seq"]))
@@ -1747,7 +1768,7 @@ class MiniprotAlignmentParser:
             if len(pass_tids) > 0:
                 mapped_records = mapped_records[mapped_records["Target_id"].isin(pass_tids)]
                 output = self.Ost_eval(mapped_records, self.min_diff, self.min_identity, self.min_complete,
-                                       self.min_rise)
+                                       self.min_rise, by_length=False)
             else:
                 output = OutputFormat()
                 output.gene_label = GeneLabel.Missing
