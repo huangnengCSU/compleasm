@@ -701,6 +701,26 @@ def load_score_cutoff(scores_cutoff_file):
     return cutoff_dict
 
 
+def load_length_cutoff(lengths_cutoff_file):
+    cutoff_dict = {}
+    try:
+        with open(lengths_cutoff_file, "r") as f:
+            for line in f:
+                line = line.strip().split()
+                try:
+                    taxid = line[0]
+                    sigma = float(line[2])
+                    length = float(line[3])
+                    if sigma == 0.0:
+                        sigma = 1
+                    cutoff_dict[taxid]["sigma"] = sigma
+                    cutoff_dict[taxid]["length"] = length
+                except IndexError:
+                    raise Error("Error parsing the lengths_cutoff file.")
+    except IOError:
+        raise Error("Impossible to read the lengths in {}".format(lengths_cutoff_file))
+
+
 def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
     reliable_mappings = []
     for outfile in os.listdir(hmmsearch_output_folder):
@@ -1068,6 +1088,14 @@ class MiniprotAlignmentParser:
         return output
 
     def Run(self):
+        if self.mode == "busco":
+            self.Run_busco_mode()
+        elif self.mode == "lite":
+            self.Run_lite_mode()
+        elif self.mode == "fast":
+            self.Run_fast_mode()
+
+    def Run_busco_mode(self):
         single_genes = []
         duplicate_genes = []
         fragmented_genes = []
@@ -1105,8 +1133,9 @@ class MiniprotAlignmentParser:
                                   threads=self.nthreads,
                                   output_folder=self.hmm_output_folder)
         hmmsearcher.Run()
-        cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
-        reliable_mappings = load_hmmsearch_output(self.hmm_output_folder, cutoff_dict)
+        score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
+        length_cutoff_dict = load_length_cutoff(os.path.join(self.library_path, self.lineage, "lengths_cutoff"))
+        reliable_mappings = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
         reliable_mappings = set(reliable_mappings)
         records_df = pd.DataFrame(records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
                                                     "Protein_Start", "Protein_End", "Protein_mapped_length",
@@ -1149,30 +1178,28 @@ class MiniprotAlignmentParser:
             if self.specified_contigs is not None:
                 mapped_records = mapped_records[mapped_records["Contig_id"].isin(self.specified_contigs)]
             mapped_records = mapped_records[mapped_records["Identity"] > 0]  # filter genes not passing hmmsearch
-            pass_tids = mapped_records[(mapped_records["Protein_mapped_rate"] >= self.min_length_percent) | (
-                    mapped_records["Identity"] >= self.min_identity)]["Target_id"].unique()
+            # pass_tids = mapped_records[(mapped_records["Protein_mapped_rate"] >= self.min_length_percent) | (
+            #         mapped_records["Identity"] >= self.min_identity)]["Target_id"].unique()
 
             # mean std filter
-            if len(pass_tids) >= 5:
-                lengths_dict = {}
-                for tid in pass_tids:
-                    lengths_dict[tid] = mapped_records[mapped_records["Target_id"] == tid].iloc[0]["Protein_length"]
-                length_df = pd.DataFrame.from_dict(lengths_dict, orient="index", columns=["Protein_length"])
-                mean_v = length_df["Protein_length"].mean()
-                std_v = length_df["Protein_length"].std()
-                lower_bound = mean_v - 1.5 * std_v
-                upper_bound = mean_v + 1.5 * std_v
-                pass_tids = length_df[(length_df["Protein_length"] >= lower_bound) &
-                                      (length_df["Protein_length"] <= upper_bound)].index.tolist()
-
-            if len(pass_tids) > 0:
-                mapped_records = mapped_records[mapped_records["Target_id"].isin(pass_tids)]
-                output = self.Ost_eval(mapped_records, self.min_diff, self.min_identity, self.min_complete,
-                                       self.min_rise)
+            # if len(pass_tids) >= 5:
+            #     lengths_dict = {}
+            #     for tid in pass_tids:
+            #         lengths_dict[tid] = mapped_records[mapped_records["Target_id"] == tid].iloc[0]["Protein_length"]
+            #     length_df = pd.DataFrame.from_dict(lengths_dict, orient="index", columns=["Protein_length"])
+            #     mean_v = length_df["Protein_length"].mean()
+            #     std_v = length_df["Protein_length"].std()
+            #     lower_bound = mean_v - 1.5 * std_v
+            #     upper_bound = mean_v + 1.5 * std_v
+            #     pass_tids = length_df[(length_df["Protein_length"] >= lower_bound) &
+            #                           (length_df["Protein_length"] <= upper_bound)].index.tolist()
+            if mapped_records.shape[0] > 0:
+                min_identity = 0
+                min_complete = length_cutoff_dict[gene_id]["length"] - 2 * length_cutoff_dict[gene_id]["sigma"]
+                output = self.Ost_eval(mapped_records, self.min_diff, min_identity, min_complete, self.min_rise)
                 if output.gene_label == GeneLabel.Single:
                     single_complete_proteins.append(
                         ">{}\n{}\n".format(output.data_record["Target_id"], output.data_record["Ata_seq"]))
-
                 if output.gene_label == GeneLabel.Fragmented:
                     output = self.refine_fragmented(mapped_records)
             else:
@@ -1351,7 +1378,7 @@ class MiniprotAlignmentParser:
             for x in single_complete_proteins:
                 fout.write(x)
 
-    def Run_lite(self):
+    def Run_lite_mode(self):
         single_genes = []
         duplicate_genes = []
         fragmented_genes = []
@@ -1389,8 +1416,8 @@ class MiniprotAlignmentParser:
         #                           threads=self.nthreads,
         #                           output_folder=self.hmm_output_folder)
         # hmmsearcher.Run()
-        # cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
-        # reliable_mappings = load_hmmsearch_output(self.hmm_output_folder, cutoff_dict)
+        # score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
+        # reliable_mappings = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
         # reliable_mappings = set(reliable_mappings)
         records_df = pd.DataFrame(records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
                                                     "Protein_Start", "Protein_End", "Protein_mapped_length",
@@ -1635,7 +1662,7 @@ class MiniprotAlignmentParser:
             for x in single_complete_proteins:
                 fout.write(x)
 
-    def Run_fast(self):
+    def Run_fast_mode(self):
         single_genes = []
         duplicate_genes = []
         fragmented_genes = []
@@ -1746,8 +1773,8 @@ class MiniprotAlignmentParser:
                                   threads=self.nthreads,
                                   output_folder=self.hmm_output_folder)
         hmmsearcher.Run()
-        cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
-        reliable_mappings = load_hmmsearch_output(self.hmm_output_folder, cutoff_dict)
+        score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
+        reliable_mappings = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
         reliable_mappings = set(reliable_mappings)
         candidate_hits_df = pd.DataFrame(candidate_hits)
         for rx in range(candidate_hits_df.shape[0]):
@@ -1758,7 +1785,7 @@ class MiniprotAlignmentParser:
             if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) not in reliable_mappings:
                 candidate_hits_df.loc[rx, "Identity"] = 0
                 candidate_hits_df.loc[rx, "I+L"] = 0
-        candidate_hits_df = candidate_hits_df[candidate_hits_df["Identity"] > 0]    # remove unreliable hits
+        candidate_hits_df = candidate_hits_df[candidate_hits_df["Identity"] > 0]  # remove unreliable hits
         grouped_candidate_hits_df = candidate_hits_df.groupby("Target_species")
         candidate_target_species = candidate_hits_df["Target_species"].unique()
         for gene_id in candidate_target_species:
@@ -1773,7 +1800,7 @@ class MiniprotAlignmentParser:
                     output = OutputFormat()
                     output.gene_label = GeneLabel.Fragmented
                     output.data_record = mapped_records.iloc[0]
-                    output = self.refine_fragmented(mapped_records) # refine fragmented
+                    output = self.refine_fragmented(mapped_records)  # refine fragmented
                 full_table_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
                                         format(output.data_record["Target_species"],
                                                output.gene_label.name,
@@ -1905,7 +1932,7 @@ class MiniprotAlignmentParser:
             elif output.gene_label == GeneLabel.Interspaced:
                 interspaced_genes.append(gene_id)
 
-        missing_genes_set = set(all_species)-set(candidate_target_species)
+        missing_genes_set = set(all_species) - set(candidate_target_species)
         for gene_id in missing_genes_set:
             output = OutputFormat()
             output.gene_label = GeneLabel.Missing
@@ -1949,7 +1976,7 @@ class MiniprotAlignmentParser:
 class MinibuscoRunner:
     def __init__(self, assembly_path, output_folder, library_path, lineage, autolineage, nthreads,
                  miniprot_execute_command, hmmsearch_execute_command, sepp_execute_command, min_diff,
-                 min_length_percent, min_identity, min_complete, min_rise, specified_contigs):
+                 min_length_percent, min_identity, min_complete, min_rise, specified_contigs, mode):
         if lineage is None:
             lineage = "eukaryota_odb10"
         else:
@@ -1968,6 +1995,7 @@ class MinibuscoRunner:
         self.specified_contigs = specified_contigs
         self.nthreads = nthreads
         self.hmmsearch_execute_command = hmmsearch_execute_command
+        self.mode = mode
 
         self.miniprot_runner = MiniprotRunner(miniprot_execute_command, nthreads)
         self.downloader = Downloader(library_path)
@@ -2012,7 +2040,8 @@ class MinibuscoRunner:
                                                             autolineage=self.autolineage,
                                                             library_path=self.library_path,
                                                             hmmsearch_execute_command=self.hmmsearch_execute_command,
-                                                            nthreads=self.nthreads)
+                                                            nthreads=self.nthreads,
+                                                            mode=self.mode)
 
         if os.path.exists(miniprot_alignment_parser.completeness_output_file):
             os.remove(miniprot_alignment_parser.completeness_output_file)
@@ -2069,7 +2098,8 @@ class MinibuscoRunner:
                                                                 autolineage=self.autolineage,
                                                                 library_path=self.library_path,
                                                                 hmmsearch_execute_command=self.hmmsearch_execute_command,
-                                                                nthreads=self.nthreads)
+                                                                nthreads=self.nthreads,
+                                                                mode=self.mode)
             miniprot_alignment_parser.Run()
             second_analysis_miniprot_end_time = time.time()
             # second_run_hmmsearch_start_time = time.time()
@@ -2149,7 +2179,8 @@ def analyze(args):
                                  autolineage=False,
                                  library_path=args.library_path,
                                  hmmsearch_execute_command=args.hmmsearch_execute_path,
-                                 nthreads=args.threads)
+                                 nthreads=args.threads,
+                                 mode=args.mode)
     ar.Run()
 
 
@@ -2169,6 +2200,7 @@ def run(args):
     min_complete = args.min_complete
     min_rise = args.min_rise
     specified_contigs = args.specified_contigs
+    mode = args.mode
 
     if lineage is None and autolineage is False:
         sys.exit(
@@ -2191,7 +2223,8 @@ def run(args):
                          min_identity=min_identity,
                          min_complete=min_complete,
                          min_rise=min_rise,
-                         specified_contigs=specified_contigs)
+                         specified_contigs=specified_contigs,
+                         mode=mode)
     mr.Run()
 
 
@@ -2237,6 +2270,8 @@ def main():
     analysis_parser.add_argument("-t", "--threads", type=int, help="Number of threads to use", default=1)
     analysis_parser.add_argument("-L", "--library_path", type=str, default="mb_downloads",
                                  help="Folder path to stored lineages. ")
+    analysis_parser.add_argument("-m", "--mode", type=str, choices=["lite", "fast", "busco"], default="busco",
+                                 help="The mode of evaluation.")
     analysis_parser.add_argument("--hmmsearch_execute_path", type=str, help="Path to hmmsearch executable",
                                  required=True)
     analysis_parser.add_argument("--specified_contigs", type=str, nargs='+', default=None,
@@ -2264,6 +2299,8 @@ def main():
     run_parser.add_argument("-L", "--library_path", type=str, default="mb_downloads",
                             help="Folder path to download lineages or already downloaded lineages. "
                                  "If not specified, a folder named \"mb_downloads\" will be created on the current running path by default to store the downloaded lineage files.")
+    run_parser.add_argument("-m", "--mode", type=str, choices=["lite", "fast", "busco"], default="busco",
+                            help="The mode of evaluation.")
     run_parser.add_argument("--specified_contigs", type=str, nargs='+', default=None,
                             help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.")
     run_parser.add_argument("--miniprot_execute_path", type=str, default=None,
