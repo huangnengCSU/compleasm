@@ -722,6 +722,7 @@ def load_length_cutoff(lengths_cutoff_file):
                     raise Error("Error parsing the lengths_cutoff file.")
     except IOError:
         raise Error("Impossible to read the lengths in {}".format(lengths_cutoff_file))
+    return cutoff_dict
 
 
 def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
