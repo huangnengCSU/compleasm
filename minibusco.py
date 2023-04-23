@@ -171,7 +171,8 @@ class Downloader:
                     tar.extractall(self.download_dir, members=[tar.getmember('{}/refseq_db.faa.gz'.format(lineage)),
                                                                tar.getmember('{}/links_to_ODB10.txt'.format(lineage)),
                                                                tar.getmember('{}/hmms'.format(lineage)),
-                                                               tar.getmember('{}/scores_cutoff'.format(lineage))])
+                                                               tar.getmember('{}/scores_cutoff'.format(lineage)),
+                                                               tar.getmember('{}/lengths_cutoff'.format(lineage))])
                     hmm_files = [u for u in tar.getnames() if ".hmm" in u]
                     tar.extractall(self.download_dir, members=[tar.getmember(u) for u in hmm_files])
                 except KeyError:
@@ -183,7 +184,8 @@ class Downloader:
                                 lineage))
                     tar.extractall(self.download_dir, members=[tar.getmember('{}/refseq_db.faa.gz'.format(lineage)),
                                                                tar.getmember('{}/hmms'.format(lineage)),
-                                                               tar.getmember('{}/scores_cutoff'.format(lineage))])
+                                                               tar.getmember('{}/scores_cutoff'.format(lineage)),
+                                                               tar.getmember('{}/lengths_cutoff'.format(lineage))])
                     hmm_files = [u for u in tar.getnames() if ".hmm" in u]
                     tar.extractall(self.download_dir, members=[tar.getmember(u) for u in hmm_files])
                 except:
