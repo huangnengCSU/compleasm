@@ -1802,6 +1802,7 @@ class MiniprotAlignmentParser:
         reliable_mappings = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
         reliable_mappings = set(reliable_mappings)
         candidate_hits_df = pd.DataFrame(candidate_hits)
+        print("Total candidate hits before hmmsearch: {}".format(len(candidate_hits_df["Target_species"].unique())))
         for rx in range(candidate_hits_df.shape[0]):
             target_id = candidate_hits_df.iloc[rx]["Target_id"]
             contig_id = candidate_hits_df.iloc[rx]["Contig_id"]
@@ -1811,6 +1812,7 @@ class MiniprotAlignmentParser:
                 candidate_hits_df.loc[rx, "Identity"] = 0
                 candidate_hits_df.loc[rx, "I+L"] = 0
         candidate_hits_df = candidate_hits_df[candidate_hits_df["Identity"] > 0]  # remove unreliable hits
+        print("Total candidate hits after hmmsearch: {}".format(len(candidate_hits_df["Target_species"].unique())))
         grouped_candidate_hits_df = candidate_hits_df.groupby("Target_species")
         candidate_target_species = candidate_hits_df["Target_species"].unique()
         for gene_id in candidate_target_species:
