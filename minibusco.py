@@ -726,7 +726,7 @@ def load_length_cutoff(lengths_cutoff_file):
 
 
 def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
-    reliable_mappings = []
+    reliable_mappings = {}
     for outfile in os.listdir(hmmsearch_output_folder):
         outfile = os.path.join(hmmsearch_output_folder, outfile)
         with open(outfile, 'r') as fin:
@@ -740,12 +740,9 @@ def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
                 hmm_score = float(line[7])
                 if target_name.split("|")[0].split("_")[0] != query_name:  ## query name must match the target name
                     continue
-                if target_name == pre_target_name:
-                    continue
-                else:
-                    if hmm_score >= cutoff_dict[query_name]:
-                        reliable_mappings.append(target_name)
-                    pre_target_name = target_name
+                if hmm_score >= cutoff_dict[query_name]:
+                    reliable_mappings[target_name]=hmm_score
+    reliable_mappings = list(reliable_mappings.keys())
     return reliable_mappings
 
 
