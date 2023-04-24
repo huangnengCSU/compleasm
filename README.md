@@ -77,10 +77,11 @@ protein sequences in the lineage file to the genome sequence with miniprot, and 
 evaluate genome completeness.
 #### Usage:
 ```angular2html
-python minibusco.py run [-h] -a ASSEMBLY_PATH -o OUTPUT_DIR --hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH [-t THREADS] [-l LINEAGE] [-L LIBRARY_PATH] 
-                        [--specified_contigs SPECIFIED_CONTIGS [SPECIFIED_CONTIGS ...]] [--miniprot_execute_path MINIPROT_EXECUTE_PATH]
-                        [--autolineage] [--sepp_execute_path SEPP_EXECUTE_PATH] [--min_diff MIN_DIFF] [--min_identity MIN_IDENTITY] 
-                        [--min_length_percent MIN_LENGTH_PERCENT] [--min_complete MIN_COMPLETE] [--min_rise MIN_RISE]
+python minibusco.py run [-h] -a ASSEMBLY_PATH -o OUTPUT_DIR --hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH [-t THREADS] 
+                        [-l LINEAGE] [-L LIBRARY_PATH] [-m {lite,fast,busco}] [--specified_contigs SPECIFIED_CONTIGS [SPECIFIED_CONTIGS ...]] 
+                        [--miniprot_execute_path MINIPROT_EXECUTE_PATH] [--autolineage] [--sepp_execute_path SEPP_EXECUTE_PATH] 
+                        [--min_diff MIN_DIFF] [--min_identity MIN_IDENTITY] [--min_length_percent MIN_LENGTH_PERCENT] 
+                        [--min_complete MIN_COMPLETE] [--min_rise MIN_RISE]
 ```
 
 #### Important parameters:
@@ -91,6 +92,10 @@ python minibusco.py run [-h] -a ASSEMBLY_PATH -o OUTPUT_DIR --hmmsearch_execute_
   -l, --lineage              Specify the name of the BUSCO lineage to be used. (e.g. eukaryota, primates, saccharomycetes etc.)
   -L, --library_path         Folder path to download lineages or already downloaded lineages. 
                              If not specified, a folder named "mb_downloads" will be created on the current running path by default to store the downloaded lineage files.
+  -m, --mode                 The mode of evaluation. default is fast. 
+                             lite:  Without using hmmsearch to filtering protein alignment. Fastest but may overestimate completeness.
+                             fast:  Using hmmsearch on the best candidate protein alignment to purify the miniprot alignment. Fast and accurate.
+                             busco: Using hmmsearch on all candidate protein alignment to purify the miniprot alignment. Slow but most accurate.
   --specified_contigs        Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.
   --miniprot_execute_path    Path to miniprot executable file. 
                              If not specified, minibusco will search for miniprot in the directory where minibusco.py is located, the current execution directory, and system environment variables.
@@ -127,8 +132,9 @@ This will directly parse the provided miniprot alignment result to evaluate geno
 #### Usage:
 ```angular2html
 python minibusco.py analyze [-h] -g GFF -l LINEAGE -o OUTPUT_DIR --hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH 
-                            [-t THREADS] [-L LIBRARY_PATH] [--specified_contigs SPECIFIED_CONTIGS [SPECIFIED_CONTIGS ...]] 
-                            [--min_diff MIN_DIFF] [--min_identity MIN_IDENTITY][--min_length_percent MIN_LENGTH_PERCENT] 
+                            [-t THREADS] [-L LIBRARY_PATH] [-m {lite,fast,busco}] 
+                            [--specified_contigs SPECIFIED_CONTIGS [SPECIFIED_CONTIGS ...]] [--min_diff MIN_DIFF] 
+                            [--min_identity MIN_IDENTITY][--min_length_percent MIN_LENGTH_PERCENT] 
                             [--min_complete MIN_COMPLETE] [--min_rise MIN_RISE]
 ```
 #### Important parameters:
@@ -138,6 +144,10 @@ python minibusco.py analyze [-h] -g GFF -l LINEAGE -o OUTPUT_DIR --hmmsearch_exe
   -o, --output_dir          Output analysis folder
   -t, --threads             Number of threads to use
   -L, --library_path        Folder path to stored lineages.
+  -m, --mode                The mode of evaluation. default is fast. 
+                            lite:  Without using hmmsearch to filtering protein alignment. Fastest but may overestimate completeness.
+                            fast:  Using hmmsearch on the best candidate protein alignment to purify the miniprot alignment. Fast and accurate.
+                            busco: Using hmmsearch on all candidate protein alignment to purify the miniprot alignment. Slow but most accurate.
   --hmmsearch_execute_path  Path to hmmsearch executable
   --specified_contigs       Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.
 ```

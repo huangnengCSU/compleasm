@@ -2248,8 +2248,11 @@ def main():
     analysis_parser.add_argument("-t", "--threads", type=int, help="Number of threads to use", default=1)
     analysis_parser.add_argument("-L", "--library_path", type=str, default="mb_downloads",
                                  help="Folder path to stored lineages. ")
-    analysis_parser.add_argument("-m", "--mode", type=str, choices=["lite", "fast", "busco"], default="busco",
-                                 help="The mode of evaluation.")
+    analysis_parser.add_argument("-m", "--mode", type=str, choices=["lite", "fast", "busco"], default="fast",
+                                 help="The mode of evaluation. dafault mode: fast."
+                                      "lite:  Without using hmmsearch to filtering protein alignment. Fastest but may overestimate completeness."
+                                      "fast:  Using hmmsearch on the best candidate protein alignment to purify the miniprot alignment. Fast and accurate."
+                                      "busco: Using hmmsearch on all candidate protein alignment to purify the miniprot alignment. Slow but most accurate.")
     analysis_parser.add_argument("--hmmsearch_execute_path", type=str, help="Path to hmmsearch executable",
                                  required=True)
     analysis_parser.add_argument("--specified_contigs", type=str, nargs='+', default=None,
@@ -2277,8 +2280,11 @@ def main():
     run_parser.add_argument("-L", "--library_path", type=str, default="mb_downloads",
                             help="Folder path to download lineages or already downloaded lineages. "
                                  "If not specified, a folder named \"mb_downloads\" will be created on the current running path by default to store the downloaded lineage files.")
-    run_parser.add_argument("-m", "--mode", type=str, choices=["lite", "fast", "busco"], default="busco",
-                            help="The mode of evaluation.")
+    run_parser.add_argument("-m", "--mode", type=str, choices=["lite", "fast", "busco"], default="fast",
+                            help="The mode of evaluation. dafault mode: fast."
+                                 "lite:  Without using hmmsearch to filtering protein alignment. Fastest but may overestimate completeness."
+                                 "fast:  Using hmmsearch on the best candidate protein alignment to purify the miniprot alignment. Fast and accurate."
+                                 "busco: Using hmmsearch on all candidate protein alignment to purify the miniprot alignment. Slow but most accurate.")
     run_parser.add_argument("--specified_contigs", type=str, nargs='+', default=None,
                             help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.")
     run_parser.add_argument("--miniprot_execute_path", type=str, default=None,
