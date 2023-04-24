@@ -1140,7 +1140,7 @@ class MiniprotAlignmentParser:
                     records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
                                     Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                     Stop, Stop - Start, Strand, Rank, Identity, Positive,
-                                    (Protein_End - Protein_Start) * Identity,
+                                    (Protein_End - Protein_Start) / Protein_length * Identity,
                                     Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq, Codons])
                     translated_protein_writer.write(
                         ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start, Stop, Ata_seq))
@@ -1415,7 +1415,7 @@ class MiniprotAlignmentParser:
                     records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
                                     Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                     Stop, Stop - Start, Strand, Rank, Identity, Positive,
-                                    (Protein_End - Protein_Start) * Identity,
+                                    (Protein_End - Protein_Start) / Protein_length * Identity,
                                     Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq, Codons])
                     translated_protein_writer.write(
                         ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start, Stop, Ata_seq))
@@ -1462,18 +1462,15 @@ class MiniprotAlignmentParser:
             pass_tids = mapped_records[(mapped_records["Protein_mapped_rate"] >= self.min_length_percent) | (
                     mapped_records["Identity"] >= self.min_identity)]["Target_id"].unique()
 
-            # mean std filter
-            # if len(pass_tids) >= 5:
-            #     lengths_dict = {}
-            #     for tid in pass_tids:
-            #         lengths_dict[tid] = mapped_records[mapped_records["Target_id"] == tid].iloc[0]["Protein_length"]
-            #     length_df = pd.DataFrame.from_dict(lengths_dict, orient="index", columns=["Protein_length"])
-            #     mean_v = length_df["Protein_length"].mean()
-            #     std_v = length_df["Protein_length"].std()
-            #     lower_bound = mean_v - 1.5 * std_v
-            #     upper_bound = mean_v + 1.5 * std_v
-            #     pass_tids = length_df[(length_df["Protein_length"] >= lower_bound) &
-            #                           (length_df["Protein_length"] <= upper_bound)].index.tolist()
+            # length filter
+            if len(pass_tids) >= 3:
+                lengths_dict = {}
+                for tid in pass_tids:
+                    lengths_dict[tid] = mapped_records[mapped_records["Target_id"] == tid].iloc[0]["Protein_length"]
+                length_df = pd.DataFrame.from_dict(lengths_dict, orient="index", columns=["Protein_length"])
+                second_smallest = sorted(length_df["Protein_length"].values)[1]
+                lower_bound = second_smallest * 0.7
+                pass_tids = length_df[length_df["Protein_length"] >= lower_bound].index.tolist()
 
             if len(pass_tids) > 0:
                 mapped_records = mapped_records[mapped_records["Target_id"].isin(pass_tids)]
@@ -1682,7 +1679,7 @@ class MiniprotAlignmentParser:
                     records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
                                     Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                     Stop, Stop - Start, Strand, Rank, Identity, Positive,
-                                    (Protein_End - Protein_Start) * Identity,
+                                    (Protein_End - Protein_Start) / Protein_length * Identity,
                                     Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq, Codons])
                 else:
                     records.append(
@@ -1726,18 +1723,15 @@ class MiniprotAlignmentParser:
             pass_tids = mapped_records[(mapped_records["Protein_mapped_rate"] >= self.min_length_percent) | (
                     mapped_records["Identity"] >= self.min_identity)]["Target_id"].unique()
 
-            # mean std filter
-            # if len(pass_tids) >= 5:
-            #     lengths_dict = {}
-            #     for tid in pass_tids:
-            #         lengths_dict[tid] = mapped_records[mapped_records["Target_id"] == tid].iloc[0]["Protein_length"]
-            #     length_df = pd.DataFrame.from_dict(lengths_dict, orient="index", columns=["Protein_length"])
-            #     mean_v = length_df["Protein_length"].mean()
-            #     std_v = length_df["Protein_length"].std()
-            #     lower_bound = mean_v - 1.5 * std_v
-            #     upper_bound = mean_v + 1.5 * std_v
-            #     pass_tids = length_df[(length_df["Protein_length"] >= lower_bound) &
-            #                           (length_df["Protein_length"] <= upper_bound)].index.tolist()
+            # length filter
+            if len(pass_tids) >= 3:
+                lengths_dict = {}
+                for tid in pass_tids:
+                    lengths_dict[tid] = mapped_records[mapped_records["Target_id"] == tid].iloc[0]["Protein_length"]
+                length_df = pd.DataFrame.from_dict(lengths_dict, orient="index", columns=["Protein_length"])
+                second_smallest = sorted(length_df["Protein_length"].values)[1]
+                lower_bound = second_smallest * 0.7
+                pass_tids = length_df[length_df["Protein_length"] >= lower_bound].index.tolist()
 
             if len(pass_tids) > 0:
                 mapped_records = mapped_records[mapped_records["Target_id"].isin(pass_tids)]
