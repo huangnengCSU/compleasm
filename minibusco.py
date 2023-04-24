@@ -520,7 +520,7 @@ class AutoLineager:
         return lineage
 
 
-### hmmersearch ###
+### hmmsearch ###
 
 def run_hmmsearch(hmmsearch_execute_command, output_file, hmm_profile, protein_file):
     hmmer_process = subprocess.Popen(shlex.split(
@@ -547,7 +547,7 @@ class Hmmersearch:
                                                   absolute_path_profile, self.translated_protein_file))
         pool.close()
         pool.join()
-        done_file = os.path.join(os.path.dirname(self.translated_protein_file), "hmmersearch.done")
+        done_file = os.path.join(os.path.dirname(self.translated_protein_file), "hmmsearch.done")
         open(done_file, "w").close()
 
 
@@ -1156,7 +1156,7 @@ class MiniprotAlignmentParser:
                                   translated_protein_file=self.translated_protein_path,
                                   threads=self.nthreads,
                                   output_folder=self.hmm_output_folder)
-        if not os.path.exists(os.path.join(self.run_folder, "hmmersearch.done")):
+        if not os.path.exists(os.path.join(self.run_folder, "hmmsearch.done")):
             hmmsearcher.Run()
         score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
         length_cutoff_dict = load_length_cutoff(os.path.join(self.library_path, self.lineage, "lengths_cutoff"))
@@ -1767,7 +1767,7 @@ class MiniprotAlignmentParser:
                                   translated_protein_file=self.translated_protein_path,
                                   threads=self.nthreads,
                                   output_folder=self.hmm_output_folder)
-        if not os.path.exists(os.path.join(self.run_folder, "hmmersearch.done")):
+        if not os.path.exists(os.path.join(self.run_folder, "hmmsearch.done")):
             hmmsearcher.Run()
         score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
         reliable_mappings = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
