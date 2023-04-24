@@ -1466,11 +1466,12 @@ class MiniprotAlignmentParser:
             if len(pass_tids) >= 3:
                 lengths_dict = {}
                 for tid in pass_tids:
-                    lengths_dict[tid] = mapped_records[mapped_records["Target_id"] == tid].iloc[0]["Protein_length"]
-                length_df = pd.DataFrame.from_dict(lengths_dict, orient="index", columns=["Protein_length"])
-                second_smallest = sorted(length_df["Protein_length"].values)[1]
-                lower_bound = second_smallest * 0.7
-                pass_tids = length_df[length_df["Protein_length"] >= lower_bound].index.tolist()
+                    lengths_dict[tid] = max(
+                        mapped_records[mapped_records["Target_id"] == tid]["Protein_mapped_length"].values)
+                length_values = list(lengths_dict.values())
+                second_smallest = sorted(length_values, reverse=False)[1]
+                lower_bound = second_smallest * 0.5
+                pass_tids = [tid for tid in pass_tids if lengths_dict[tid] >= lower_bound]
 
             if len(pass_tids) > 0:
                 mapped_records = mapped_records[mapped_records["Target_id"].isin(pass_tids)]
@@ -1727,11 +1728,12 @@ class MiniprotAlignmentParser:
             if len(pass_tids) >= 3:
                 lengths_dict = {}
                 for tid in pass_tids:
-                    lengths_dict[tid] = mapped_records[mapped_records["Target_id"] == tid].iloc[0]["Protein_length"]
-                length_df = pd.DataFrame.from_dict(lengths_dict, orient="index", columns=["Protein_length"])
-                second_smallest = sorted(length_df["Protein_length"].values)[1]
-                lower_bound = second_smallest * 0.7
-                pass_tids = length_df[length_df["Protein_length"] >= lower_bound].index.tolist()
+                    lengths_dict[tid] = max(
+                        mapped_records[mapped_records["Target_id"] == tid]["Protein_mapped_length"].values)
+                length_values = list(lengths_dict.values())
+                second_smallest = sorted(length_values, reverse=False)[1]
+                lower_bound = second_smallest * 0.5
+                pass_tids = [tid for tid in pass_tids if lengths_dict[tid] >= lower_bound]
 
             if len(pass_tids) > 0:
                 mapped_records = mapped_records[mapped_records["Target_id"].isin(pass_tids)]
