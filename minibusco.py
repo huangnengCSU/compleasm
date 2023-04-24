@@ -315,6 +315,7 @@ class MiniprotRunner:
                                                                     output_filepath)), stdout=fout, bufsize=8388608)
         miniprot_process.wait()
         fout.close()
+        open(alignment_outdir + "miniprot.done", 'w').close()
         return output_filepath
 
 
@@ -741,7 +742,7 @@ def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
                 if target_name.split("|")[0].split("_")[0] != query_name:  ## query name must match the target name
                     continue
                 if hmm_score >= cutoff_dict[query_name]:
-                    reliable_mappings[target_name]=hmm_score
+                    reliable_mappings[target_name] = hmm_score
     reliable_mappings = list(reliable_mappings.keys())
     return reliable_mappings
 
@@ -2037,9 +2038,10 @@ class MinibuscoRunner:
             os.makedirs(alignment_output_dir)
 
         run_miniprot_start_time = time.time()
-        miniprot_output_path = self.miniprot_runner.run_miniprot(self.assembly_path,
-                                                                 lineage_filepath,
-                                                                 alignment_output_dir)
+        if not os.path.exists(os.path.join(alignment_output_dir, "miniprot.done")):
+            miniprot_output_path = self.miniprot_runner.run_miniprot(self.assembly_path,
+                                                                     lineage_filepath,
+                                                                     alignment_output_dir)
         run_miniprot_end_time = time.time()
         analysis_miniprot_start_time = time.time()
         miniprot_alignment_parser = MiniprotAlignmentParser(run_folder=self.output_folder,
@@ -2095,9 +2097,10 @@ class MinibuscoRunner:
             if not os.path.exists(alignment_output_dir):
                 os.makedirs(alignment_output_dir)
             second_run_miniprot_start_time = time.time()
-            miniprot_output_path = self.miniprot_runner.run_miniprot(self.assembly_path,
-                                                                     lineage_filepath,
-                                                                     alignment_output_dir)
+            if not os.path.exists(os.path.join(alignment_output_dir, "miniprot.done")):
+                miniprot_output_path = self.miniprot_runner.run_miniprot(self.assembly_path,
+                                                                         lineage_filepath,
+                                                                         alignment_output_dir)
             second_run_miniprot_end_time = time.time()
             second_analysis_miniprot_start_time = time.time()
             miniprot_alignment_parser = MiniprotAlignmentParser(run_folder=self.output_folder,
@@ -2177,7 +2180,11 @@ def list_lineages(args):
 
 def miniprot(args):
     mr = MiniprotRunner(args.exec_path, args.threads)
-    mr.run_miniprot(args.assembly, args.protein, args.outdir)
+    if not os.path.exists(os.path.join(args.outdir, "miniprot.done")):
+        mr.run_miniprot(args.assembly, args.protein, args.outdir)
+    else:
+        print(
+            "Miniprot has been run before. If you want to run it again, please delete the miniprot.done file in the output folder.")
 
 
 def analyze(args):
