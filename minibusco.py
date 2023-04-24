@@ -1164,16 +1164,20 @@ class MiniprotAlignmentParser:
                                                     "Strand", "Rank", "Identity", "Positive", "I+L",
                                                     "Frameshift_events", "Frameshift_lengths", "Score", "Atn_seq",
                                                     "Ata_seq", "Codons"])
+        all_species = records_df["Target_species"].unique()
+        all_contigs = records_df["Contig_id"].unique()
+
+        filtered_candidate_hits = []
         for rx in range(records_df.shape[0]):
             target_id = records_df.iloc[rx]["Target_id"]
             contig_id = records_df.iloc[rx]["Contig_id"]
             start = records_df.iloc[rx]["Start"]
             stop = records_df.iloc[rx]["Stop"]
-            if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) not in reliable_mappings:
-                records_df.loc[rx, "Identity"] = 0
-                records_df.loc[rx, "I+L"] = 0
-        all_species = records_df["Target_species"].unique()
-        all_contigs = records_df["Contig_id"].unique()
+            if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) in reliable_mappings:
+                filtered_candidate_hits.append(records_df.iloc[rx])
+        records_df = pd.DataFrame(filtered_candidate_hits)  # filtered by hmmsearch
+
+        filtered_species = records_df["Target_species"].unique()
         if self.specified_contigs is not None:
             if len(set(all_contigs) & set(self.specified_contigs)) == 0:
                 raise Exception("No contigs found in the specified contigs!")
@@ -1193,27 +1197,19 @@ class MiniprotAlignmentParser:
         else:
             full_table_busco_format_writer.write(
                 "# Busco id\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tOrthoDB url\tDescription\n")
-        for gene_id in all_species:
+
+        # missing genes
+        for gene_id in set(all_species) - set(filtered_species):
+            full_table_writer.write("{}\t{}\n".format(gene_id, GeneLabel.Missing.name))
+            full_table_busco_format_writer.write("{}\t{}\n".format(gene_id, GeneLabel.Missing.name))
+
+        # remaining genes
+        for gene_id in filtered_species:
             mapped_records = grouped_df.get_group(gene_id)
             mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
             if self.specified_contigs is not None:
                 mapped_records = mapped_records[mapped_records["Contig_id"].isin(self.specified_contigs)]
-            mapped_records = mapped_records[mapped_records["Identity"] > 0]  # filter genes not passing hmmsearch
-            # pass_tids = mapped_records[(mapped_records["Protein_mapped_rate"] >= self.min_length_percent) | (
-            #         mapped_records["Identity"] >= self.min_identity)]["Target_id"].unique()
 
-            # mean std filter
-            # if len(pass_tids) >= 5:
-            #     lengths_dict = {}
-            #     for tid in pass_tids:
-            #         lengths_dict[tid] = mapped_records[mapped_records["Target_id"] == tid].iloc[0]["Protein_length"]
-            #     length_df = pd.DataFrame.from_dict(lengths_dict, orient="index", columns=["Protein_length"])
-            #     mean_v = length_df["Protein_length"].mean()
-            #     std_v = length_df["Protein_length"].std()
-            #     lower_bound = mean_v - 1.5 * std_v
-            #     upper_bound = mean_v + 1.5 * std_v
-            #     pass_tids = length_df[(length_df["Protein_length"] >= lower_bound) &
-            #                           (length_df["Protein_length"] <= upper_bound)].index.tolist()
             if mapped_records.shape[0] > 0:
                 min_identity = 0
                 min_complete = length_cutoff_dict[gene_id]["length"] - 2 * length_cutoff_dict[gene_id]["sigma"]
@@ -1248,8 +1244,6 @@ class MiniprotAlignmentParser:
                                                    output.data_record["Frameshift_events"],
                                                    output.data_record["Target_id"],
                                                    output.data_record["Codons"]))
-                    # translated_protein_writer.write(
-                    #     ">{}\n{}\n".format(output.data_record["Target_species"], output.data_record["Ata_seq"]))
                     if output.gene_label.name == "Single":
                         status = "Complete"
                     elif output.gene_label.name == "Interspaced":
@@ -1308,9 +1302,6 @@ class MiniprotAlignmentParser:
                                                        output.data_record.iloc[dri]["Frameshift_events"],
                                                        output.data_record.iloc[dri]["Target_id"],
                                                        output.data_record.iloc[dri]["Codons"]))
-                        # translated_protein_writer.write(
-                        #     ">{}\n{}\n".format(output.data_record.iloc[dri]["Target_species"],
-                        #                        output.data_record.iloc[dri]["Ata_seq"]))
                         if output.gene_label.name == "Single":
                             status = "Complete"
                         elif output.gene_label.name == "Interspaced":
@@ -1370,7 +1361,6 @@ class MiniprotAlignmentParser:
                 raise ValueError
         full_table_writer.close()
         full_table_busco_format_writer.close()
-        # translated_protein_writer.close()
 
         total_genes = len(all_species)
         d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(
