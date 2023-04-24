@@ -547,6 +547,8 @@ class Hmmersearch:
                                                   absolute_path_profile, self.translated_protein_file))
         pool.close()
         pool.join()
+        done_file = os.path.join(os.path.dirname(self.translated_protein_file), "hmmersearch.done")
+        open(done_file, "w").close()
 
 
 ### Analysis miniprot alignment ###
@@ -1154,7 +1156,8 @@ class MiniprotAlignmentParser:
                                   translated_protein_file=self.translated_protein_path,
                                   threads=self.nthreads,
                                   output_folder=self.hmm_output_folder)
-        hmmsearcher.Run()
+        if not os.path.exists(os.path.join(self.run_folder, "hmmersearch.done")):
+            hmmsearcher.Run()
         score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
         length_cutoff_dict = load_length_cutoff(os.path.join(self.library_path, self.lineage, "lengths_cutoff"))
         reliable_mappings = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
@@ -1423,29 +1426,12 @@ class MiniprotAlignmentParser:
         except StopIteration:
             pass
         translated_protein_writer.close()
-        # hmmsearcher = Hmmersearch(hmmsearch_execute_command=self.hmmsearch_execute_command,
-        #                           hmm_profiles=self.hmm_profiles,
-        #                           translated_protein_file=self.translated_protein_path,
-        #                           threads=self.nthreads,
-        #                           output_folder=self.hmm_output_folder)
-        # hmmsearcher.Run()
-        # score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
-        # reliable_mappings = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
-        # reliable_mappings = set(reliable_mappings)
         records_df = pd.DataFrame(records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
                                                     "Protein_Start", "Protein_End", "Protein_mapped_length",
                                                     "Protein_mapped_rate", "Start", "Stop", "Genome_mapped_length",
                                                     "Strand", "Rank", "Identity", "Positive", "I+L",
                                                     "Frameshift_events", "Frameshift_lengths", "Score", "Atn_seq",
                                                     "Ata_seq", "Codons"])
-        # for rx in range(records_df.shape[0]):
-        #     target_id = records_df.iloc[rx]["Target_id"]
-        #     contig_id = records_df.iloc[rx]["Contig_id"]
-        #     start = records_df.iloc[rx]["Start"]
-        #     stop = records_df.iloc[rx]["Stop"]
-        #     if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) not in reliable_mappings:
-        #         records_df.loc[rx, "Identity"] = 0
-        #         records_df.loc[rx, "I+L"] = 0
         all_species = records_df["Target_species"].unique()
         all_contigs = records_df["Contig_id"].unique()
         if self.specified_contigs is not None:
@@ -1785,7 +1771,8 @@ class MiniprotAlignmentParser:
                                   translated_protein_file=self.translated_protein_path,
                                   threads=self.nthreads,
                                   output_folder=self.hmm_output_folder)
-        hmmsearcher.Run()
+        if not os.path.exists(os.path.join(self.run_folder, "hmmersearch.done")):
+            hmmsearcher.Run()
         score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
         reliable_mappings = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
         reliable_mappings = set(reliable_mappings)
@@ -2063,18 +2050,6 @@ class MinibuscoRunner:
             os.remove(miniprot_alignment_parser.completeness_output_file)
         miniprot_alignment_parser.Run()
         analysis_miniprot_end_time = time.time()
-        # hmmsearch_start_time = time.time()
-        # hmmer_output_dir = os.path.join(self.output_folder, lineage, "hmmer_outputs")
-        # if not os.path.exists(hmmer_output_dir):
-        #     os.makedirs(hmmer_output_dir)
-        # translated_protein_file = os.path.join(self.output_folder, lineage, "translated_protein.fasta")
-        # hmmsearcher = Hmmersearch(hmmsearch_execute_command=self.hmmsearch_execute_command,
-        #                           hmm_profiles=self.hmm_profiles,
-        #                           translated_protein_file=translated_protein_file,
-        #                           threads=self.nthreads,
-        #                           output_folder=hmmer_output_dir)
-        # hmmsearcher.Run()
-        # hmmsearch_end_time = time.time()
         if self.autolineage:
             autolineage_start_time = time.time()
             marker_genes_filepath = miniprot_alignment_parser.marker_gene_path
@@ -2119,18 +2094,6 @@ class MinibuscoRunner:
                                                                 mode=self.mode)
             miniprot_alignment_parser.Run()
             second_analysis_miniprot_end_time = time.time()
-            # second_run_hmmsearch_start_time = time.time()
-            # hmmer_output_dir = os.path.join(self.output_folder, lineage, "hmmer_outputs")
-            # if not os.path.exists(hmmer_output_dir):
-            #     os.makedirs(hmmer_output_dir)
-            # translated_protein_file = os.path.join(self.output_folder, lineage, "translated_protein.fasta")
-            # hmmsearcher = Hmmersearch(hmmsearch_execute_command=self.hmmsearch_execute_command,
-            #                           hmm_profiles=self.hmm_profiles,
-            #                           translated_protein_file=translated_protein_file,
-            #                           threads=self.nthreads,
-            #                           output_folder=hmmer_output_dir)
-            # hmmsearcher.Run()
-            # second_run_hmmsearch_end_time = time.time()
         end_time = time.time()
         print("## Download lineage: {:.2f}(s)".format(download_lineage_end_time - download_lineage_start_time))
         print("## Run miniprot: {:.2f}(s)".format(run_miniprot_end_time - run_miniprot_start_time))
