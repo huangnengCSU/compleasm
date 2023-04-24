@@ -1799,16 +1799,16 @@ class MiniprotAlignmentParser:
         reliable_mappings = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
         reliable_mappings = set(reliable_mappings)
         candidate_hits_df = pd.DataFrame(candidate_hits)
+        filtered_candidate_hits = []
         print("Total candidate hits before hmmsearch: {}".format(len(candidate_hits_df["Target_species"].unique())))
         for rx in range(candidate_hits_df.shape[0]):
             target_id = candidate_hits_df.iloc[rx]["Target_id"]
             contig_id = candidate_hits_df.iloc[rx]["Contig_id"]
             start = candidate_hits_df.iloc[rx]["Start"]
             stop = candidate_hits_df.iloc[rx]["Stop"]
-            if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) not in reliable_mappings:
-                candidate_hits_df.loc[rx, "Identity"] = 0
-                candidate_hits_df.loc[rx, "I+L"] = 0
-        candidate_hits_df = candidate_hits_df[candidate_hits_df["Identity"] > 0]  # remove unreliable hits
+            if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) in reliable_mappings:
+                filtered_candidate_hits.append(candidate_hits_df.iloc[rx])
+        candidate_hits_df = pd.DataFrame(filtered_candidate_hits)
         print("Total candidate hits after hmmsearch: {}".format(len(candidate_hits_df["Target_species"].unique())))
         grouped_candidate_hits_df = candidate_hits_df.groupby("Target_species")
         candidate_target_species = candidate_hits_df["Target_species"].unique()
