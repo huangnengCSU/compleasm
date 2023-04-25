@@ -2110,7 +2110,10 @@ class MinibuscoRunner:
 
 def download(args):
     downloader = Downloader(args.library_path)
-    for lineage in args.lineage:
+    lineages = []
+    for v in args.lineages:
+        lineages.extend(v.strip().split(','))
+    for lineage in lineages:
         downloader.download_lineage(lineage)
 
 
@@ -2215,9 +2218,8 @@ def main():
 
     ### sub-command: download
     download_parser = subparser.add_parser("download", help="Download specified BUSCO lineages")
-    download_parser.add_argument("-l", "--lineage", type=str, nargs='+',
-                                 help="Specify the names of the BUSCO lineages to be downloaded. (e.g. eukaryota, primates, saccharomycetes etc.)",
-                                 required=True)
+    download_parser.add_argument("lineages", type=str, nargs='+',
+                                 help="Specify the names of the BUSCO lineages to be downloaded. (e.g. eukaryota, primates, saccharomycetes etc.)")
     download_parser.add_argument("-L", "--library_path", type=str, default="mb_downloads",
                                  help="The destination folder to store the downloaded lineage files."
                                       "If not specified, a folder named \"mb_downloads\" will be created on the current running path.")

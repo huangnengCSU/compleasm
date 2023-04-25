@@ -166,19 +166,26 @@ minibusco analyze -g miniprot.gff -o output_dir -l eukaryota -t 8 --hmmsearch_ex
 This will download the specified lineages and save to the specified folder.
 #### Usage:
 ```angular2html
-python minibusco.py download [-h] -l LINEAGE [LINEAGE ...] [-L LIBRARY_PATH]
+python minibusco.py download [-h] [-L LIBRARY_PATH] lineages [lineages ...]
 ```
 
-#### Important parameters:
+#### Parameters:
 ```angular2html
-  -l, --lineage           Specify the names of the BUSCO lineages to be downloaded. (e.g. eukaryota, primates, saccharomycetes etc.)
+positional arguments:  
+  lineages                Specify the names of the BUSCO lineages to be downloaded. (e.g. eukaryota, primates, saccharomycetes etc.)
+
+optional arguments:
   -L, --library_path      The destination folder to store the downloaded lineage files.
                           If not specified, a folder named "mb_downloads" will be created on the current running path by default.
 ```
 
 #### Example:
 ```angular2html
-python minibusco.py download -l primates brassicales -L /path/to/lineages_folder
+python minibusco.py download saccharomycetes primates brassicales -L /path/to/lineages_folder
+```
+or
+```angular2html
+python minibusco.py download saccharomycetes,primates,brassicales -L /path/to/lineages_folder
 ```
 
 ### Using `miniprot` submodule to run miniprot alignment:
