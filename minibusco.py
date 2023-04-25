@@ -1470,7 +1470,7 @@ class MiniprotAlignmentParser:
                         mapped_records[mapped_records["Target_id"] == tid]["Protein_mapped_length"].values)
                 length_values = list(lengths_dict.values())
                 second_smallest = sorted(length_values, reverse=False)[1]
-                lower_bound = second_smallest * 0.5
+                lower_bound = second_smallest * 0.9
                 pass_tids = [tid for tid in pass_tids if lengths_dict[tid] >= lower_bound]
 
             if len(pass_tids) > 0:
@@ -1732,7 +1732,7 @@ class MiniprotAlignmentParser:
                         mapped_records[mapped_records["Target_id"] == tid]["Protein_mapped_length"].values)
                 length_values = list(lengths_dict.values())
                 second_smallest = sorted(length_values, reverse=False)[1]
-                lower_bound = second_smallest * 0.5
+                lower_bound = second_smallest * 0.9
                 pass_tids = [tid for tid in pass_tids if lengths_dict[tid] >= lower_bound]
 
             if len(pass_tids) > 0:
