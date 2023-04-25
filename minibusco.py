@@ -315,7 +315,8 @@ class MiniprotRunner:
                                                                     output_filepath)), stdout=fout, bufsize=8388608)
         miniprot_process.wait()
         fout.close()
-        open(alignment_outdir + "miniprot.done", 'w').close()
+        tag_file = os.path.join(alignment_outdir, "miniprot.done")
+        open(tag_file, 'w').close()
         return output_filepath
 
 
