@@ -92,10 +92,10 @@ python minibusco.py run [-h] -a ASSEMBLY_PATH -o OUTPUT_DIR --hmmsearch_execute_
   -l, --lineage              Specify the name of the BUSCO lineage to be used. (e.g. eukaryota, primates, saccharomycetes etc.)
   -L, --library_path         Folder path to download lineages or already downloaded lineages. 
                              If not specified, a folder named "mb_downloads" will be created on the current running path by default to store the downloaded lineage files.
-  -m, --mode                 The mode of evaluation. default is fast. 
+  -m, --mode                 The mode of evaluation. Default mode is fast. 
                              lite:  Without using hmmsearch to filtering protein alignment. Fastest but may overestimate completeness.
-                             fast:  Using hmmsearch on the best candidate protein alignment to purify the miniprot alignment. Fast and accurate.
-                             busco: Using hmmsearch on all candidate protein alignment to purify the miniprot alignment. Slow but most accurate.
+                             fast:  Using hmmsearch on the at most three best candidate predicted proteins to purify the miniprot alignment. Fast and accurate.
+                             busco: Using hmmsearch on all candidate predicted proteins to purify the miniprot alignment. Slow but most accurate.
   --specified_contigs        Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.
   --miniprot_execute_path    Path to miniprot executable file. 
                              If not specified, minibusco will search for miniprot in the directory where minibusco.py is located, the current execution directory, and system environment variables.
@@ -144,10 +144,10 @@ python minibusco.py analyze [-h] -g GFF -l LINEAGE -o OUTPUT_DIR --hmmsearch_exe
   -o, --output_dir          Output analysis folder
   -t, --threads             Number of threads to use
   -L, --library_path        Folder path to stored lineages.
-  -m, --mode                The mode of evaluation. default is fast. 
+  -m, --mode                The mode of evaluation. Default mode is fast. 
                             lite:  Without using hmmsearch to filtering protein alignment. Fastest but may overestimate completeness.
-                            fast:  Using hmmsearch on the best candidate protein alignment to purify the miniprot alignment. Fast and accurate.
-                            busco: Using hmmsearch on all candidate protein alignment to purify the miniprot alignment. Slow but most accurate.
+                            fast:  Using hmmsearch on the at most three best candidate predicted proteins to purify the miniprot alignment. Fast and accurate.
+                            busco: Using hmmsearch on all candidate predicted proteins to purify the miniprot alignment. Slow but most accurate.
   --hmmsearch_execute_path  Path to hmmsearch executable
   --specified_contigs       Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.
 ```
