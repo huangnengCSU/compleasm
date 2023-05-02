@@ -731,6 +731,7 @@ def load_length_cutoff(lengths_cutoff_file):
 
 def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
     reliable_mappings = {}
+    hmm_length_dict = {}
     for outfile in os.listdir(hmmsearch_output_folder):
         outfile = os.path.join(hmmsearch_output_folder, outfile)
         with open(outfile, 'r') as fin:
@@ -742,12 +743,14 @@ def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
                 target_name = line[0]
                 query_name = line[3]
                 hmm_score = float(line[7])
+                hmm_length = int(line[16]) - int(line[15])
                 if target_name.split("|")[0].split("_")[0] != query_name:  ## query name must match the target name
                     continue
                 if hmm_score >= cutoff_dict[query_name]:
                     reliable_mappings[target_name] = hmm_score
+                hmm_length_dict[target_name] = hmm_length
     reliable_mappings = list(reliable_mappings.keys())
-    return reliable_mappings
+    return reliable_mappings, hmm_length_dict
 
 
 class MiniprotAlignmentParser:
@@ -1161,7 +1164,7 @@ class MiniprotAlignmentParser:
             hmmsearcher.Run()
         score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
         length_cutoff_dict = load_length_cutoff(os.path.join(self.library_path, self.lineage, "lengths_cutoff"))
-        reliable_mappings = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
+        reliable_mappings, hmm_length_dict = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
         reliable_mappings = set(reliable_mappings)
         records_df = pd.DataFrame(records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
                                                     "Protein_Start", "Protein_End", "Protein_mapped_length",
@@ -1179,7 +1182,10 @@ class MiniprotAlignmentParser:
             start = records_df.iloc[rx]["Start"]
             stop = records_df.iloc[rx]["Stop"]
             if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) in reliable_mappings:
-                filtered_candidate_hits.append(records_df.iloc[rx])
+                tmp_record = records_df.iloc[rx]
+                tmp_record["Protein_mapped_length"] = hmm_length_dict[
+                    "{}|{}:{}-{}".format(target_id, contig_id, start, stop)]
+                filtered_candidate_hits.append(tmp_record)
         records_df = pd.DataFrame(filtered_candidate_hits)  # filtered by hmmsearch
 
         filtered_species = records_df["Target_species"].unique()
@@ -1771,7 +1777,7 @@ class MiniprotAlignmentParser:
         if not os.path.exists(os.path.join(self.run_folder, "hmmsearch.done")):
             hmmsearcher.Run()
         score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
-        reliable_mappings = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
+        reliable_mappings, hmm_length_dict = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
         reliable_mappings = set(reliable_mappings)
         candidate_hits_df = pd.DataFrame(candidate_hits)
         filtered_candidate_hits = []
@@ -1782,7 +1788,10 @@ class MiniprotAlignmentParser:
             start = candidate_hits_df.iloc[rx]["Start"]
             stop = candidate_hits_df.iloc[rx]["Stop"]
             if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) in reliable_mappings:
-                filtered_candidate_hits.append(candidate_hits_df.iloc[rx])
+                tmp_record = candidate_hits_df.iloc[rx]
+                tmp_record["Protein_mapped_length"] = hmm_length_dict[
+                    "{}|{}:{}-{}".format(target_id, contig_id, start, stop)]
+                filtered_candidate_hits.append(tmp_record)
         candidate_hits_df = pd.DataFrame(filtered_candidate_hits)
         print("Total candidate hits after hmmsearch: {}".format(len(candidate_hits_df["Target_species"].unique())))
         grouped_candidate_hits_df = candidate_hits_df.groupby("Target_species")
@@ -1970,7 +1979,6 @@ class MiniprotAlignmentParser:
             for x in single_complete_proteins:
                 fout.write(x)
 
-
     def Run_fast_mode2(self):
         single_genes = []
         duplicate_genes = []
@@ -2025,7 +2033,8 @@ class MiniprotAlignmentParser:
                     Start = tid_df.iloc[i]["Start"]
                     Stop = tid_df.iloc[i]["Stop"]
                     Ata_seq = tid_df.iloc[i]["Ata_seq"]
-                    translated_protein_writer.write(">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start, Stop,Ata_seq))
+                    translated_protein_writer.write(
+                        ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start, Stop, Ata_seq))
         translated_protein_writer.close()
         hmmsearcher = Hmmersearch(hmmsearch_execute_command=self.hmmsearch_execute_command,
                                   hmm_profiles=self.hmm_profiles,
@@ -2036,7 +2045,7 @@ class MiniprotAlignmentParser:
             hmmsearcher.Run()
         score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
         length_cutoff_dict = load_length_cutoff(os.path.join(self.library_path, self.lineage, "lengths_cutoff"))
-        reliable_mappings = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
+        reliable_mappings, hmm_length_dict = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
         reliable_mappings = set(reliable_mappings)
         filtered_candidate_hits = []
         for rx in range(records_df.shape[0]):
@@ -2045,7 +2054,10 @@ class MiniprotAlignmentParser:
             start = records_df.iloc[rx]["Start"]
             stop = records_df.iloc[rx]["Stop"]
             if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) in reliable_mappings:
-                filtered_candidate_hits.append(records_df.iloc[rx])
+                tmp_record = records_df.iloc[rx]
+                tmp_record["Protein_mapped_length"] = hmm_length_dict[
+                    "{}|{}:{}-{}".format(target_id, contig_id, start, stop)]
+                filtered_candidate_hits.append(tmp_record)
         records_df = pd.DataFrame(filtered_candidate_hits)  # filtered by hmmsearch
 
         filtered_species = records_df["Target_species"].unique()
