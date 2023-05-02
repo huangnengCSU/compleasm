@@ -2329,6 +2329,8 @@ class MinibuscoRunner:
             miniprot_output_path = self.miniprot_runner.run_miniprot(self.assembly_path,
                                                                      lineage_filepath,
                                                                      alignment_output_dir)
+        else:
+            miniprot_output_path = os.path.join(alignment_output_dir, "miniprot_output.gff")
         run_miniprot_end_time = time.time()
         analysis_miniprot_start_time = time.time()
         miniprot_alignment_parser = MiniprotAlignmentParser(run_folder=self.output_folder,
@@ -2376,6 +2378,8 @@ class MinibuscoRunner:
                 miniprot_output_path = self.miniprot_runner.run_miniprot(self.assembly_path,
                                                                          lineage_filepath,
                                                                          alignment_output_dir)
+            else:
+                miniprot_output_path = os.path.join(alignment_output_dir, "miniprot_output.gff")
             second_run_miniprot_end_time = time.time()
             second_analysis_miniprot_start_time = time.time()
             miniprot_alignment_parser = MiniprotAlignmentParser(run_folder=self.output_folder,
