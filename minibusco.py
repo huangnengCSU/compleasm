@@ -736,7 +736,7 @@ def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
         outfile = os.path.join(hmmsearch_output_folder, outfile)
         with open(outfile, 'r') as fin:
             best_one_candidate = None
-            coords = []
+            coords_dict = defaultdict(list)
             for line in fin:
                 if line.startswith('#'):
                     continue
@@ -749,13 +749,16 @@ def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
                 assert hmm_to >= hmm_from
                 if target_name.split("|")[0].split("_")[0] != query_name:  ## query name must match the target name
                     continue
-                if best_one_candidate is not None and best_one_candidate != target_name:  ## only save the best one
-                    break
+                if best_one_candidate is not None and best_one_candidate != target_name:  ## save records of the best candidate only (maybe duplicated)
+                    continue
                 if hmm_score >= cutoff_dict[query_name]:
                     reliable_mappings[target_name] = hmm_score
-                coords.append((hmm_from, hmm_to))
-                best_one_candidate = target_name
-            if len(coords) != 0:
+                location = target_name.split("|")[1]
+                coords_dict[location].append((hmm_from, hmm_to))
+                best_one_candidate = target_name.split("|")[0]
+            for location in coords_dict.keys():
+                coords = coords_dict[location]
+                keyname = "{}|{}".format(best_one_candidate, location)
                 interval = []
                 coords = sorted(coords, key=lambda x: x[0])
                 for i in range(len(coords)):
@@ -777,7 +780,7 @@ def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
                             continue
                         else:
                             raise Error("Error parsing the hmmsearch output file {}.".format(outfile))
-                hmm_length_dict[best_one_candidate] = interval[2]
+                hmm_length_dict[keyname] = interval[2]
     reliable_mappings = list(reliable_mappings.keys())
     return reliable_mappings, hmm_length_dict
 
