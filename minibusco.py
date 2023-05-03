@@ -731,7 +731,7 @@ def load_length_cutoff(lengths_cutoff_file):
 
 def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
     reliable_mappings = {}
-    hmm_length_dict = defaultdict(int)
+    hmm_length_dict = {}
     for outfile in os.listdir(hmmsearch_output_folder):
         outfile = os.path.join(hmmsearch_output_folder, outfile)
         with open(outfile, 'r') as fin:
@@ -1214,10 +1214,13 @@ class MiniprotAlignmentParser:
             start = records_df.iloc[rx]["Start"]
             stop = records_df.iloc[rx]["Stop"]
             if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) in reliable_mappings:
-                records_df.loc[rx, "Protein_mapped_length"] = hmm_length_dict[
+                try:
+                    records_df.loc[rx, "Protein_mapped_length"] = hmm_length_dict[
                     "{}|{}:{}-{}".format(target_id, contig_id, start, stop)]
-                tmp_record = records_df.iloc[rx]
-                filtered_candidate_hits.append(tmp_record)
+                    tmp_record = records_df.iloc[rx]
+                    filtered_candidate_hits.append(tmp_record)
+                except KeyError:
+                    print("{}|{}:{}-{}".format(target_id, contig_id, start, stop))
         records_df = pd.DataFrame(filtered_candidate_hits)  # filtered by hmmsearch
 
         filtered_species = records_df["Target_species"].unique()
@@ -1820,10 +1823,13 @@ class MiniprotAlignmentParser:
             start = candidate_hits_df.iloc[rx]["Start"]
             stop = candidate_hits_df.iloc[rx]["Stop"]
             if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) in reliable_mappings:
-                candidate_hits_df.loc[rx, "Protein_mapped_length"] = hmm_length_dict[
-                    "{}|{}:{}-{}".format(target_id, contig_id, start, stop)]
-                tmp_record = candidate_hits_df.iloc[rx]
-                filtered_candidate_hits.append(tmp_record)
+                try:
+                    candidate_hits_df.loc[rx, "Protein_mapped_length"] = hmm_length_dict[
+                        "{}|{}:{}-{}".format(target_id, contig_id, start, stop)]
+                    tmp_record = candidate_hits_df.iloc[rx]
+                    filtered_candidate_hits.append(tmp_record)
+                except KeyError:
+                    print("{}|{}:{}-{}".format(target_id, contig_id, start, stop))
         candidate_hits_df = pd.DataFrame(filtered_candidate_hits)
         print("Total candidate hits after hmmsearch: {}".format(len(candidate_hits_df["Target_species"].unique())))
         grouped_candidate_hits_df = candidate_hits_df.groupby("Target_species")
@@ -2086,10 +2092,13 @@ class MiniprotAlignmentParser:
             start = records_df.iloc[rx]["Start"]
             stop = records_df.iloc[rx]["Stop"]
             if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) in reliable_mappings:
-                records_df.loc[rx, "Protein_mapped_length"] = hmm_length_dict[
-                    "{}|{}:{}-{}".format(target_id, contig_id, start, stop)]
-                tmp_record = records_df.iloc[rx]
-                filtered_candidate_hits.append(tmp_record)
+                try:
+                    records_df.loc[rx, "Protein_mapped_length"] = hmm_length_dict[
+                        "{}|{}:{}-{}".format(target_id, contig_id, start, stop)]
+                    tmp_record = records_df.iloc[rx]
+                    filtered_candidate_hits.append(tmp_record)
+                except KeyError:
+                    print("{}|{}:{}-{}".format(target_id, contig_id, start, stop))
         records_df = pd.DataFrame(filtered_candidate_hits)  # filtered by hmmsearch
 
         filtered_species = records_df["Target_species"].unique()
