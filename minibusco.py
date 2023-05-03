@@ -1214,9 +1214,9 @@ class MiniprotAlignmentParser:
             start = records_df.iloc[rx]["Start"]
             stop = records_df.iloc[rx]["Stop"]
             if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) in reliable_mappings:
-                tmp_record = records_df.iloc[rx]
-                tmp_record["Protein_mapped_length"] = hmm_length_dict[
+                records_df.loc[rx, "Protein_mapped_length"] = hmm_length_dict[
                     "{}|{}:{}-{}".format(target_id, contig_id, start, stop)]
+                tmp_record = records_df.iloc[rx]
                 filtered_candidate_hits.append(tmp_record)
         records_df = pd.DataFrame(filtered_candidate_hits)  # filtered by hmmsearch
 
@@ -1820,9 +1820,9 @@ class MiniprotAlignmentParser:
             start = candidate_hits_df.iloc[rx]["Start"]
             stop = candidate_hits_df.iloc[rx]["Stop"]
             if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) in reliable_mappings:
-                tmp_record = candidate_hits_df.iloc[rx]
-                tmp_record["Protein_mapped_length"] = hmm_length_dict[
+                candidate_hits_df.loc[rx, "Protein_mapped_length"] = hmm_length_dict[
                     "{}|{}:{}-{}".format(target_id, contig_id, start, stop)]
+                tmp_record = candidate_hits_df.iloc[rx]
                 filtered_candidate_hits.append(tmp_record)
         candidate_hits_df = pd.DataFrame(filtered_candidate_hits)
         print("Total candidate hits after hmmsearch: {}".format(len(candidate_hits_df["Target_species"].unique())))
@@ -2086,9 +2086,9 @@ class MiniprotAlignmentParser:
             start = records_df.iloc[rx]["Start"]
             stop = records_df.iloc[rx]["Stop"]
             if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) in reliable_mappings:
-                tmp_record = records_df.iloc[rx]
-                tmp_record["Protein_mapped_length"] = hmm_length_dict[
+                records_df.loc[rx, "Protein_mapped_length"] = hmm_length_dict[
                     "{}|{}:{}-{}".format(target_id, contig_id, start, stop)]
+                tmp_record = records_df.iloc[rx]
                 filtered_candidate_hits.append(tmp_record)
         records_df = pd.DataFrame(filtered_candidate_hits)  # filtered by hmmsearch
 
