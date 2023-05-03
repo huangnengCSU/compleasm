@@ -1173,7 +1173,7 @@ class MiniprotAlignmentParser:
                     records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
                                     Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                     Stop, Stop - Start, Strand, Rank, Identity, Positive,
-                                    (Protein_End - Protein_Start) / Protein_length * Identity,
+                                    (Protein_End - Protein_Start) * Identity,
                                     Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq, Codons])
                     translated_protein_writer.write(
                         ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start, Stop, Ata_seq))
@@ -1451,7 +1451,7 @@ class MiniprotAlignmentParser:
                     records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
                                     Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                     Stop, Stop - Start, Strand, Rank, Identity, Positive,
-                                    (Protein_End - Protein_Start) / Protein_length * Identity,
+                                    (Protein_End - Protein_Start) * Identity,
                                     Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq, Codons])
                     translated_protein_writer.write(
                         ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start, Stop, Ata_seq))
@@ -1716,7 +1716,7 @@ class MiniprotAlignmentParser:
                     records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
                                     Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                     Stop, Stop - Start, Strand, Rank, Identity, Positive,
-                                    (Protein_End - Protein_Start) / Protein_length * Identity,
+                                    (Protein_End - Protein_Start) * Identity,
                                     Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq, Codons])
                 else:
                     records.append(
@@ -2029,7 +2029,7 @@ class MiniprotAlignmentParser:
                     records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
                                     Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
                                     Stop, Stop - Start, Strand, Rank, Identity, Positive,
-                                    (Protein_End - Protein_Start) / Protein_length * Identity,
+                                    (Protein_End - Protein_Start) * Identity,
                                     Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq, Codons])
                 else:
                     records.append(
