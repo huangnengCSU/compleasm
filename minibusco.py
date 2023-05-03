@@ -747,15 +747,17 @@ def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
                 hmm_from = int(line[15])
                 hmm_to = int(line[16])
                 assert hmm_to >= hmm_from
-                if target_name.split("|")[0].split("_")[0] != query_name:  ## query name must match the target name
+                ## query name must match the target name
+                if target_name.split("|", maxsplit=1)[0].split("_")[0] != query_name:
                     continue
-                if best_one_candidate is not None and best_one_candidate != target_name.split("|")[0]:  ## save records of the best candidate only (maybe duplicated)
+                ## save records of the best candidate only (maybe duplicated)
+                if best_one_candidate is not None and best_one_candidate != target_name.split("|", maxsplit=1)[0]:
                     continue
                 if hmm_score >= cutoff_dict[query_name]:
                     reliable_mappings[target_name] = hmm_score
-                location = target_name.split("|")[1]
+                location = target_name.split("|", maxsplit=1)[1]
                 coords_dict[location].append((hmm_from, hmm_to))
-                best_one_candidate = target_name.split("|")[0]
+                best_one_candidate = target_name.split("|", maxsplit=1)[0]
             for location in coords_dict.keys():
                 coords = coords_dict[location]
                 keyname = "{}|{}".format(best_one_candidate, location)
@@ -1216,7 +1218,7 @@ class MiniprotAlignmentParser:
             if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) in reliable_mappings:
                 try:
                     records_df.loc[rx, "Protein_mapped_length"] = hmm_length_dict[
-                    "{}|{}:{}-{}".format(target_id, contig_id, start, stop)]
+                        "{}|{}:{}-{}".format(target_id, contig_id, start, stop)]
                     tmp_record = records_df.iloc[rx]
                     filtered_candidate_hits.append(tmp_record)
                 except KeyError:
