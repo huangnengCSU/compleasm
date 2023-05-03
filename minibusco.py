@@ -749,7 +749,7 @@ def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
                 assert hmm_to >= hmm_from
                 if target_name.split("|")[0].split("_")[0] != query_name:  ## query name must match the target name
                     continue
-                if best_one_candidate is not None and best_one_candidate != target_name:  ## save records of the best candidate only (maybe duplicated)
+                if best_one_candidate is not None and best_one_candidate != target_name.split("|")[0]:  ## save records of the best candidate only (maybe duplicated)
                     continue
                 if hmm_score >= cutoff_dict[query_name]:
                     reliable_mappings[target_name] = hmm_score
