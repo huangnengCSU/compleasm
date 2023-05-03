@@ -731,11 +731,12 @@ def load_length_cutoff(lengths_cutoff_file):
 
 def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
     reliable_mappings = {}
-    hmm_length_dict = defaultdict(int)
+    best_one_candidate = None
+    hmm_length_dict = defaultdict(list)
     for outfile in os.listdir(hmmsearch_output_folder):
         outfile = os.path.join(hmmsearch_output_folder, outfile)
         with open(outfile, 'r') as fin:
-            pre_target_name = None
+            best_one_candidate = None
             for line in fin:
                 if line.startswith('#'):
                     continue
@@ -743,12 +744,30 @@ def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
                 target_name = line[0]
                 query_name = line[3]
                 hmm_score = float(line[7])
-                hmm_length = int(line[16]) - int(line[15])
+                hmm_from = int(line[15])
+                hmm_to = int(line[16])
+                assert hmm_to >= hmm_from
                 if target_name.split("|")[0].split("_")[0] != query_name:  ## query name must match the target name
                     continue
+                if best_one_candidate is not None and best_one_candidate != target_name:  ## only save the best one
+                    break
                 if hmm_score >= cutoff_dict[query_name]:
                     reliable_mappings[target_name] = hmm_score
-                hmm_length_dict[target_name] += hmm_length
+                if len(hmm_length_dict[target_name]) == 0:
+                    hmm_length_dict[target_name].extend([hmm_from, hmm_to, hmm_to - hmm_from])
+                else:
+                    assert hmm_from >= hmm_length_dict[target_name][0]
+                    if hmm_from >= hmm_length_dict[target_name][1]:
+                        hmm_length_dict[target_name][1] = hmm_to
+                        hmm_length_dict[target_name][2] += hmm_to - hmm_from
+                    elif hmm_from < hmm_length_dict[target_name][1] and hmm_to >= hmm_length_dict[target_name][1]:
+                        hmm_length_dict[target_name][2] += hmm_to - hmm_length_dict[target_name][1]
+                        hmm_length_dict[target_name][1] = hmm_to
+                    elif hmm_to <= hmm_length_dict[target_name][1]:
+                        continue
+                    else:
+                        raise Error("Error parsing the hmmsearch output file.")
+                best_one_candidate = target_name
     reliable_mappings = list(reliable_mappings.keys())
     return reliable_mappings, hmm_length_dict
 
