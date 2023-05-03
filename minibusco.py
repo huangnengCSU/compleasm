@@ -731,7 +731,7 @@ def load_length_cutoff(lengths_cutoff_file):
 
 def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
     reliable_mappings = {}
-    hmm_length_dict = defaultdict(list)
+    hmm_length_dict = defaultdict(int)
     for outfile in os.listdir(hmmsearch_output_folder):
         outfile = os.path.join(hmmsearch_output_folder, outfile)
         with open(outfile, 'r') as fin:
