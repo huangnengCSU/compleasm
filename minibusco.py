@@ -789,7 +789,8 @@ def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
 
 class MiniprotAlignmentParser:
     def __init__(self, run_folder, gff_file, lineage, min_length_percent, min_diff, min_identity, min_complete,
-                 min_rise, specified_contigs, autolineage, hmmsearch_execute_command, nthreads, library_path, mode):
+                 min_rise, specified_contigs, autolineage, hmmsearch_execute_command, nthreads, library_path, mode,
+                 outn, outs):
         self.autolineage = autolineage
         self.run_folder = run_folder
         if not os.path.exists(run_folder):
@@ -823,6 +824,8 @@ class MiniprotAlignmentParser:
         self.hmm_output_folder = os.path.join(self.run_folder, "hmmer_output")
         self.nthreads = nthreads
         self.mode = mode
+        self.outn = outn
+        self.outs = outs
         assert mode in ["lite", "fast", "busco"]
 
         if not os.path.exists(self.hmm_output_folder):
@@ -2057,24 +2060,48 @@ class MiniprotAlignmentParser:
         all_species = records_df["Target_species"].unique()
         all_contigs = records_df["Contig_id"].unique()
         grouped_df = records_df.groupby(["Target_species"])
-        nmc = 3
-        for gene_id in all_species:
-            mapped_records = grouped_df.get_group(gene_id)
-            mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
-            if mapped_records.shape[0] >= nmc:
-                candidate_tids = mapped_records.iloc[:nmc]["Target_id"].unique().tolist()
-            else:
-                candidate_tids = mapped_records["Target_id"].unique().tolist()
-            for tid in candidate_tids:
-                tid_df = mapped_records[mapped_records["Target_id"] == tid]
-                for i in range(tid_df.shape[0]):
-                    Target_id = tid_df.iloc[i]["Target_id"]
-                    Contig_id = tid_df.iloc[i]["Contig_id"]
-                    Start = tid_df.iloc[i]["Start"]
-                    Stop = tid_df.iloc[i]["Stop"]
-                    Ata_seq = tid_df.iloc[i]["Ata_seq"]
-                    translated_protein_writer.write(
-                        ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start, Stop, Ata_seq))
+        if self.outs is None:
+            nmc = self.outn
+            for gene_id in all_species:
+                mapped_records = grouped_df.get_group(gene_id)
+                mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
+                if mapped_records.shape[0] >= nmc:
+                    candidate_tids = mapped_records.iloc[:nmc]["Target_id"].unique().tolist()
+                else:
+                    candidate_tids = mapped_records["Target_id"].unique().tolist()
+                for tid in candidate_tids:
+                    tid_df = mapped_records[mapped_records["Target_id"] == tid]
+                    for i in range(tid_df.shape[0]):
+                        Target_id = tid_df.iloc[i]["Target_id"]
+                        Contig_id = tid_df.iloc[i]["Contig_id"]
+                        Start = tid_df.iloc[i]["Start"]
+                        Stop = tid_df.iloc[i]["Stop"]
+                        Ata_seq = tid_df.iloc[i]["Ata_seq"]
+                        translated_protein_writer.write(
+                            ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start, Stop, Ata_seq))
+        else:
+            for gene_id in all_species:
+                mapped_records = grouped_df.get_group(gene_id)
+                mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
+                candidate_tids = []
+                try:
+                    highest_IL = mapped_records.iloc[0]["I+L"]
+                except:
+                    continue
+                for j in range(mapped_records.shape[0]):
+                    if mapped_records.iloc[j]["I+L"] >= highest_IL * self.outs:
+                        candidate_tids.append(mapped_records.iloc[j]["Target_id"])
+                candidate_tids = list(set(candidate_tids))
+                for tid in candidate_tids:
+                    tid_df = mapped_records[mapped_records["Target_id"] == tid]
+                    for i in range(tid_df.shape[0]):
+                        Target_id = tid_df.iloc[i]["Target_id"]
+                        Contig_id = tid_df.iloc[i]["Contig_id"]
+                        Start = tid_df.iloc[i]["Start"]
+                        Stop = tid_df.iloc[i]["Stop"]
+                        Ata_seq = tid_df.iloc[i]["Ata_seq"]
+                        translated_protein_writer.write(
+                            ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start, Stop, Ata_seq))
         translated_protein_writer.close()
         hmmsearcher = Hmmersearch(hmmsearch_execute_command=self.hmmsearch_execute_command,
                                   hmm_profiles=self.hmm_profiles,
@@ -2321,7 +2348,7 @@ class MiniprotAlignmentParser:
 class MinibuscoRunner:
     def __init__(self, assembly_path, output_folder, library_path, lineage, autolineage, nthreads,
                  miniprot_execute_command, hmmsearch_execute_command, sepp_execute_command, min_diff,
-                 min_length_percent, min_identity, min_complete, min_rise, specified_contigs, mode):
+                 min_length_percent, min_identity, min_complete, min_rise, specified_contigs, mode, outn, outs):
         if lineage is None:
             lineage = "eukaryota_odb10"
         else:
@@ -2341,6 +2368,8 @@ class MinibuscoRunner:
         self.nthreads = nthreads
         self.hmmsearch_execute_command = hmmsearch_execute_command
         self.mode = mode
+        self.outn = outn
+        self.outs = outs
 
         self.miniprot_runner = MiniprotRunner(miniprot_execute_command, nthreads)
         self.downloader = Downloader(library_path)
@@ -2389,7 +2418,9 @@ class MinibuscoRunner:
                                                             library_path=self.library_path,
                                                             hmmsearch_execute_command=self.hmmsearch_execute_command,
                                                             nthreads=self.nthreads,
-                                                            mode=self.mode)
+                                                            mode=self.mode,
+                                                            outn=self.outn,
+                                                            outs=self.outs)
 
         if os.path.exists(miniprot_alignment_parser.completeness_output_file):
             os.remove(miniprot_alignment_parser.completeness_output_file)
@@ -2438,7 +2469,9 @@ class MinibuscoRunner:
                                                                 library_path=self.library_path,
                                                                 hmmsearch_execute_command=self.hmmsearch_execute_command,
                                                                 nthreads=self.nthreads,
-                                                                mode=self.mode)
+                                                                mode=self.mode,
+                                                                outn=self.outn,
+                                                                outs=self.outs)
             miniprot_alignment_parser.Run()
             second_analysis_miniprot_end_time = time.time()
         end_time = time.time()
@@ -2514,7 +2547,9 @@ def analyze(args):
                                  library_path=args.library_path,
                                  hmmsearch_execute_command=args.hmmsearch_execute_path,
                                  nthreads=args.threads,
-                                 mode=args.mode)
+                                 mode=args.mode,
+                                 outn=args.outn,
+                                 outs=args.outs)
     ar.Run()
 
 
@@ -2535,6 +2570,8 @@ def run(args):
     min_rise = args.min_rise
     specified_contigs = args.specified_contigs
     mode = args.mode
+    outn = args.outn
+    outs = args.outs
 
     if lineage is None and autolineage is False:
         sys.exit(
@@ -2558,7 +2595,9 @@ def run(args):
                          min_complete=min_complete,
                          min_rise=min_rise,
                          specified_contigs=specified_contigs,
-                         mode=mode)
+                         mode=mode,
+                         outn=outn,
+                         outs=outs)
     mr.Run()
 
 
@@ -2608,6 +2647,10 @@ def main():
                                       "lite:  Without using hmmsearch to filtering protein alignment. Fastest but may overestimate completeness."
                                       "fast:  Using hmmsearch on the best candidate protein alignment to purify the miniprot alignment. Fast and accurate."
                                       "busco: Using hmmsearch on all candidate protein alignment to purify the miniprot alignment. Slow but most accurate.")
+    analysis_parser.add_argument("--outn", default=3, type=int,
+                                 help="The number of top candidate protein alignment hits for hmmsearch.")
+    analysis_parser.add_argument("--outs", default=None, type=float,
+                                 help="hmmsearch if score of the candidate hit at least FLOAT*bestScore")
     analysis_parser.add_argument("--hmmsearch_execute_path", type=str, help="Path to hmmsearch executable",
                                  required=True)
     analysis_parser.add_argument("--specified_contigs", type=str, nargs='+', default=None,
@@ -2640,6 +2683,10 @@ def main():
                                  "lite:  Without using hmmsearch to filtering protein alignment. Fastest but may overestimate completeness."
                                  "fast:  Using hmmsearch on the best candidate protein alignment to purify the miniprot alignment. Fast and accurate."
                                  "busco: Using hmmsearch on all candidate protein alignment to purify the miniprot alignment. Slow but most accurate.")
+    run_parser.add_argument("--outn", default=3, type=int,
+                            help="The number of top candidate protein alignment hits for hmmsearch.")
+    run_parser.add_argument("--outs", default=None, type=float,
+                            help="hmmsearch if score of the candidate hit at least FLOAT*bestScore")
     run_parser.add_argument("--specified_contigs", type=str, nargs='+', default=None,
                             help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.")
     run_parser.add_argument("--miniprot_execute_path", type=str, default=None,
