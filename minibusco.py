@@ -523,32 +523,36 @@ class AutoLineager:
 
 ### hmmsearch ###
 
-def run_hmmsearch(hmmsearch_execute_command, output_file, hmm_profile, protein_file):
+def run_hmmsearch(hmmsearch_execute_command, output_file, hmm_profile, protein_seqs):
     hmmer_process = subprocess.Popen(shlex.split(
-        "{} --domtblout {} --cpu 1 {} {}".format(hmmsearch_execute_command, output_file, hmm_profile, protein_file)),
-        stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-    hmmer_process.wait()
+        "{} --domtblout {} --cpu 1 {} -".format(hmmsearch_execute_command, output_file, hmm_profile)),
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    output, error = hmmer_process.communicate(input=protein_seqs.encode())
+    output.decode()
 
 
 class Hmmersearch:
-    def __init__(self, hmmsearch_execute_command, hmm_profiles, translated_protein_file, threads, output_folder):
+    def __init__(self, hmmsearch_execute_command, hmm_profiles, threads, output_folder):
         self.hmmsearch_execute_command = hmmsearch_execute_command
         self.hmm_profiles = hmm_profiles
-        self.translated_protein_file = translated_protein_file
         self.threads = threads
         self.output_folder = output_folder
 
-    def Run(self):
+    def Run(self, translated_proteins):
         pool = Pool(self.threads)
         for profile in os.listdir(self.hmm_profiles):
             outfile = profile.replace(".hmm", ".out")
+            target_specie = profile.replace(".hmm", "")
+            protein_seqs = translated_proteins[target_specie]
+            if len(protein_seqs) == 0:
+                continue
             absolute_path_outfile = os.path.join(self.output_folder, outfile)
             absolute_path_profile = os.path.join(self.hmm_profiles, profile)
             pool.apply_async(run_hmmsearch, args=(self.hmmsearch_execute_command, absolute_path_outfile,
-                                                  absolute_path_profile, self.translated_protein_file))
+                                                  absolute_path_profile, protein_seqs))
         pool.close()
         pool.join()
-        done_file = os.path.join(os.path.dirname(self.translated_protein_file), "hmmsearch.done")
+        done_file = os.path.join(os.path.dirname(self.output_folder), "hmmsearch.done")
         open(done_file, "w").close()
 
 
@@ -1169,6 +1173,7 @@ class MiniprotAlignmentParser:
         records = []
         single_complete_proteins = []
         gff_file = self.gff_file
+        translated_proteins = defaultdict(str)
         translated_protein_writer = open(self.translated_protein_path, "w")
         try:
             reader = iter(self.parse_miniprot_records(gff_file))
@@ -1185,6 +1190,8 @@ class MiniprotAlignmentParser:
                                     Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq, Codons])
                     translated_protein_writer.write(
                         ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start, Stop, Ata_seq))
+                    translated_proteins[Target_species] += ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start,
+                                                                                       Stop, Ata_seq)
                 else:
                     records.append(
                         [Target_species, Target_id, Contig_id, 0, 0, 0, 0, 0, 0, 0, 0, "+", 0, 0, 0, 0, 0, 0, 0,
@@ -1194,11 +1201,10 @@ class MiniprotAlignmentParser:
         translated_protein_writer.close()
         hmmsearcher = Hmmersearch(hmmsearch_execute_command=self.hmmsearch_execute_command,
                                   hmm_profiles=self.hmm_profiles,
-                                  translated_protein_file=self.translated_protein_path,
                                   threads=self.nthreads,
                                   output_folder=self.hmm_output_folder)
         if not os.path.exists(os.path.join(self.run_folder, "hmmsearch.done")):
-            hmmsearcher.Run()
+            hmmsearcher.Run(translated_proteins)
         score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
         length_cutoff_dict = load_length_cutoff(os.path.join(self.library_path, self.lineage, "lengths_cutoff"))
         reliable_mappings, hmm_length_dict = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
@@ -2048,6 +2054,7 @@ class MiniprotAlignmentParser:
         records = []
         single_complete_proteins = []
         gff_file = self.gff_file
+        translated_proteins = defaultdict(str)
         translated_protein_writer = open(self.translated_protein_path, "w")
         try:
             reader = iter(self.parse_miniprot_records(gff_file))
@@ -2089,6 +2096,7 @@ class MiniprotAlignmentParser:
                 for tid in candidate_tids:
                     tid_df = mapped_records[mapped_records["Target_id"] == tid]
                     for i in range(tid_df.shape[0]):
+                        Target_species = tid_df.iloc[i]["Target_species"]
                         Target_id = tid_df.iloc[i]["Target_id"]
                         Contig_id = tid_df.iloc[i]["Contig_id"]
                         Start = tid_df.iloc[i]["Start"]
@@ -2096,6 +2104,8 @@ class MiniprotAlignmentParser:
                         Ata_seq = tid_df.iloc[i]["Ata_seq"]
                         translated_protein_writer.write(
                             ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start, Stop, Ata_seq))
+                        translated_proteins[Target_species] += ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start,
+                                                                                           Stop, Ata_seq)
         else:
             for gene_id in all_species:
                 mapped_records = grouped_df.get_group(gene_id)
@@ -2112,6 +2122,7 @@ class MiniprotAlignmentParser:
                 for tid in candidate_tids:
                     tid_df = mapped_records[mapped_records["Target_id"] == tid]
                     for i in range(tid_df.shape[0]):
+                        Target_species = tid_df.iloc[i]["Target_species"]
                         Target_id = tid_df.iloc[i]["Target_id"]
                         Contig_id = tid_df.iloc[i]["Contig_id"]
                         Start = tid_df.iloc[i]["Start"]
@@ -2119,14 +2130,15 @@ class MiniprotAlignmentParser:
                         Ata_seq = tid_df.iloc[i]["Ata_seq"]
                         translated_protein_writer.write(
                             ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start, Stop, Ata_seq))
+                        translated_proteins[Target_species] += ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start,
+                                                                                           Stop, Ata_seq)
         translated_protein_writer.close()
         hmmsearcher = Hmmersearch(hmmsearch_execute_command=self.hmmsearch_execute_command,
                                   hmm_profiles=self.hmm_profiles,
-                                  translated_protein_file=self.translated_protein_path,
                                   threads=self.nthreads,
                                   output_folder=self.hmm_output_folder)
         if not os.path.exists(os.path.join(self.run_folder, "hmmsearch.done")):
-            hmmsearcher.Run()
+            hmmsearcher.Run(translated_proteins)
         score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
         length_cutoff_dict = load_length_cutoff(os.path.join(self.library_path, self.lineage, "lengths_cutoff"))
         reliable_mappings, hmm_length_dict = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
@@ -2167,7 +2179,6 @@ class MiniprotAlignmentParser:
         else:
             full_table_busco_format_writer.write(
                 "# Busco id\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tOrthoDB url\tDescription\n")
-
 
         # remaining genes
         identities_list = []
