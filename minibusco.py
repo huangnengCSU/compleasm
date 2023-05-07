@@ -272,7 +272,8 @@ class MiniprotRunner:
         self.miniprot_execute_command = miniprot_execute_command
         self.threads = nthreads
 
-    def search_miniprot(self):
+    @staticmethod
+    def search_miniprot():
         ## Search for miniprot in the path where "minibusco.py" is located
         print("Searching for miniprot in the path where minibusco.py is located")
         script_path = os.path.dirname(os.path.realpath(__file__))
@@ -533,10 +534,45 @@ def run_hmmsearch(hmmsearch_execute_command, output_file, hmm_profile, protein_s
 
 class Hmmersearch:
     def __init__(self, hmmsearch_execute_command, hmm_profiles, threads, output_folder):
+        if hmmsearch_execute_command is None:
+            hmmsearch_execute_command = self.search_hmmsearch()
+        print("hmmsearch execute command:\n {}".format(hmmsearch_execute_command))
         self.hmmsearch_execute_command = hmmsearch_execute_command
         self.hmm_profiles = hmm_profiles
         self.threads = threads
         self.output_folder = output_folder
+
+    @staticmethod
+    def search_hmmsearch():
+        ## Search for hmmsearch in the path where "minibusco.py" is located
+        print("Searching for hmmsearch in the path where minibusco.py is located")
+        script_path = os.path.dirname(os.path.realpath(__file__))
+        for fpath in listfiles(script_path):
+            path, file = os.path.split(fpath)
+            if file == "hmmsearch" and os.path.isfile(fpath):
+                hmmsearch_execute_command = fpath
+                return hmmsearch_execute_command
+        ## Search hmmsearch in the current execution path
+        print("Searching for hmmsearch in the current execution path")
+        execute_path = os.getcwd()
+        for fpath in listfiles(execute_path):
+            path, file = os.path.split(fpath)
+            if file == "hmmsearch" and os.path.isfile(fpath):
+                hmmsearch_execute_command = fpath
+                return hmmsearch_execute_command
+        ## Search for hmmsearch in PATH
+        print("Searching for hmmsearch in $PATH")
+        env_dict = os.environ
+        if "PATH" in env_dict:
+            path_list = env_dict["PATH"].split(":")
+            for path in path_list:
+                for fpath in listfiles(path):
+                    path, file = os.path.split(fpath)
+                    if file == "hmmsearch" and os.path.isfile(fpath):
+                        hmmsearch_execute_command = fpath
+                        return hmmsearch_execute_command
+        sys.exit(
+            "hmmsearch is not found in the path where minibusco.py is located, the current execution path, or PATH. Please check the installation of miniprot.")
 
     def Run(self, translated_proteins):
         pool = Pool(self.threads)
@@ -2563,7 +2599,11 @@ def list_lineages(args):
 
 
 def miniprot(args):
-    mr = MiniprotRunner(args.exec_path, args.threads)
+    if args.miniprot_execute_path is None:
+        miniprot_execute_path = MiniprotRunner.search_miniprot()
+    else:
+        miniprot_execute_path = args.miniprot_execute_path
+    mr = MiniprotRunner(miniprot_execute_path, args.threads)
     if not os.path.exists(os.path.join(args.outdir, "miniprot.done")):
         mr.run_miniprot(args.assembly, args.protein, args.outdir)
     else:
@@ -2572,6 +2612,10 @@ def miniprot(args):
 
 
 def analyze(args):
+    if args.hmmsearch_execute_path is None:
+        hmmsearch_execute_command = Hmmersearch.search_hmmsearch()
+    else:
+        hmmsearch_execute_command = args.hmmsearch_execute_path
     ar = MiniprotAlignmentParser(run_folder=args.output_dir,
                                  gff_file=args.gff,
                                  lineage=args.lineage,
@@ -2583,7 +2627,7 @@ def analyze(args):
                                  specified_contigs=args.specified_contigs,
                                  autolineage=False,
                                  library_path=args.library_path,
-                                 hmmsearch_execute_command=args.hmmsearch_execute_path,
+                                 hmmsearch_execute_command=hmmsearch_execute_command,
                                  nthreads=args.threads,
                                  mode=args.mode,
                                  outn=args.outn,
@@ -2598,8 +2642,14 @@ def run(args):
     lineage = args.lineage
     autolineage = args.autolineage
     nthreads = args.threads
-    miniprot_execute_command = args.miniprot_execute_path
-    hmmsearch_execute_command = args.hmmsearch_execute_path
+    if args.miniprot_execute_path is None:
+        miniprot_execute_command = MiniprotRunner.search_miniprot()
+    else:
+        miniprot_execute_command = args.miniprot_execute_path
+    if args.hmmsearch_execute_path is None:
+        hmmsearch_execute_command = Hmmersearch.search_hmmsearch()
+    else:
+        hmmsearch_execute_command = args.hmmsearch_execute_path
     sepp_execute_command = args.sepp_execute_path
     min_diff = args.min_diff
     min_length_percent = args.min_length_percent
@@ -2668,7 +2718,8 @@ def main():
     run_miniprot_parser.add_argument("-o", "--outdir", type=str, help="Miniprot alignment output directory",
                                      required=True)
     run_miniprot_parser.add_argument("-t", "--threads", type=int, help="Number of threads to use", default=1)
-    run_miniprot_parser.add_argument("--exec_path", type=str, help="Path to miniprot executable", default=None)
+    run_miniprot_parser.add_argument("--miniprot_execute_path", type=str, default=None,
+                                     help="Path to miniprot executable")
     run_miniprot_parser.set_defaults(func=miniprot)
 
     ### sub-command: analyze
@@ -2689,8 +2740,8 @@ def main():
                                  help="The number of top candidate protein alignment hits for hmmsearch.")
     analysis_parser.add_argument("--outs", default=None, type=float,
                                  help="hmmsearch if score of the candidate hit at least FLOAT*bestScore")
-    analysis_parser.add_argument("--hmmsearch_execute_path", type=str, help="Path to hmmsearch executable",
-                                 required=True)
+    analysis_parser.add_argument("--hmmsearch_execute_path", type=str, default=None,
+                                 help="Path to hmmsearch executable")
     analysis_parser.add_argument("--specified_contigs", type=str, nargs='+', default=None,
                                  help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.")
     analysis_parser.add_argument("--min_diff", type=float, default=0.2,
@@ -2729,7 +2780,7 @@ def main():
                             help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.")
     run_parser.add_argument("--miniprot_execute_path", type=str, default=None,
                             help="Path to miniprot executable")
-    run_parser.add_argument("--hmmsearch_execute_path", type=str, help="Path to hmmsearch executable", required=True)
+    run_parser.add_argument("--hmmsearch_execute_path", type=str, default=None, help="Path to hmmsearch executable")
     run_parser.add_argument("--autolineage", action="store_true",
                             help="Automatically search for the best matching lineage without specifying lineage file.")
     run_parser.add_argument("--sepp_execute_path", type=str, default=None,
