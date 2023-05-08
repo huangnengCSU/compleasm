@@ -2401,8 +2401,8 @@ def main():
     analysis_parser.add_argument("-L", "--library_path", type=str, default="mb_downloads",
                                  help="Folder path to stored lineages. ")
     analysis_parser.add_argument("-m", "--mode", type=str, choices=["lite", "busco"], default="busco",
-                                 help="The mode of evaluation. dafault mode: busco."
-                                      "lite:  Without using hmmsearch to filtering protein alignment."
+                                 help="The mode of evaluation. dafault mode: busco.\n"
+                                      "lite:  Without using hmmsearch to filtering protein alignment.\n"
                                       "busco: Using hmmsearch on all candidate protein alignment to purify the miniprot alignment to imporve accuracy.")
     analysis_parser.add_argument("--hmmsearch_execute_path", type=str, default=None,
                                  help="Path to hmmsearch executable")
@@ -2432,8 +2432,8 @@ def main():
                             help="Folder path to download lineages or already downloaded lineages. "
                                  "If not specified, a folder named \"mb_downloads\" will be created on the current running path by default to store the downloaded lineage files.")
     run_parser.add_argument("-m", "--mode", type=str, choices=["lite", "busco"], default="busco",
-                            help="The mode of evaluation. dafault mode: busco."
-                                 "lite:  Without using hmmsearch to filtering protein alignment."
+                            help="The mode of evaluation. dafault mode: busco.\n"
+                                 "lite:  Without using hmmsearch to filtering protein alignment.\n"
                                  "busco: Using hmmsearch on all candidate protein alignment to purify the miniprot alignment to imporve accuracy.")
     run_parser.add_argument("--specified_contigs", type=str, nargs='+', default=None,
                             help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.")
