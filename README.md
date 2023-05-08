@@ -129,7 +129,7 @@ python minibusco.py run -a genome.fasta -o output_dir -l eukaryota -t 8 --specif
 ```
 
 ### Using `analyze` submodule to evaluate genome completeness from provided miniprot alignment:
-This will directly parse the provided miniprot alignment result to evaluate genome completeness. The execute command of miniprot should be like `miniprot -u -I --outs=0.95 --gff -t 8 ref-file protein.faa > output.gff`.
+This will directly parse the provided miniprot alignment result to evaluate genome completeness. The execute command of miniprot should be like `miniprot --trans -u -I --outs=0.95 --gff -t 8 ref-file protein.faa > output.gff`.
 #### Usage:
 ```angular2html
 python minibusco.py analyze [-h] -g GFF -l LINEAGE -o OUTPUT_DIR [-t THREADS] [-L LIBRARY_PATH] 
@@ -149,6 +149,7 @@ python minibusco.py analyze [-h] -g GFF -l LINEAGE -o OUTPUT_DIR [-t THREADS] [-
                             lite:  Without using hmmsearch to filtering protein alignment.
                             busco: Using hmmsearch on all candidate predicted proteins to purify the miniprot alignment to improve accuracy.
   --hmmsearch_execute_path  Path to hmmsearch executable
+                            If not specified, minibusco will search for hmmsearch in the directory where minibusco.py is located, the current execution directory, and system environment variables.
   --specified_contigs       Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.
 ```
 Threshold parameters are same as `run` module.
@@ -192,17 +193,17 @@ python minibusco.py download saccharomycetes,primates,brassicales -L /path/to/li
 This will run miniprot alignment and output the gff file.
 #### Usage:
 ```angular2html
-python minibusco.py miniprot [-h] -a ASSEMBLY -p PROTEIN -o OUTDIR [-t THREADS] [--exec_path EXEC_PATH]
+python minibusco.py miniprot [-h] -a ASSEMBLY -p PROTEIN -o OUTDIR [-t THREADS] [--miniprot_execute_path MINIPROT_EXECUTE_PATH]
 ```
 
 #### Important parameters:
 ```angular2html
-  -a, --assembly        Input genome file in FASTA format
-  -p, --protein         Input protein file
-  -o, --outdir          Miniprot alignment output directory
-  -t, --threads         Number of threads to use
-  --exec_path           Path to miniprot executable file. 
-                        If not specified, minibusco will search for miniprot in the directory where minibusco.py is located, the current execution directory, and system environment variables.
+  -a, --assembly             Input genome file in FASTA format
+  -p, --protein              Input protein file
+  -o, --outdir               Miniprot alignment output directory
+  -t, --threads              Number of threads to use
+  --miniprot_execute_path    Path to miniprot executable file. 
+                             If not specified, minibusco will search for miniprot in the directory where minibusco.py is located, the current execution directory, and system environment variables.
 ```
 
 #### Example:
