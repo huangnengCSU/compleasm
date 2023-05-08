@@ -829,8 +829,7 @@ def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
 
 class MiniprotAlignmentParser:
     def __init__(self, run_folder, gff_file, lineage, min_length_percent, min_diff, min_identity, min_complete,
-                 min_rise, specified_contigs, autolineage, hmmsearch_execute_command, nthreads, library_path, mode,
-                 outn, outs):
+                 min_rise, specified_contigs, autolineage, hmmsearch_execute_command, nthreads, library_path, mode):
         self.autolineage = autolineage
         self.run_folder = run_folder
         if not os.path.exists(run_folder):
@@ -864,8 +863,6 @@ class MiniprotAlignmentParser:
         self.hmm_output_folder = os.path.join(self.run_folder, "hmmer_output")
         self.nthreads = nthreads
         self.mode = mode
-        self.outn = outn
-        self.outs = outs
         assert mode in ["lite", "busco"]
 
         if not os.path.exists(self.hmm_output_folder):
@@ -2106,7 +2103,7 @@ class MiniprotAlignmentParser:
 class MinibuscoRunner:
     def __init__(self, assembly_path, output_folder, library_path, lineage, autolineage, nthreads,
                  miniprot_execute_command, hmmsearch_execute_command, sepp_execute_command, min_diff,
-                 min_length_percent, min_identity, min_complete, min_rise, specified_contigs, mode, outn, outs):
+                 min_length_percent, min_identity, min_complete, min_rise, specified_contigs, mode):
         if lineage is None:
             lineage = "eukaryota_odb10"
         else:
@@ -2126,8 +2123,6 @@ class MinibuscoRunner:
         self.nthreads = nthreads
         self.hmmsearch_execute_command = hmmsearch_execute_command
         self.mode = mode
-        self.outn = outn
-        self.outs = outs
 
         self.miniprot_runner = MiniprotRunner(miniprot_execute_command, nthreads)
         self.downloader = Downloader(library_path)
@@ -2176,9 +2171,7 @@ class MinibuscoRunner:
                                                             library_path=self.library_path,
                                                             hmmsearch_execute_command=self.hmmsearch_execute_command,
                                                             nthreads=self.nthreads,
-                                                            mode=self.mode,
-                                                            outn=self.outn,
-                                                            outs=self.outs)
+                                                            mode=self.mode)
 
         if os.path.exists(miniprot_alignment_parser.completeness_output_file):
             os.remove(miniprot_alignment_parser.completeness_output_file)
@@ -2227,9 +2220,7 @@ class MinibuscoRunner:
                                                                 library_path=self.library_path,
                                                                 hmmsearch_execute_command=self.hmmsearch_execute_command,
                                                                 nthreads=self.nthreads,
-                                                                mode=self.mode,
-                                                                outn=self.outn,
-                                                                outs=self.outs)
+                                                                mode=self.mode)
             miniprot_alignment_parser.Run()
             second_analysis_miniprot_end_time = time.time()
         end_time = time.time()
@@ -2313,9 +2304,7 @@ def analyze(args):
                                  library_path=args.library_path,
                                  hmmsearch_execute_command=hmmsearch_execute_command,
                                  nthreads=args.threads,
-                                 mode=args.mode,
-                                 outn=args.outn,
-                                 outs=args.outs)
+                                 mode=args.mode)
     ar.Run()
 
 
@@ -2342,8 +2331,6 @@ def run(args):
     min_rise = args.min_rise
     specified_contigs = args.specified_contigs
     mode = args.mode
-    outn = args.outn
-    outs = args.outs
 
     if lineage is None and autolineage is False:
         sys.exit(
@@ -2367,9 +2354,7 @@ def run(args):
                          min_complete=min_complete,
                          min_rise=min_rise,
                          specified_contigs=specified_contigs,
-                         mode=mode,
-                         outn=outn,
-                         outs=outs)
+                         mode=mode)
     mr.Run()
 
 
@@ -2419,10 +2404,6 @@ def main():
                                  help="The mode of evaluation. dafault mode: busco."
                                       "lite:  Without using hmmsearch to filtering protein alignment."
                                       "busco: Using hmmsearch on all candidate protein alignment to purify the miniprot alignment to imporve accuracy.")
-    analysis_parser.add_argument("--outn", default=3, type=int,
-                                 help="The number of top candidate protein alignment hits for hmmsearch.")
-    analysis_parser.add_argument("--outs", default=None, type=float,
-                                 help="hmmsearch if score of the candidate hit at least FLOAT*bestScore")
     analysis_parser.add_argument("--hmmsearch_execute_path", type=str, default=None,
                                  help="Path to hmmsearch executable")
     analysis_parser.add_argument("--specified_contigs", type=str, nargs='+', default=None,
@@ -2454,10 +2435,6 @@ def main():
                             help="The mode of evaluation. dafault mode: busco."
                                  "lite:  Without using hmmsearch to filtering protein alignment."
                                  "busco: Using hmmsearch on all candidate protein alignment to purify the miniprot alignment to imporve accuracy.")
-    run_parser.add_argument("--outn", default=3, type=int,
-                            help="The number of top candidate protein alignment hits for hmmsearch.")
-    run_parser.add_argument("--outs", default=None, type=float,
-                            help="hmmsearch if score of the candidate hit at least FLOAT*bestScore")
     run_parser.add_argument("--specified_contigs", type=str, nargs='+', default=None,
                             help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.")
     run_parser.add_argument("--miniprot_execute_path", type=str, default=None,
