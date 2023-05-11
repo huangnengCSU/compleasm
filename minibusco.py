@@ -2456,6 +2456,10 @@ def main():
                             help="Minimum length threshold to make dupicate take precedence over single or fragmented over single/duplicate.")
     run_parser.set_defaults(func=run)
 
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit()
+
     args = parser.parse_args()
     args.func(args)
 
