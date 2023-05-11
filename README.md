@@ -1,5 +1,18 @@
+## Getting Started
+```angular2html
+wget https://github.com/huangnengCSU/minibusco/releases/download/v0.2/minibusco-0.2_x64-linux.tar.bz2
+tar -jxvf minibusco-0.2_x64-linux.tar.bz2
+
+# Get pandas dependency
+pip3 install pandas
+
+# Run minibusco
+minibusco_kit/minibusco.py run -a assembly.fasta -o output_dir -l lineage_name  # lineage_name: eukaryota, primates, saccharomycetes etc.
+```
+
 ## Contents
-- [Installation](#installation)
+- [Getting Started](#getting-started)
+- [Manual Installation](#installation)
   - [Get minibusco](#get-minibusco)
   - [Install miniprot](#install-miniprot)
   - [Install hmmer](#install-hmmer)
@@ -12,7 +25,7 @@
   - [Using `list` submodule to list local or remote lineages](#using-list-submodule-to-list-local-or-remote-lineages)
   - [Using `miniprot` submodule to run miniprot](#using-run_miniprot-submodule-to-run-miniprot)
 
-Installation
+Manual Installation
 ------------
 Minibusco is developed on python3. If you only run the `download`, `list`, or `analysis` submodules, you only need to install **python3**, **pandas** and **hmmer**.
 If you want to run the `run` or `run_miniprot` submodules, you need to install **miniprot**. 
