@@ -1,13 +1,14 @@
 ## Getting Started
-```angular2html
+```sh
 wget https://github.com/huangnengCSU/minibusco/releases/download/v0.2/minibusco-0.2_x64-linux.tar.bz2
 tar -jxvf minibusco-0.2_x64-linux.tar.bz2
 
-# Get pandas dependency
-pip3 install pandas
+# Install pandas if necessary
+pip3 install pandas  # or conda install pandas
 
 # Run minibusco
-minibusco_kit/minibusco.py run -a assembly.fasta -o output_dir -l lineage_name  # lineage_name: eukaryota, primates, saccharomycetes etc.
+minibusco_kit/minibusco.py download primate                      # download data to mb_download/
+minibusco_kit/minibusco.py run -l primate -a hg38.fa -o hg38-mb  # run the pipeline
 ```
 
 ## Contents
