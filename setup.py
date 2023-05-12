@@ -12,7 +12,7 @@ setup(
     author_email="neng@ds.dfci.harvard.edu",
     long_description="miniBUSCO: a faster and more accurate reimplementation of BUSCO",
     url="https://github.com/huangnengCSU/minibusco",
-    download_url='https://github.com/huangnengCSU/minibusco/archive/v{}.tar.gz'.format(version),
+    download_url='https://github.com/huangnengCSU/minibusco/archive/{}.tar.gz'.format(version),
     entry_points={
             'console_scripts': [
                 'minibusco=minibusco:main',
