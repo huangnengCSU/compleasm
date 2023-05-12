@@ -7,8 +7,8 @@ tar -jxvf minibusco-0.2_x64-linux.tar.bz2
 pip3 install pandas  # or conda install pandas
 
 # Run minibusco
-minibusco_kit/minibusco.py download primates                     # download data to mb_download/
-minibusco_kit/minibusco.py run -l primate -a hg38.fa -o hg38-mb  # run the pipeline
+minibusco_kit/minibusco.py download primates                      # download data to mb_download/
+minibusco_kit/minibusco.py run -l primates -a hg38.fa -o hg38-mb  # run the pipeline
 ```
 
 ## Contents
