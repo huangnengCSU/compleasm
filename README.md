@@ -1,5 +1,6 @@
 ## Getting Started
 ```sh
+# download minibusco and its dependencies (miniprot and hmmsearch)
 wget https://github.com/huangnengCSU/minibusco/releases/download/v0.2/minibusco-0.2_x64-linux.tar.bz2
 tar -jxvf minibusco-0.2_x64-linux.tar.bz2
 
@@ -10,9 +11,9 @@ pip3 install pandas  # or conda install pandas
 minibusco_kit/minibusco.py download primates                      # download data to mb_download/
 minibusco_kit/minibusco.py run -l primates -a hg38.fa -o hg38-mb  # run the pipeline
 
-# Automatically detech lineage (requiring sepp)
-conda install -c bioconda sepp   # if sepp hasn't been installed
-minibusco_kit/minibusco.py run --autolineage --sepp_execute_path /path/to/run_sepp.py -a hg38.fa -o hs38-mb
+# Automatically detect lineage (requiring sepp)
+conda install -c bioconda sepp                                    # if sepp hasn't been installed
+minibusco_kit/minibusco.py run --autolineage -a hg38.fa -o hs38-mb --sepp_execute_path /path/to/run_sepp.py
 ```
 
 ## Contents
