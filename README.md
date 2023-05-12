@@ -5,14 +5,14 @@ wget https://github.com/huangnengCSU/minibusco/releases/download/v0.2/minibusco-
 tar -jxvf minibusco-0.2_x64-linux.tar.bz2
 
 # Install pandas if necessary
-pip3 install pandas  # or conda install pandas
+pip3 install pandas                               # or conda install pandas
 
 # Run minibusco if lineage is known
-minibusco_kit/minibusco.py download primates                      # download data to mb_download/
-minibusco_kit/minibusco.py run -l primates -a hg38.fa -o hg38-mb  # run the pipeline
+minibusco_kit/minibusco.py download primates      # download data to mb_download/
+minibusco_kit/minibusco.py run -t16 -l primates -a hg38.fa -o hg38-mb  # run the pipeline
 
 # Automatically detect lineage (requiring sepp)
-conda install -c bioconda sepp                                    # if sepp hasn't been installed
+conda install -c bioconda sepp                    # if sepp hasn't been installed
 minibusco_kit/minibusco.py run --autolineage -a hg38.fa -o hs38-mb --sepp_execute_path /path/to/run_sepp.py
 ```
 
