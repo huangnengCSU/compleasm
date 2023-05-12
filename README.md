@@ -1,13 +1,19 @@
 ## Getting Started
-```angular2html
+```sh
+# download minibusco and its dependencies (miniprot and hmmsearch)
 wget https://github.com/huangnengCSU/minibusco/releases/download/v0.2/minibusco-0.2_x64-linux.tar.bz2
 tar -jxvf minibusco-0.2_x64-linux.tar.bz2
 
-# Get pandas dependency
-pip3 install pandas
+# Install pandas if necessary
+pip3 install pandas                               # or conda install pandas
 
-# Run minibusco
-minibusco_kit/minibusco.py run -a assembly.fasta -o output_dir -l lineage_name  # lineage_name: eukaryota, primates, saccharomycetes etc.
+# Run minibusco if lineage is known
+minibusco_kit/minibusco.py download primates      # download data to mb_download/
+minibusco_kit/minibusco.py run -t16 -l primates -a hg38.fa -o hg38-mb  # run the pipeline
+
+# Automatically detect lineage (requiring sepp)
+conda install -c bioconda sepp                    # if sepp hasn't been installed
+minibusco_kit/minibusco.py run --autolineage -a hg38.fa -o hs38-mb --sepp_execute_path /path/to/run_sepp.py
 ```
 
 ## Contents
