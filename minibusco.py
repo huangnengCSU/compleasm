@@ -55,6 +55,20 @@ def md5(fname):
     return hash_md5.hexdigest()
 
 
+class Downloader2:
+    def __init__(self, download_dir=None, download_lineage=True, download_placement=True):
+        pass
+
+    def download_single_file(self):
+        pass
+
+    def download_file_version_document(self):
+        pass
+
+    def download_placement(self):
+        pass
+
+
 class Downloader:
     def __init__(self, download_dir=None, download_lineage=True, download_placement=True):
         self.base_url = "https://busco-data.ezlab.org/v5/data/"
@@ -264,13 +278,14 @@ def listfiles(folder):
 
 
 class MiniprotRunner:
-    def __init__(self, miniprot_execute_command, nthreads=1):
+    def __init__(self, miniprot_execute_command, outs, nthreads=1):
         if miniprot_execute_command is None:
             miniprot_execute_command = self.search_miniprot()
 
         print("miniprot execute command:\n {}".format(miniprot_execute_command))
         self.miniprot_execute_command = miniprot_execute_command
         self.threads = nthreads
+        self.outs = outs
 
     @staticmethod
     def search_miniprot():
@@ -311,7 +326,7 @@ class MiniprotRunner:
 
         fout = open(output_filepath, "w")
         miniprot_process = subprocess.Popen(shlex.split(
-            "{} --trans -u -I --outs=0.95 -t {} --gff {} {}".format(self.miniprot_execute_command, self.threads,
+            "{} --trans -u -I --outs={} -t {} --gff {} {}".format(self.miniprot_execute_command, self.outs, self.threads,
                                                                     assembly_filepath, lineage_filepath,
                                                                     output_filepath)), stdout=fout, bufsize=8388608)
         miniprot_process.wait()
@@ -2101,7 +2116,7 @@ class MiniprotAlignmentParser:
 
 ### Minibusco Runner ###
 class MinibuscoRunner:
-    def __init__(self, assembly_path, output_folder, library_path, lineage, autolineage, nthreads,
+    def __init__(self, assembly_path, output_folder, library_path, lineage, autolineage, nthreads, outs,
                  miniprot_execute_command, hmmsearch_execute_command, sepp_execute_command, min_diff,
                  min_length_percent, min_identity, min_complete, min_rise, specified_contigs, mode):
         if lineage is None:
@@ -2124,7 +2139,7 @@ class MinibuscoRunner:
         self.hmmsearch_execute_command = hmmsearch_execute_command
         self.mode = mode
 
-        self.miniprot_runner = MiniprotRunner(miniprot_execute_command, nthreads)
+        self.miniprot_runner = MiniprotRunner(miniprot_execute_command, outs, nthreads)
         self.downloader = Downloader(library_path)
 
         self.hmm_profiles = os.path.join(self.downloader.download_dir, self.lineage, "hmms")
@@ -2278,7 +2293,7 @@ def miniprot(args):
         miniprot_execute_path = MiniprotRunner.search_miniprot()
     else:
         miniprot_execute_path = args.miniprot_execute_path
-    mr = MiniprotRunner(miniprot_execute_path, args.threads)
+    mr = MiniprotRunner(miniprot_execute_path, args.outs, args.threads)
     if not os.path.exists(os.path.join(args.outdir, "miniprot.done")):
         mr.run_miniprot(args.assembly, args.protein, args.outdir)
     else:
@@ -2315,6 +2330,7 @@ def run(args):
     lineage = args.lineage
     autolineage = args.autolineage
     nthreads = args.threads
+    outs = args.outs
     if args.miniprot_execute_path is None:
         miniprot_execute_command = MiniprotRunner.search_miniprot()
     else:
@@ -2345,6 +2361,7 @@ def run(args):
                          lineage=lineage,
                          autolineage=autolineage,
                          nthreads=nthreads,
+                         outs=outs,
                          miniprot_execute_command=miniprot_execute_command,
                          hmmsearch_execute_command=hmmsearch_execute_command,
                          sepp_execute_command=sepp_execute_command,
@@ -2387,6 +2404,8 @@ def main():
     run_miniprot_parser.add_argument("-o", "--outdir", type=str, help="Miniprot alignment output directory",
                                      required=True)
     run_miniprot_parser.add_argument("-t", "--threads", type=int, help="Number of threads to use", default=1)
+    run_miniprot_parser.add_argument("--outs", type=float, default=0.95,
+                                     help="output if score at least FLOAT*bestScore [0.99]")
     run_miniprot_parser.add_argument("--miniprot_execute_path", type=str, default=None,
                                      help="Path to miniprot executable")
     run_miniprot_parser.set_defaults(func=miniprot)
@@ -2437,6 +2456,7 @@ def main():
                                  "busco: Using hmmsearch on all candidate protein alignment to purify the miniprot alignment to imporve accuracy.")
     run_parser.add_argument("--specified_contigs", type=str, nargs='+', default=None,
                             help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.")
+    run_parser.add_argument("--outs", type=float, default=0.95, help="output if score at least FLOAT*bestScore [0.99]")
     run_parser.add_argument("--miniprot_execute_path", type=str, default=None,
                             help="Path to miniprot executable")
     run_parser.add_argument("--hmmsearch_execute_path", type=str, default=None, help="Path to hmmsearch executable")
