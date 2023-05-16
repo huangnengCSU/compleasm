@@ -2421,7 +2421,7 @@ def main():
                                      required=True)
     run_miniprot_parser.add_argument("-t", "--threads", type=int, help="Number of threads to use", default=1)
     run_miniprot_parser.add_argument("--outs", type=float, default=0.95,
-                                     help="output if score at least FLOAT*bestScore [0.99]")
+                                     help="output if score at least FLOAT*bestScore [0.95]")
     run_miniprot_parser.add_argument("--miniprot_execute_path", type=str, default=None,
                                      help="Path to miniprot executable")
     run_miniprot_parser.set_defaults(func=miniprot)
