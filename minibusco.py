@@ -2369,6 +2369,8 @@ def run(args):
             sepp_execute_command = AutoLineager.search_sepp()
         else:
             sepp_execute_command = args.sepp_execute_path
+    else:
+        sepp_execute_command = args.sepp_execute_path
     min_diff = args.min_diff
     min_length_percent = args.min_length_percent
     min_identity = args.min_identity
