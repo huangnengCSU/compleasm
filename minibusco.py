@@ -328,11 +328,15 @@ class MiniprotRunner:
         miniprot_process = subprocess.Popen(shlex.split(
             "{} --trans -u -I --outs={} -t {} --gff {} {}".format(self.miniprot_execute_command, self.outs,
                                                                   self.threads, assembly_filepath, lineage_filepath,
-                                                                  output_filepath)), stdout=fout, bufsize=8388608)
-        miniprot_process.wait()
+                                                                  output_filepath)), shell=True, stdout=fout,
+            bufsize=8388608)
+        exitcode = miniprot_process.wait()
         fout.close()
-        tag_file = os.path.join(alignment_outdir, "miniprot.done")
-        open(tag_file, 'w').close()
+        if exitcode != 0:
+            raise Exception("miniprot exited with non-zero exit code: {}".format(exitcode))
+        else:
+            tag_file = os.path.join(alignment_outdir, "miniprot.done")
+            open(tag_file, 'w').close()
         return output_filepath
 
 
@@ -555,10 +559,12 @@ class AutoLineager:
 
 def run_hmmsearch(hmmsearch_execute_command, output_file, hmm_profile, protein_seqs):
     hmmer_process = subprocess.Popen(shlex.split(
-        "{} --domtblout {} --cpu 1 {} -".format(hmmsearch_execute_command, output_file, hmm_profile)),
+        "{} --domtblout {} --cpu 1 {} -".format(hmmsearch_execute_command, output_file, hmm_profile)), shell=True,
         stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     output, error = hmmer_process.communicate(input=protein_seqs.encode())
     output.decode()
+    exitcode = hmmer_process.returncode
+    return exitcode
 
 
 class Hmmersearch:
@@ -605,6 +611,7 @@ class Hmmersearch:
 
     def Run(self, translated_proteins):
         pool = Pool(self.threads)
+        results = []
         for profile in os.listdir(self.hmm_profiles):
             outfile = profile.replace(".hmm", ".out")
             target_specie = profile.replace(".hmm", "")
@@ -613,10 +620,14 @@ class Hmmersearch:
                 continue
             absolute_path_outfile = os.path.join(self.output_folder, outfile)
             absolute_path_profile = os.path.join(self.hmm_profiles, profile)
-            pool.apply_async(run_hmmsearch, args=(self.hmmsearch_execute_command, absolute_path_outfile,
-                                                  absolute_path_profile, protein_seqs))
+            results.append(pool.apply_async(run_hmmsearch, args=(self.hmmsearch_execute_command, absolute_path_outfile,
+                                                                 absolute_path_profile, protein_seqs)))
         pool.close()
         pool.join()
+        for res in results:
+            exitcode = res.get()
+            if exitcode != 0:
+                raise Exception("hmmsearch exited with non-zero exit code: {}".format(exitcode))
         done_file = os.path.join(os.path.dirname(self.output_folder), "hmmsearch.done")
         open(done_file, "w").close()
 
