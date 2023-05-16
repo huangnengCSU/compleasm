@@ -326,9 +326,9 @@ class MiniprotRunner:
 
         fout = open(output_filepath, "w")
         miniprot_process = subprocess.Popen(shlex.split(
-            "{} --trans -u -I --outs={} -t {} --gff {} {}".format(self.miniprot_execute_command, self.outs, self.threads,
-                                                                    assembly_filepath, lineage_filepath,
-                                                                    output_filepath)), stdout=fout, bufsize=8388608)
+            "{} --trans -u -I --outs={} -t {} --gff {} {}".format(self.miniprot_execute_command, self.outs,
+                                                                  self.threads, assembly_filepath, lineage_filepath,
+                                                                  output_filepath)), stdout=fout, bufsize=8388608)
         miniprot_process.wait()
         fout.close()
         tag_file = os.path.join(alignment_outdir, "miniprot.done")
@@ -348,6 +348,20 @@ class AutoLineager:
         self.library_folder = self.downloader.download_dir
         self.placement_file_folder = self.downloader.placement_dir
         self.sepp_execute_command = sepp_execute_command
+
+    @staticmethod
+    def search_sepp():
+        print("Searching for run_sepp.py in $PATH")
+        env_dict = os.environ
+        if "PATH" in env_dict:
+            path_list = env_dict["PATH"].split(":")
+            for path in path_list:
+                for fpath in listfiles(path):
+                    path, file = os.path.split(fpath)
+                    if file == "run_sepp.py" and os.path.isfile(fpath):
+                        sepp_execute_command = fpath
+                        return sepp_execute_command
+        sys.exit("run_sepp.py is not found in the $PATH. Please check the installation of sepp.")
 
     def run_sepp(self, marker_genes_filapath):
         # select the best one in ["archaea_odb10", "bacteria_odb10", "eukaryota_odb10"] as search_lineage to run repp
@@ -587,7 +601,7 @@ class Hmmersearch:
                         hmmsearch_execute_command = fpath
                         return hmmsearch_execute_command
         sys.exit(
-            "hmmsearch is not found in the path where minibusco.py is located, the current execution path, or PATH. Please check the installation of miniprot.")
+            "hmmsearch is not found in the path where minibusco.py is located, the current execution path, or PATH. Please check the installation of hmmer3.")
 
     def Run(self, translated_proteins):
         pool = Pool(self.threads)
@@ -2339,7 +2353,11 @@ def run(args):
         hmmsearch_execute_command = Hmmersearch.search_hmmsearch()
     else:
         hmmsearch_execute_command = args.hmmsearch_execute_path
-    sepp_execute_command = args.sepp_execute_path
+    if autolineage:
+        if args.sepp_execute_path is None:
+            sepp_execute_command = AutoLineager.search_sepp()
+        else:
+            sepp_execute_command = args.sepp_execute_path
     min_diff = args.min_diff
     min_length_percent = args.min_length_percent
     min_identity = args.min_identity
@@ -2351,9 +2369,7 @@ def run(args):
     if lineage is None and autolineage is False:
         sys.exit(
             "\n Usage error: Please specify the lineage name with -l. e.g. eukaryota, primates, saccharomycetes etc."
-            "\n Or specify --autolineage and --sepp_execute_path to automaticly search the best matching lineage\n")
-    if autolineage and sepp_execute_command is None:
-        sys.exit("\n Usage error: Please specify the path to SEPP executable file with --sepp_execute_path\n")
+            "\n Or specify --autolineage to automaticly search the best matching lineage\n")
 
     mr = MinibuscoRunner(assembly_path=assembly_path,
                          output_folder=output_folder,
@@ -2462,8 +2478,7 @@ def main():
     run_parser.add_argument("--hmmsearch_execute_path", type=str, default=None, help="Path to hmmsearch executable")
     run_parser.add_argument("--autolineage", action="store_true",
                             help="Automatically search for the best matching lineage without specifying lineage file.")
-    run_parser.add_argument("--sepp_execute_path", type=str, default=None,
-                            help="Path to sepp executable")
+    run_parser.add_argument("--sepp_execute_path", type=str, default=None, help="Path to run_sepp.py executable")
     run_parser.add_argument("--min_diff", type=float, default=0.2,
                             help="The thresholds for the best matching and second best matching.")
     run_parser.add_argument("--min_identity", type=float, default=0.4,
