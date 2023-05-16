@@ -13,7 +13,7 @@ minibusco_kit/minibusco.py run -t16 -l primates -a hg38.fa -o hg38-mb  # run the
 
 # Automatically detect lineage (requiring sepp)
 conda install -c bioconda sepp                    # if sepp hasn't been installed
-minibusco_kit/minibusco.py run --autolineage -a hg38.fa -o hs38-mb --sepp_execute_path /path/to/run_sepp.py
+minibusco_kit/minibusco.py run --autolineage -a hg38.fa -o hs38-mb  
 ```
 
 ## Contents
@@ -75,7 +75,6 @@ cd sepp
 python setup.py config -c
 python setup.py install
 ```
-Sepp executable file is located in `sepp-package/sepp/run_sepp.py`.
 
 ## Running
 
@@ -116,6 +115,7 @@ python minibusco.py run [-h] -a ASSEMBLY_PATH -o OUTPUT_DIR [-t THREADS]
                              lite:  Without using hmmsearch to filtering protein alignment.
                              busco: Using hmmsearch on all candidate predicted proteins to purify the miniprot alignment to improve accuracy.
   --specified_contigs        Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.
+  --outs                     output if score at least FLOAT*bestScore [0.95]
   --miniprot_execute_path    Path to miniprot executable file. 
                              If not specified, minibusco will search for miniprot in the directory where minibusco.py is located, the current execution directory, and system environment variables.
   --hmmsearch_execute_path   Path to hmmsearch executable file.
@@ -138,7 +138,7 @@ python minibusco.py run [-h] -a ASSEMBLY_PATH -o OUTPUT_DIR [-t THREADS]
 python minibusco.py run -a genome.fasta -o output_dir -l eukaryota -t 8
 
 # autolineage mode
-python minibusco.py run -a genome.fasta -o output_dir -t 8 --autolineage --sepp_execute_path run_sepp.py
+python minibusco.py run -a genome.fasta -o output_dir -t 8 --autolineage
 
 # with custom specified already downloaded lineage folder
 python minibusco.py run -a genome.fasta -o output_dir -l eukaryota -t 8 -L /path/to/lineages_folder
@@ -221,6 +221,7 @@ python minibusco.py miniprot [-h] -a ASSEMBLY -p PROTEIN -o OUTDIR [-t THREADS] 
   -p, --protein              Input protein file
   -o, --outdir               Miniprot alignment output directory
   -t, --threads              Number of threads to use
+  --outs                     output if score at least FLOAT*bestScore [0.95]
   --miniprot_execute_path    Path to miniprot executable file. 
                              If not specified, minibusco will search for miniprot in the directory where minibusco.py is located, the current execution directory, and system environment variables.
 ```
