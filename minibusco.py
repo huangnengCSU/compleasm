@@ -328,7 +328,7 @@ class MiniprotRunner:
         miniprot_process = subprocess.Popen(shlex.split(
             "{} --trans -u -I --outs={} -t {} --gff {} {}".format(self.miniprot_execute_command, self.outs,
                                                                   self.threads, assembly_filepath, lineage_filepath,
-                                                                  output_filepath)), shell=True, stdout=fout,
+                                                                  output_filepath)), stdout=fout,
             bufsize=8388608)
         exitcode = miniprot_process.wait()
         fout.close()
@@ -559,7 +559,7 @@ class AutoLineager:
 
 def run_hmmsearch(hmmsearch_execute_command, output_file, hmm_profile, protein_seqs):
     hmmer_process = subprocess.Popen(shlex.split(
-        "{} --domtblout {} --cpu 1 {} -".format(hmmsearch_execute_command, output_file, hmm_profile)), shell=True,
+        "{} --domtblout {} --cpu 1 {} -".format(hmmsearch_execute_command, output_file, hmm_profile)),
         stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     output, error = hmmer_process.communicate(input=protein_seqs.encode())
     output.decode()
