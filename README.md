@@ -1,8 +1,8 @@
 ## Getting Started
 ```sh
 # download minibusco and its dependencies (miniprot and hmmsearch)
-wget https://github.com/huangnengCSU/minibusco/releases/download/v0.2/minibusco-0.2_x64-linux.tar.bz2
-tar -jxvf minibusco-0.2_x64-linux.tar.bz2
+wget https://github.com/huangnengCSU/minibusco/releases/download/v0.2.1/minibusco-0.2.1_x64-linux.tar.bz2
+tar -jxvf minibusco-0.2.1_x64-linux.tar.bz2
 
 # Install pandas if necessary
 pip3 install pandas                               # or conda install pandas
