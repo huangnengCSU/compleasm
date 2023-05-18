@@ -287,37 +287,6 @@ class MiniprotRunner:
         self.threads = nthreads
         self.outs = outs
 
-    @staticmethod
-    def search_miniprot():
-        ## Search for miniprot in the path where "minibusco.py" is located
-        print("Searching for miniprot in the path where minibusco.py is located")
-        script_path = os.path.dirname(os.path.realpath(__file__))
-        for fpath in listfiles(script_path):
-            path, file = os.path.split(fpath)
-            if file == "miniprot" and os.path.isfile(fpath):
-                miniprot_execute_command = fpath
-                return miniprot_execute_command
-        ## Search miniprot in the current execution path
-        print("Searching for miniprot in the current execution path")
-        execute_path = os.getcwd()
-        for fpath in listfiles(execute_path):
-            path, file = os.path.split(fpath)
-            if file == "miniprot" and os.path.isfile(fpath):
-                miniprot_execute_command = fpath
-                return miniprot_execute_command
-        ## Search for miniprot in PATH
-        print("Searching for miniprot in $PATH")
-        env_dict = os.environ
-        if "PATH" in env_dict:
-            path_list = env_dict["PATH"].split(":")
-            for path in path_list:
-                for fpath in listfiles(path):
-                    path, file = os.path.split(fpath)
-                    if file == "miniprot" and os.path.isfile(fpath):
-                        miniprot_execute_command = fpath
-                        return miniprot_execute_command
-        sys.exit(
-            "miniprot is not found in the path where minibusco.py is located, the current execution path, or PATH. Please check the installation of miniprot.")
 
     def run_miniprot(self, assembly_filepath, lineage_filepath, alignment_outdir):
         if not os.path.exists(alignment_outdir):
@@ -353,19 +322,6 @@ class AutoLineager:
         self.placement_file_folder = self.downloader.placement_dir
         self.sepp_execute_command = sepp_execute_command
 
-    @staticmethod
-    def search_sepp():
-        print("Searching for run_sepp.py in $PATH")
-        env_dict = os.environ
-        if "PATH" in env_dict:
-            path_list = env_dict["PATH"].split(":")
-            for path in path_list:
-                for fpath in listfiles(path):
-                    path, file = os.path.split(fpath)
-                    if file == "run_sepp.py" and os.path.isfile(fpath):
-                        sepp_execute_command = fpath
-                        return sepp_execute_command
-        sys.exit("run_sepp.py is not found in the $PATH. Please check the installation of sepp.")
 
     def run_sepp(self, marker_genes_filapath):
         # select the best one in ["archaea_odb10", "bacteria_odb10", "eukaryota_odb10"] as search_lineage to run repp
@@ -577,37 +533,6 @@ class Hmmersearch:
         self.threads = threads
         self.output_folder = output_folder
 
-    @staticmethod
-    def search_hmmsearch():
-        ## Search for hmmsearch in the path where "minibusco.py" is located
-        print("Searching for hmmsearch in the path where minibusco.py is located")
-        script_path = os.path.dirname(os.path.realpath(__file__))
-        for fpath in listfiles(script_path):
-            path, file = os.path.split(fpath)
-            if file == "hmmsearch" and os.path.isfile(fpath):
-                hmmsearch_execute_command = fpath
-                return hmmsearch_execute_command
-        ## Search hmmsearch in the current execution path
-        print("Searching for hmmsearch in the current execution path")
-        execute_path = os.getcwd()
-        for fpath in listfiles(execute_path):
-            path, file = os.path.split(fpath)
-            if file == "hmmsearch" and os.path.isfile(fpath):
-                hmmsearch_execute_command = fpath
-                return hmmsearch_execute_command
-        ## Search for hmmsearch in PATH
-        print("Searching for hmmsearch in $PATH")
-        env_dict = os.environ
-        if "PATH" in env_dict:
-            path_list = env_dict["PATH"].split(":")
-            for path in path_list:
-                for fpath in listfiles(path):
-                    path, file = os.path.split(fpath)
-                    if file == "hmmsearch" and os.path.isfile(fpath):
-                        hmmsearch_execute_command = fpath
-                        return hmmsearch_execute_command
-        sys.exit(
-            "hmmsearch is not found in the path where minibusco.py is located, the current execution path, or PATH. Please check the installation of hmmer3.")
 
     def Run(self, translated_proteins):
         pool = Pool(self.threads)
@@ -2281,6 +2206,112 @@ class MinibuscoRunner:
 
 ### main function ###
 
+class CheckDependency():
+    def __init__(self, execute_path):
+        self.cmd = execute_path
+
+    def check_miniprot(self):
+        if self.cmd is None:
+            self.cmd = self.search_miniprot()
+        return self.cmd
+
+    def check_hmmsearch(self):
+        if self.cmd is None:
+            self.cmd = self.search_hmmsearch()
+        ret = subprocess.call(shlex.split("{} -h".format(self.cmd)), stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL)
+        if ret != 0:
+            raise Exception("Command {} is not executable".format(self.cmd))
+        return self.cmd
+
+    def check_sepp(self):
+        if self.cmd is None:
+            self.cmd = self.search_sepp()
+        ret = subprocess.call(shlex.split("{} -h".format(self.cmd)), stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL)
+        if ret != 0:
+            raise Exception("Command {} is not executable".format(self.cmd))
+        return self.cmd
+
+    def search_miniprot(self):
+        ## Search for miniprot in the path where "minibusco.py" is located
+        print("Searching for miniprot in the path where minibusco.py is located")
+        script_path = os.path.dirname(os.path.realpath(__file__))
+        for fpath in listfiles(script_path):
+            path, file = os.path.split(fpath)
+            if file == "miniprot" and os.path.isfile(fpath):
+                miniprot_execute_command = fpath
+                return miniprot_execute_command
+        ## Search miniprot in the current execution path
+        print("Searching for miniprot in the current execution path")
+        execute_path = os.getcwd()
+        for fpath in listfiles(execute_path):
+            path, file = os.path.split(fpath)
+            if file == "miniprot" and os.path.isfile(fpath):
+                miniprot_execute_command = fpath
+                return miniprot_execute_command
+        ## Search for miniprot in PATH
+        print("Searching for miniprot in $PATH")
+        env_dict = os.environ
+        if "PATH" in env_dict:
+            path_list = env_dict["PATH"].split(":")
+            for path in path_list:
+                for fpath in listfiles(path):
+                    path, file = os.path.split(fpath)
+                    if file == "miniprot" and os.path.isfile(fpath):
+                        miniprot_execute_command = fpath
+                        return miniprot_execute_command
+        sys.exit(
+            "miniprot is not found in the path where minibusco.py is located, the current execution path, or $PATH. \n"
+            "Please check the installation of miniprot!")
+
+    def search_hmmsearch(self):
+        ## Search for hmmsearch in the path where "minibusco.py" is located
+        print("Searching for hmmsearch in the path where minibusco.py is located")
+        script_path = os.path.dirname(os.path.realpath(__file__))
+        for fpath in listfiles(script_path):
+            path, file = os.path.split(fpath)
+            if file == "hmmsearch" and os.path.isfile(fpath):
+                hmmsearch_execute_command = fpath
+                return hmmsearch_execute_command
+        ## Search hmmsearch in the current execution path
+        print("Searching for hmmsearch in the current execution path")
+        execute_path = os.getcwd()
+        for fpath in listfiles(execute_path):
+            path, file = os.path.split(fpath)
+            if file == "hmmsearch" and os.path.isfile(fpath):
+                hmmsearch_execute_command = fpath
+                return hmmsearch_execute_command
+        ## Search for hmmsearch in PATH
+        print("Searching for hmmsearch in $PATH")
+        env_dict = os.environ
+        if "PATH" in env_dict:
+            path_list = env_dict["PATH"].split(":")
+            for path in path_list:
+                for fpath in listfiles(path):
+                    path, file = os.path.split(fpath)
+                    if file == "hmmsearch" and os.path.isfile(fpath):
+                        hmmsearch_execute_command = fpath
+                        return hmmsearch_execute_command
+        sys.exit(
+            "hmmsearch is not found in the path where minibusco.py is located, the current execution path, or PATH. \n"
+            "Please check the installation of hmmer3!")
+
+    def search_sepp(self):
+        print("Searching for run_sepp.py in $PATH")
+        env_dict = os.environ
+        if "PATH" in env_dict:
+            path_list = env_dict["PATH"].split(":")
+            for path in path_list:
+                for fpath in listfiles(path):
+                    path, file = os.path.split(fpath)
+                    if file == "run_sepp.py" and os.path.isfile(fpath):
+                        sepp_execute_command = fpath
+                        return sepp_execute_command
+        sys.exit("run_sepp.py is not found in the $PATH. \n"
+                 "Please check the installation of sepp!")
+
+
 def download(args):
     downloader = Downloader(args.library_path)
     lineages = []
@@ -2327,10 +2358,8 @@ def miniprot(args):
 
 
 def analyze(args):
-    if args.hmmsearch_execute_path is None:
-        hmmsearch_execute_command = Hmmersearch.search_hmmsearch()
-    else:
-        hmmsearch_execute_command = args.hmmsearch_execute_path
+    ckdh = CheckDependency(args.hmmsearch_execute_path)
+    hmmsearch_execute_command = ckdh.check_hmmsearch()
     ar = MiniprotAlignmentParser(run_folder=args.output_dir,
                                  gff_file=args.gff,
                                  lineage=args.lineage,
@@ -2356,19 +2385,13 @@ def run(args):
     autolineage = args.autolineage
     nthreads = args.threads
     outs = args.outs
-    if args.miniprot_execute_path is None:
-        miniprot_execute_command = MiniprotRunner.search_miniprot()
-    else:
-        miniprot_execute_command = args.miniprot_execute_path
-    if args.hmmsearch_execute_path is None:
-        hmmsearch_execute_command = Hmmersearch.search_hmmsearch()
-    else:
-        hmmsearch_execute_command = args.hmmsearch_execute_path
+    ckdm = CheckDependency(args.miniprot_execute_path)
+    miniprot_execute_command = ckdm.check_miniprot()
+    ckdh = CheckDependency(args.hmmsearch_execute_path)
+    hmmsearch_execute_command = ckdh.check_hmmsearch()
     if autolineage:
-        if args.sepp_execute_path is None:
-            sepp_execute_command = AutoLineager.search_sepp()
-        else:
-            sepp_execute_command = args.sepp_execute_path
+        ckds = CheckDependency(args.sepp_execute_path)
+        sepp_execute_command = ckds.check_sepp()
     else:
         sepp_execute_command = args.sepp_execute_path
     min_diff = args.min_diff
