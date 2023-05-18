@@ -20,7 +20,6 @@ import re
 import json
 from enum import Enum
 from collections import defaultdict
-from itertools import repeat
 import pandas as pd
 import time
 
