@@ -18,46 +18,61 @@ minibusco_kit/minibusco.py run --autolineage -a hg38.fa -o hs38-mb
 
 ## Contents
 - [Getting Started](#getting-started)
-- [Manual Installation](#installation)
-  - [Get minibusco](#get-minibusco)
-  - [Install miniprot](#install-miniprot)
-  - [Install hmmer](#install-hmmer)
-  - [Install sepp](#install-sepp)
+- [Installation](#installation)
+  - [Conda Installation](#conda-installation)
+  - [Release Installation](#release-installation)
+  - [Manual Installation](#manual-installation)
 - [Running](#running)
   - [Main Modules](#main-modules)
   - [Using `run` submodule to evaluate genome completeness from genome assembly](#using-run-submodule-to-evaluate-genome-completeness-from-genome-assembly)
-  - [Using `analyze` submodule to evaluate genome completeness from provided miniprot alignment](#using-analysis-submodule-to-evaluate-genome-completeness-from-provided-miniprot-alignment)
+  - [Using `analyze` submodule to evaluate genome completeness from provided miniprot alignment](#using-analyze-submodule-to-evaluate-genome-completeness-from-provided-miniprot-alignment)
   - [Using `download` submodule to download lineage](#using-download-submodule-to-download-lineage)
-  - [Using `list` submodule to list local or remote lineages](#using-list-submodule-to-list-local-or-remote-lineages)
-  - [Using `miniprot` submodule to run miniprot](#using-run_miniprot-submodule-to-run-miniprot)
+  - [Using `miniprot` submodule to run miniprot alignment](#using-miniprot-submodule-to-run-miniprot-alignment)
+  - [Using `list` submodule to show local or remote Busco lineages](#using-list-submodule-to-show-local-or-remote-busco-lineages)
 
-Manual Installation
-------------
-Minibusco is developed on python3. If you only run the `download`, `list`, or `analysis` submodules, you only need to install **python3**, **pandas** and **hmmer**.
-If you want to run the `run` or `run_miniprot` submodules, you need to install **miniprot**. 
-Minubusco will search for miniprot in the directory where `minibusco.py` is located, the current execution directory, and system environment variables.
-If you want to use the `--autolineage` mode, you need to install **sepp** and provide the path to sepp `--sepp_execute_path`.
+
+
+## Installation
+Minibusco is developed on python3.
 - Prequisites:  
       [python3.*](https://www.python.org)  
-      [miniprot](https://github.com/lh3/miniprot) (submodule: run, run_miniprot)  
-      [hmmer](http://hmmer.org/) (submodule: run, analysis)  
-      [sepp](https://github.com/smirarab/sepp) (autolineage mode)
+      [miniprot](https://github.com/lh3/miniprot)   
+      [hmmer](http://hmmer.org/)  
+      [sepp](https://github.com/smirarab/sepp)  
 - Dependencies:  
   [pandas](https://pandas.pydata.org/docs/getting_started/install.html#installing-from-pypi)
 
-### Get minibusco:
+### Conda Installation
+MiniBUSCO can be installed with conda. If you don't have conda, please install [miniconda](https://docs.conda.io/en/latest/miniconda.html) or [anaconda](https://www.anaconda.com/products/individual) first. Then you can create a new environment with miniBUSCO installed.
+```angular2html
+conda create -n <your_env_name> -c conda-forge -c bioconda minibusco
+conda activate <your_env_name>
+minibusco -h
+```
+
+### Release Installation
+```angular2html
+wget https://github.com/huangnengCSU/minibusco/releases/download/v0.2.1/minibusco-0.2.1_x64-linux.tar.bz2
+tar -jxvf minibusco-0.2.1_x64-linux.tar.bz2
+minibusco_kit/minibusco.py -h
+```
+
+
+### Manual Installation
+
+#### Get minibusco:
 ```angular2html
 git clone https://github.com/huangnengCSU/minibusco.git
 ```
 You can run the `minibusco.py` script directly or copy it to other locations then run it.
 
-### Install miniprot:
+#### Install miniprot:
 ```angular2html
 git clone https://github.com/lh3/miniprot
 cd miniprot && make
 ```
 
-### Install hmmer:
+#### Install hmmer:
 ```angular2html
 wget http://eddylab.org/software/hmmer/hmmer.tar.gz 
 tar zxf hmmer.tar.gz
@@ -68,7 +83,7 @@ make check
 make install
 ```
 
-### Install sepp:
+#### Install sepp:
 ```angular2html
 git clone https://github.com/smirarab/sepp.git
 cd sepp
@@ -147,7 +162,9 @@ python minibusco.py run -a genome.fasta -o output_dir -l eukaryota -t 8 -L /path
 python minibusco.py run -a genome.fasta -o output_dir -l eukaryota -t 8 --specified_contigs chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22
 ```
 
+
 ### Using `analyze` submodule to evaluate genome completeness from provided miniprot alignment:
+
 This will directly parse the provided miniprot alignment result to evaluate genome completeness. The execute command of miniprot should be like `miniprot --trans -u -I --outs=0.95 --gff -t 8 ref-file protein.faa > output.gff`.
 #### Usage:
 ```angular2html
@@ -182,7 +199,9 @@ python minibusco.py analyze -g miniprot.gff -o output_dir -l eukaryota -t 8
 minibusco analyze -g miniprot.gff -o output_dir -l eukaryota -t 8 --specified_contigs chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22
 ```
 
+
 ### Using `download` submodule to download lineage:
+
 This will download the specified lineages and save to the specified folder.
 #### Usage:
 ```angular2html
@@ -208,7 +227,9 @@ or
 python minibusco.py download saccharomycetes,primates,brassicales -L /path/to/lineages_folder
 ```
 
+
 ### Using `miniprot` submodule to run miniprot alignment:
+
 This will run miniprot alignment and output the gff file.
 #### Usage:
 ```angular2html
@@ -231,7 +252,9 @@ python minibusco.py miniprot [-h] -a ASSEMBLY -p PROTEIN -o OUTDIR [-t THREADS] 
 python minibusco.py miniprot -a genome.fasta -p protein.faa -o output_dir -t 8
 ```
 
+
 ### Using `list` submodule to show local or remote Busco lineages:
+
 This will list the local or remote BUSCO lineages.
 #### Usage:
 ```angular2html
