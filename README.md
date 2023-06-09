@@ -1,19 +1,19 @@
 ## Getting Started
 ```sh
-# download minibusco and its dependencies (miniprot and hmmsearch)
-wget https://github.com/huangnengCSU/minibusco/releases/download/v0.2.1/minibusco-0.2.1_x64-linux.tar.bz2
-tar -jxvf minibusco-0.2.1_x64-linux.tar.bz2
+# download compleasm and its dependencies (miniprot and hmmsearch)
+wget https://github.com/huangnengCSU/compleasm/releases/download/v0.2.1/compleasm-0.2.1_x64-linux.tar.bz2
+tar -jxvf compleasm-0.2.1_x64-linux.tar.bz2
 
 # Install pandas if necessary
 pip3 install pandas                               # or conda install pandas
 
-# Run minibusco if lineage is known
-minibusco_kit/minibusco.py download primates      # download data to mb_download/
-minibusco_kit/minibusco.py run -t16 -l primates -a hg38.fa -o hg38-mb  # run the pipeline
+# Run compleasm if lineage is known
+compleasm_kit/compleasm.py download primates      # download data to mb_download/
+compleasm_kit/compleasm.py run -t16 -l primates -a hg38.fa -o hg38-mb  # run the pipeline
 
 # Automatically detect lineage (requiring sepp)
 conda install -c bioconda sepp                    # if sepp hasn't been installed
-minibusco_kit/minibusco.py run --autolineage -a hg38.fa -o hs38-mb  
+compleasm_kit/compleasm.py run --autolineage -a hg38.fa -o hs38-mb  
 ```
 
 ## Contents
@@ -33,7 +33,7 @@ minibusco_kit/minibusco.py run --autolineage -a hg38.fa -o hs38-mb
 
 
 ## Installation
-Minibusco is developed on python3.
+Compleasm is developed on python3.
 - Prequisites:  
       [python3.*](https://www.python.org)  
       [miniprot](https://github.com/lh3/miniprot)   
@@ -42,8 +42,8 @@ Minibusco is developed on python3.
 - Dependencies:  
   [pandas](https://pandas.pydata.org/docs/getting_started/install.html#installing-from-pypi)
 
-### Conda Installation
-MiniBUSCO can be installed with conda. If you don't have conda, please install [miniconda](https://docs.conda.io/en/latest/miniconda.html) or [anaconda](https://www.anaconda.com/products/individual) first. Then you can create a new environment with miniBUSCO installed.
+### Conda Installation (update bioconda recipes soon)
+Compleasm can be installed with conda. If you don't have conda, please install [miniconda](https://docs.conda.io/en/latest/miniconda.html) or [anaconda](https://www.anaconda.com/products/individual) first. Then you can create a new environment with compleasm installed.
 ```angular2html
 conda create -n <your_env_name> -c conda-forge -c bioconda minibusco
 conda activate <your_env_name>
@@ -52,19 +52,19 @@ minibusco -h
 
 ### Release Installation
 ```angular2html
-wget https://github.com/huangnengCSU/minibusco/releases/download/v0.2.1/minibusco-0.2.1_x64-linux.tar.bz2
-tar -jxvf minibusco-0.2.1_x64-linux.tar.bz2
-minibusco_kit/minibusco.py -h
+wget https://github.com/huangnengCSU/compleasm/releases/download/v0.2.1/compleasm-0.2.1_x64-linux.tar.bz2
+tar -jxvf compleasm-0.2.1_x64-linux.tar.bz2
+compleasm_kit/compleasm.py -h
 ```
 
 
 ### Manual Installation
 
-#### Get minibusco:
+#### Get compleasm:
 ```angular2html
-git clone https://github.com/huangnengCSU/minibusco.git
+git clone https://github.com/huangnengCSU/compleasm.git
 ```
-You can run the `minibusco.py` script directly or copy it to other locations then run it.
+You can run the `compleasm.py` script directly or copy it to other locations then run it.
 
 #### Install miniprot:
 ```angular2html
@@ -96,7 +96,7 @@ python setup.py install
 ### Main Modules:
 
 ```angular2html
-run             Run minibusco including miniprot alignment and completeness evaluation
+run             Run compleasm including miniprot alignment and completeness evaluation
 analyze         Evaluate genome completeness from provided miniprot alignment
 download        Download specified BUSCO lineage
 list            List local or remote BUSCO lineages
@@ -110,7 +110,7 @@ protein sequences in the lineage file to the genome sequence with miniprot, and 
 evaluate genome completeness.
 #### Usage:
 ```angular2html
-python minibusco.py run [-h] -a ASSEMBLY_PATH -o OUTPUT_DIR [-t THREADS] 
+python compleasm.py run [-h] -a ASSEMBLY_PATH -o OUTPUT_DIR [-t THREADS] 
                         [-l LINEAGE] [-L LIBRARY_PATH] [-m {lite,busco}] [--specified_contigs SPECIFIED_CONTIGS [SPECIFIED_CONTIGS ...]] 
                         [--miniprot_execute_path MINIPROT_EXECUTE_PATH] [--hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH] 
                         [--autolineage] [--sepp_execute_path SEPP_EXECUTE_PATH] 
@@ -132,9 +132,9 @@ python minibusco.py run [-h] -a ASSEMBLY_PATH -o OUTPUT_DIR [-t THREADS]
   --specified_contigs        Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.
   --outs                     output if score at least FLOAT*bestScore [0.95]
   --miniprot_execute_path    Path to miniprot executable file. 
-                             If not specified, minibusco will search for miniprot in the directory where minibusco.py is located, the current execution directory, and system environment variables.
+                             If not specified, compleasm will search for miniprot in the directory where compleasm.py is located, the current execution directory, and system environment variables.
   --hmmsearch_execute_path   Path to hmmsearch executable file.
-                             If not specified, minibusco will search for hmmsearch in the directory where minibusco.py is located, the current execution directory, and system environment variables.
+                             If not specified, compleasm will search for hmmsearch in the directory where compleasm.py is located, the current execution directory, and system environment variables.
   --autolineage              Automatically search for the best matching lineage without specifying lineage file.
   --sepp_execute_path        Path to sepp executable file. This is required if you want to use the autolineage mode.
 ```
@@ -150,16 +150,16 @@ python minibusco.py run [-h] -a ASSEMBLY_PATH -o OUTPUT_DIR [-t THREADS]
 #### Example:
 ```angular2html
 # with lineage specified
-python minibusco.py run -a genome.fasta -o output_dir -l eukaryota -t 8
+python compleasm.py run -a genome.fasta -o output_dir -l eukaryota -t 8
 
 # autolineage mode
-python minibusco.py run -a genome.fasta -o output_dir -t 8 --autolineage
+python compleasm.py run -a genome.fasta -o output_dir -t 8 --autolineage
 
 # with custom specified already downloaded lineage folder
-python minibusco.py run -a genome.fasta -o output_dir -l eukaryota -t 8 -L /path/to/lineages_folder
+python compleasm.py run -a genome.fasta -o output_dir -l eukaryota -t 8 -L /path/to/lineages_folder
 
 # specify contigs
-python minibusco.py run -a genome.fasta -o output_dir -l eukaryota -t 8 --specified_contigs chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22
+python compleasm.py run -a genome.fasta -o output_dir -l eukaryota -t 8 --specified_contigs chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22
 ```
 
 
@@ -168,7 +168,7 @@ python minibusco.py run -a genome.fasta -o output_dir -l eukaryota -t 8 --specif
 This will directly parse the provided miniprot alignment result to evaluate genome completeness. The execute command of miniprot should be like `miniprot --trans -u -I --outs=0.95 --gff -t 8 ref-file protein.faa > output.gff`.
 #### Usage:
 ```angular2html
-python minibusco.py analyze [-h] -g GFF -l LINEAGE -o OUTPUT_DIR [-t THREADS] [-L LIBRARY_PATH] 
+python compleasm.py analyze [-h] -g GFF -l LINEAGE -o OUTPUT_DIR [-t THREADS] [-L LIBRARY_PATH] 
                             [-m {lite,busco}] [--hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH]
                             [--specified_contigs SPECIFIED_CONTIGS [SPECIFIED_CONTIGS ...]] 
                             [--min_diff MIN_DIFF] [--min_identity MIN_IDENTITY] [--min_length_percent MIN_LENGTH_PERCENT] 
@@ -185,7 +185,7 @@ python minibusco.py analyze [-h] -g GFF -l LINEAGE -o OUTPUT_DIR [-t THREADS] [-
                             lite:  Without using hmmsearch to filtering protein alignment.
                             busco: Using hmmsearch on all candidate predicted proteins to purify the miniprot alignment to improve accuracy.
   --hmmsearch_execute_path  Path to hmmsearch executable
-                            If not specified, minibusco will search for hmmsearch in the directory where minibusco.py is located, the current execution directory, and system environment variables.
+                            If not specified, compleasm will search for hmmsearch in the directory where compleasm.py is located, the current execution directory, and system environment variables.
   --specified_contigs       Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.
 ```
 Threshold parameters are same as `run` module.
@@ -193,10 +193,10 @@ Threshold parameters are same as `run` module.
 #### Example:
 ```angular2html
 # analysis with miniprot output gff file
-python minibusco.py analyze -g miniprot.gff -o output_dir -l eukaryota -t 8
+python compleasm.py analyze -g miniprot.gff -o output_dir -l eukaryota -t 8
 
 # specify contigs
-minibusco analyze -g miniprot.gff -o output_dir -l eukaryota -t 8 --specified_contigs chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22
+compleasm analyze -g miniprot.gff -o output_dir -l eukaryota -t 8 --specified_contigs chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22
 ```
 
 
@@ -205,7 +205,7 @@ minibusco analyze -g miniprot.gff -o output_dir -l eukaryota -t 8 --specified_co
 This will download the specified lineages and save to the specified folder.
 #### Usage:
 ```angular2html
-python minibusco.py download [-h] [-L LIBRARY_PATH] lineages [lineages ...]
+python compleasm.py download [-h] [-L LIBRARY_PATH] lineages [lineages ...]
 ```
 
 #### Parameters:
@@ -220,11 +220,11 @@ optional arguments:
 
 #### Example:
 ```angular2html
-python minibusco.py download saccharomycetes primates brassicales -L /path/to/lineages_folder
+python compleasm.py download saccharomycetes primates brassicales -L /path/to/lineages_folder
 ```
 or
 ```angular2html
-python minibusco.py download saccharomycetes,primates,brassicales -L /path/to/lineages_folder
+python compleasm.py download saccharomycetes,primates,brassicales -L /path/to/lineages_folder
 ```
 
 
@@ -233,7 +233,7 @@ python minibusco.py download saccharomycetes,primates,brassicales -L /path/to/li
 This will run miniprot alignment and output the gff file.
 #### Usage:
 ```angular2html
-python minibusco.py miniprot [-h] -a ASSEMBLY -p PROTEIN -o OUTDIR [-t THREADS] [--miniprot_execute_path MINIPROT_EXECUTE_PATH]
+python compleasm.py miniprot [-h] -a ASSEMBLY -p PROTEIN -o OUTDIR [-t THREADS] [--miniprot_execute_path MINIPROT_EXECUTE_PATH]
 ```
 
 #### Important parameters:
@@ -244,12 +244,12 @@ python minibusco.py miniprot [-h] -a ASSEMBLY -p PROTEIN -o OUTDIR [-t THREADS] 
   -t, --threads              Number of threads to use
   --outs                     output if score at least FLOAT*bestScore [0.95]
   --miniprot_execute_path    Path to miniprot executable file. 
-                             If not specified, minibusco will search for miniprot in the directory where minibusco.py is located, the current execution directory, and system environment variables.
+                             If not specified, compleasm will search for miniprot in the directory where compleasm.py is located, the current execution directory, and system environment variables.
 ```
 
 #### Example:
 ```angular2html
-python minibusco.py miniprot -a genome.fasta -p protein.faa -o output_dir -t 8
+python compleasm.py miniprot -a genome.fasta -p protein.faa -o output_dir -t 8
 ```
 
 
@@ -258,7 +258,7 @@ python minibusco.py miniprot -a genome.fasta -p protein.faa -o output_dir -t 8
 This will list the local or remote BUSCO lineages.
 #### Usage:
 ```angular2html
-python minibusco.py list [-h] [--remote] [--local] [-L LIBRARY_PATH]
+python compleasm.py list [-h] [--remote] [--local] [-L LIBRARY_PATH]
 ```
 
 #### Important parameters:
@@ -271,9 +271,9 @@ python minibusco.py list [-h] [--remote] [--local] [-L LIBRARY_PATH]
 #### Example
 ```angular2html
 # list local lineages
-python minibusco.py list --local -L /path/to/lineages_folder
+python compleasm.py list --local -L /path/to/lineages_folder
 
 # list remote lineages
-python minibusco.py list --remote
+python compleasm.py list --remote
 ```
 
