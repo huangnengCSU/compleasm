@@ -194,7 +194,7 @@ class Downloader:
                         os.remove(os.path.join(self.download_dir, lineage) + ".tmp")
                         os.remove(download_path)
                         sys.exit(
-                            "No refseq_db.faa.gz in lineage {}, this lineage cannot be used in minibusco! Lineage file has been deleted.".format(
+                            "No refseq_db.faa.gz in lineage {}, this lineage cannot be used in compleasm! Lineage file has been deleted.".format(
                                 lineage))
                     tar.extractall(self.download_dir, members=[tar.getmember('{}/refseq_db.faa.gz'.format(lineage)),
                                                                tar.getmember('{}/hmms'.format(lineage)),
@@ -289,8 +289,8 @@ class MiniprotRunner:
 
     @staticmethod
     def search_miniprot():
-        ## Search for miniprot in the path where "minibusco.py" is located
-        print("Searching for miniprot in the path where minibusco.py is located")
+        ## Search for miniprot in the path where "compleasm.py" is located
+        print("Searching for miniprot in the path where compleasm.py is located")
         script_path = os.path.dirname(os.path.realpath(__file__))
         for fpath in listfiles(script_path):
             path, file = os.path.split(fpath)
@@ -317,7 +317,7 @@ class MiniprotRunner:
                         miniprot_execute_command = fpath
                         return miniprot_execute_command
         sys.exit(
-            "miniprot is not found in the path where minibusco.py is located, the current execution path, or PATH. Please check the installation of miniprot.")
+            "miniprot is not found in the path where compleasm.py is located, the current execution path, or PATH. Please check the installation of miniprot.")
 
     def run_miniprot(self, assembly_filepath, lineage_filepath, alignment_outdir):
         if not os.path.exists(alignment_outdir):
@@ -579,8 +579,8 @@ class Hmmersearch:
 
     @staticmethod
     def search_hmmsearch():
-        ## Search for hmmsearch in the path where "minibusco.py" is located
-        print("Searching for hmmsearch in the path where minibusco.py is located")
+        ## Search for hmmsearch in the path where "compleasm.py" is located
+        print("Searching for hmmsearch in the path where compleasm.py is located")
         script_path = os.path.dirname(os.path.realpath(__file__))
         for fpath in listfiles(script_path):
             path, file = os.path.split(fpath)
@@ -607,7 +607,7 @@ class Hmmersearch:
                         hmmsearch_execute_command = fpath
                         return hmmsearch_execute_command
         sys.exit(
-            "hmmsearch is not found in the path where minibusco.py is located, the current execution path, or PATH. Please check the installation of hmmer3.")
+            "hmmsearch is not found in the path where compleasm.py is located, the current execution path, or PATH. Please check the installation of hmmer3.")
 
     def Run(self, translated_proteins):
         pool = Pool(self.threads)
@@ -1509,7 +1509,7 @@ class MiniprotAlignmentParser:
         print()
         average_identity = round(sum(identities_list) * 1.0 / len(identities_list), 2)
         if average_identity <= 0.5:
-            print("Warning: Given the potentially high diversity of the sample, miniBUSCO results may not be reliable!"
+            print("Warning: Given the potentially high diversity of the sample, compleasm results may not be reliable!"
                   "We recommend reassessing the sample using BUSCO.")
             print()
         with open(self.completeness_output_file, 'a') as fout:
@@ -1782,7 +1782,7 @@ class MiniprotAlignmentParser:
         print()
         average_identity = round(sum(identities_list) * 1.0 / len(identities_list), 2)
         if average_identity <= 0.5:
-            print("Warning: Given the potentially high diversity of the sample, miniBUSCO results may not be reliable!"
+            print("Warning: Given the potentially high diversity of the sample, compleasm results may not be reliable!"
                   "We recommend reassessing the sample using BUSCO.")
             print()
         with open(self.completeness_output_file, 'a') as fout:
@@ -2118,7 +2118,7 @@ class MiniprotAlignmentParser:
     #     print()
     #     average_identity = round(sum(identities_list) * 1.0 / len(identities_list), 2)
     #     if average_identity <= 0.5:
-    #         print("Warning: Given the potentially high diversity of the sample, miniBUSCO results may not be reliable!"
+    #         print("Warning: Given the potentially high diversity of the sample, compleasm results may not be reliable!"
     #               "We recommend reassessing the sample using BUSCO.")
     #         print()
     #     with open(self.completeness_output_file, 'a') as fout:
@@ -2139,8 +2139,8 @@ class MiniprotAlignmentParser:
     #             fout.write(x)
 
 
-### Minibusco Runner ###
-class MinibuscoRunner:
+### compleasm Runner ###
+class CompleasmRunner:
     def __init__(self, assembly_path, output_folder, library_path, lineage, autolineage, nthreads, outs,
                  miniprot_execute_command, hmmsearch_execute_command, sepp_execute_command, min_diff,
                  min_length_percent, min_identity, min_complete, min_rise, specified_contigs, mode):
@@ -2293,11 +2293,11 @@ def download(args):
 def list_lineages(args):
     if not args.local and not args.remote:
         sys.exit("\n Usage error: Please specify whether to list local or remote lineages."
-                 "\n e.g. minibusco.py list --remote or minibusco.py list --local --library_path /path/to/lineage_folder\n")
+                 "\n e.g. compleasm.py list --remote or compleasm.py list --local --library_path /path/to/lineage_folder\n")
     if args.local:
         if args.library_path is None:
             sys.exit("\n Usage error: Please specify the folder path to stored lineages."
-                     "\n e.g. minibusco list --local --library_path /path/to/lineages_folder\n")
+                     "\n e.g. compleasm list --local --library_path /path/to/lineages_folder\n")
         else:
             print("Local available lineages:")
             for file in os.listdir(args.library_path):
@@ -2384,7 +2384,7 @@ def run(args):
             "\n Usage error: Please specify the lineage name with -l. e.g. eukaryota, primates, saccharomycetes etc."
             "\n Or specify --autolineage to automaticly search the best matching lineage\n")
 
-    mr = MinibuscoRunner(assembly_path=assembly_path,
+    mr = CompleasmRunner(assembly_path=assembly_path,
                          output_folder=output_folder,
                          library_path=library_path,
                          lineage=lineage,
@@ -2406,8 +2406,8 @@ def run(args):
 
 ### main.py
 def main():
-    parser = argparse.ArgumentParser(description="MiniBusco")
-    subparser = parser.add_subparsers(dest="command", help="Minibusco modules help", required=True)
+    parser = argparse.ArgumentParser(description="Compleasm")
+    subparser = parser.add_subparsers(dest="command", help="Compleasm modules help", required=True)
 
     ### sub-command: download
     download_parser = subparser.add_parser("download", help="Download specified BUSCO lineages")
@@ -2470,7 +2470,7 @@ def main():
 
     ### sub-command: run
     run_parser = subparser.add_parser("run",
-                                      help="Run minibusco including miniprot alignment and completeness evaluation")
+                                      help="Run compleasm including miniprot alignment and completeness evaluation")
     run_parser.add_argument("-a", "--assembly_path", type=str, help="Input genome file in FASTA format.", required=True)
     run_parser.add_argument("-o", "--output_dir", type=str, help="The output folder.", required=True)
     run_parser.add_argument("-t", "--threads", type=int, default=1, help="Number of threads to use")
