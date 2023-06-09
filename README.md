@@ -52,8 +52,8 @@ minibusco -h
 
 ### Release Installation
 ```angular2html
-wget https://github.com/huangnengCSU/compleasm/releases/download/v0.2.1/compleasm-0.2.1_x64-linux.tar.bz2
-tar -jxvf compleasm-0.2.1_x64-linux.tar.bz2
+wget https://github.com/huangnengCSU/compleasm/releases/download/v0.2.2/compleasm-0.2.2_x64-linux.tar.bz2
+tar -jxvf compleasm-0.2.2_x64-linux.tar.bz2
 compleasm_kit/compleasm.py -h
 ```
 
