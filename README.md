@@ -1,8 +1,8 @@
 ## Getting Started
 ```sh
 # download compleasm and its dependencies (miniprot and hmmsearch)
-wget https://github.com/huangnengCSU/compleasm/releases/download/v0.2.1/compleasm-0.2.1_x64-linux.tar.bz2
-tar -jxvf compleasm-0.2.1_x64-linux.tar.bz2
+wget https://github.com/huangnengCSU/compleasm/releases/download/v0.2.2/compleasm-0.2.2_x64-linux.tar.bz2
+tar -jxvf compleasm-0.2.2_x64-linux.tar.bz2
 
 # Install pandas if necessary
 pip3 install pandas                               # or conda install pandas
