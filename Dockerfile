@@ -5,7 +5,7 @@ WORKDIR /app
 
 SHELL [ "/bin/bash", "--login", "-c" ]
 
-RUN conda create -n compleasm -c conda-forge -c bioconda compleasm --yes --all
+RUN conda create -n compleasm -c conda-forge -c bioconda compleasm --yes
 
 RUN conda init bash
 
