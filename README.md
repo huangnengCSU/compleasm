@@ -20,6 +20,8 @@ compleasm_kit/compleasm.py run --autolineage -a hg38.fa -o hs38-mb
 - [Getting Started](#getting-started)
 - [Installation](#installation)
   - [Conda Installation](#conda-installation)
+  - [Docker Installation](#docker-installation)
+  - [Singularity Installation](#singularity-installation)
   - [Release Installation](#release-installation)
   - [Manual Installation](#manual-installation)
 - [Running](#running)
@@ -48,6 +50,20 @@ Compleasm can be installed with conda. If you don't have conda, please install [
 conda create -n <your_env_name> -c conda-forge -c bioconda compleasm
 conda activate <your_env_name>
 compleasm -h
+```
+
+### Docker Installation
+Compleasm can be installed with docker. If you don't have docker, please install [docker](https://docs.docker.com/get-docker/) first. Then you can pull the docker image with compleasm installed.
+```angular2html
+VERSION=0.2.2
+docker run huangnengcsu/compleasm:v${VERSION} compleasm -h
+```
+
+### Singularity Installation
+Compleasm can be installed with singularity. If you don't have singularity, please install [singularity](https://docs.sylabs.io/guides/3.9/user-guide/quick_start.html#quick-installation-steps) first. Then you can pull the singularity image with compleasm installed.
+```angular2html
+VERSION=0.2.2
+singularity exec docker://huangnengcsu/compleasm:v${VERSION} compleasm -h
 ```
 
 ### Release Installation
