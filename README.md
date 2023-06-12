@@ -42,12 +42,12 @@ Compleasm is developed on python3.
 - Dependencies:  
   [pandas](https://pandas.pydata.org/docs/getting_started/install.html#installing-from-pypi)
 
-### Conda Installation (update bioconda recipes soon)
+### Conda Installation
 Compleasm can be installed with conda. If you don't have conda, please install [miniconda](https://docs.conda.io/en/latest/miniconda.html) or [anaconda](https://www.anaconda.com/products/individual) first. Then you can create a new environment with compleasm installed.
 ```angular2html
-conda create -n <your_env_name> -c conda-forge -c bioconda minibusco
+conda create -n <your_env_name> -c conda-forge -c bioconda compleasm
 conda activate <your_env_name>
-minibusco -h
+compleasm -h
 ```
 
 ### Release Installation
