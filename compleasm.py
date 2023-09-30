@@ -2208,6 +2208,7 @@ class ProteinRunner():
         self.lineage = lineage
         self.protein_path = protein_path
         self.output_folder = output_folder
+        self.completeness_output_file = os.path.join(output_folder, "summary.txt")
         self.library_path = library_path
         self.nthreads = nthreads
         self.hmmsearch_execute_command = hmmsearch_execute_command
@@ -2234,8 +2235,13 @@ class ProteinRunner():
         open(done_file, "w").close()
 
         # 2. parse hmmsearch output
-        # TODO: get all protein header
         protein_headers = []
+        with open(self.protein_path, 'r') as fin:
+            for line in fin:
+                if line.startswith(">"):
+                    ## >24998at4891
+                    protein_headers.append(line.strip().split()[0].replace(">", ""))
+
         score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
         length_cutoff_dict = load_length_cutoff(os.path.join(self.library_path, self.lineage, "lengths_cutoff"))
         protein_hmmsearch_output_dict = {}  ## key: protein name, value: list of aligned hmm and complete or fragment
@@ -2244,7 +2250,6 @@ class ProteinRunner():
         for hmmsearch_output in os.listdir(self.output_folder):
             outfile = os.path.join(self.output_folder, hmmsearch_output)
             with open(outfile, 'r') as fin:
-                best_one_candidate = None
                 coords_dict = defaultdict(list)
                 for line in fin:
                     if line.startswith('#'):
@@ -2256,20 +2261,12 @@ class ProteinRunner():
                     hmm_from = int(line[15])
                     hmm_to = int(line[16])
                     assert hmm_to >= hmm_from
-                    # ## query name must match the target name
-                    # if target_name.split("|", maxsplit=1)[0].split("_")[0] != query_name:
-                    #     continue
-                    ## save records of the best candidate only (maybe duplicated)
-                    # if best_one_candidate is not None and best_one_candidate != target_name.split("|", maxsplit=1)[0]:
-                    #     continue
                     if hmm_score < score_cutoff_dict[query_name]:
+                        # failed to pass the score cutoff
                         continue
-                    # location = target_name.split("|", maxsplit=1)[1]
                     coords_dict[target_name].append((hmm_from, hmm_to))
-                    # best_one_candidate = target_name.split("|", maxsplit=1)[0]
                 for tname in coords_dict.keys():
                     coords = coords_dict[tname]
-                    # keyname = "{}|{}".format(best_one_candidate, location)
                     interval = []
                     coords = sorted(coords, key=lambda x: x[0])
                     for i in range(len(coords)):
@@ -2294,11 +2291,58 @@ class ProteinRunner():
                     # hmm_length_dict[keyname] = interval[2]
                     if interval[2] >= length_cutoff_dict[query_name]["length"] - 2 * length_cutoff_dict[query_name][
                         "sigma"]:
-                        protein_hmmsearch_output_dict[tname].append((protein_name, "complete"))
+                        protein_hmmsearch_output_dict[tname].append((query_name, 0))  # 0 means complete
                     else:
-                        protein_hmmsearch_output_dict[tname].append((protein_name, "fragment"))
+                        protein_hmmsearch_output_dict[tname].append((query_name, 1))  # 1 means fragment
 
         # 3. assign each protein to Single, Duplicate, Fragment or Missing
+        protein_num = len(protein_headers)
+        single_copy_proteins, duplicate_proteins, fragmented_proteins, missing_proteins = [], [], [], []
+        for protein_name in protein_hmmsearch_output_dict.keys():
+            if len(protein_hmmsearch_output_dict[protein_name]) == 0:
+                missing_proteins.append(protein_name)
+            elif len(protein_hmmsearch_output_dict[protein_name]) == 1:
+                if protein_hmmsearch_output_dict[protein_name][0][1] == 0:
+                    single_copy_proteins.append(protein_name)
+                elif protein_hmmsearch_output_dict[protein_name][0][1] == 1:
+                    fragmented_proteins.append(protein_name)
+            elif len(protein_hmmsearch_output_dict[protein_name]) > 1:
+                nc, nf = 0, 0
+                for (q, v) in protein_hmmsearch_output_dict[protein_name]:
+                    if v == 0:
+                        nc += 1
+                    elif v == 1:
+                        nf += 1
+                    else:
+                        raise Exception("Error parsing hmmsearch output file.")
+                if nc == 0:
+                    fragmented_proteins.append(protein_name)
+                elif nc == 1:
+                    single_copy_proteins.append(protein_name)
+                elif nc > 1:
+                    duplicate_proteins.append(protein_name)
+        assert len(single_copy_proteins) + len(duplicate_proteins) + len(fragmented_proteins) + len(
+            missing_proteins) == protein_num
+        print()
+        print("S:{:.2f}%, {}".format(len(single_copy_proteins) / protein_num * 100, len(single_copy_proteins)))
+        print("D:{:.2f}%, {}".format(len(duplicate_proteins) / protein_num * 100, len(duplicate_proteins)))
+        print("F:{:.2f}%, {}".format(len(fragmented_proteins) / protein_num * 100, len(fragmented_proteins)))
+        # print("I:{:.2f}%, {}".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
+        print("M:{:.2f}%, {}".format(len(missing_proteins) / protein_num * 100, len(missing_proteins)))
+        print("N:{}".format(protein_num))
+        print()
+
+        with open(self.completeness_output_file, 'a') as fout:
+            if self.lineage is not None:
+                fout.write("## lineage: {}\n".format(self.lineage))
+            else:
+                fout.write("## lineage: xx_xx\n")
+            fout.write(
+                "S:{:.2f}%, {}\n".format(len(single_copy_proteins) / protein_num * 100, len(single_copy_proteins)))
+            fout.write("D:{:.2f}%, {}\n".format(len(duplicate_proteins) / protein_num * 100, len(duplicate_proteins)))
+            fout.write("F:{:.2f}%, {}\n".format(len(fragmented_proteins) / protein_num * 100, len(fragmented_proteins)))
+            fout.write("M:{:.2f}%, {}\n".format(len(missing_proteins) / protein_num * 100, len(missing_proteins)))
+            fout.write("N:{}\n".format(protein_num))
 
 
 ### main function ###
@@ -2441,10 +2485,11 @@ def list_lineages(args):
             print(lineage)
 
 
-def protein(args):
+def protein_fun(args):
     ckdh = CheckDependency(args.hmmsearch_execute_path)
     hmmsearch_execute_command = ckdh.check_hmmsearch()
     pr = ProteinRunner(hmmsearch_execute_command, args.outs, args.threads)
+    pr.run()
 
 
 def miniprot(args):
@@ -2560,7 +2605,7 @@ def main():
     protein_parser.add_argument("-L", "--library_path", type=str, default="mb_downloads",
                                 help="Folder path to stored lineages. ")
     protein_parser.add_argument("--hmmsearch_execute_path", type=str, default=None, help="Path to hmmsearch executable")
-    protein_parser.set_defaults(func=protein)
+    protein_parser.set_defaults(func=protein_fun)
 
     ### sub-command: miniprot
     run_miniprot_parser = subparser.add_parser("miniprot", help="Run miniprot alignment")
