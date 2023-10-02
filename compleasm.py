@@ -2488,7 +2488,7 @@ def list_lineages(args):
 def protein_fun(args):
     ckdh = CheckDependency(args.hmmsearch_execute_path)
     hmmsearch_execute_command = ckdh.check_hmmsearch()
-    pr = ProteinRunner(hmmsearch_execute_command, args.outs, args.threads)
+    pr = ProteinRunner(hmmsearch_execute_command, args.outdir, args.threads)
     pr.run()
 
 
