@@ -519,6 +519,7 @@ def run_hmmsearch(hmmsearch_execute_command, output_file, hmm_profile, protein_s
     exitcode = hmmer_process.returncode
     return exitcode
 
+
 def run_hmmsearch2(hmmsearch_execute_command, output_file, hmm_profile, protein_file):
     hmmer_process = subprocess.Popen(shlex.split(
         "{} --domtblout {} --cpu 1 {} {}".format(hmmsearch_execute_command, output_file, hmm_profile, protein_file)),
@@ -2221,6 +2222,8 @@ class ProteinRunner():
         self.library_path = library_path
         self.nthreads = nthreads
         self.hmmsearch_execute_command = hmmsearch_execute_command
+        if not os.path.exists(self.output_folder):
+            os.makedirs(self.output_folder)
 
     def run(self):
         # 1. run hmmsearch
@@ -2233,7 +2236,7 @@ class ProteinRunner():
             absolute_path_outfile = os.path.join(self.output_folder, outfile)
             absolute_path_profile = os.path.join(hmm_profiles, profile)
             results.append(pool.apply_async(run_hmmsearch2, args=(self.hmmsearch_execute_command, absolute_path_outfile,
-                                                                 absolute_path_profile, self.protein_path)))
+                                                                  absolute_path_profile, self.protein_path)))
         pool.close()
         pool.join()
         for res in results:
