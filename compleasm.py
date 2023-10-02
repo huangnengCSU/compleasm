@@ -2230,9 +2230,11 @@ class ProteinRunner():
         hmm_profiles = os.path.join(self.library_path, self.lineage, "hmms")
         pool = Pool(self.nthreads)
         results = []
+        protein_hmmsearch_output_dict = {}  ## key: hmm protein name, value: list of aligned hmm and complete or fragment
         for profile in os.listdir(hmm_profiles):
             outfile = profile.replace(".hmm", ".out")
             target_specie = profile.replace(".hmm", "")
+            protein_hmmsearch_output_dict[target_specie] = []
             absolute_path_outfile = os.path.join(self.output_folder, outfile)
             absolute_path_profile = os.path.join(hmm_profiles, profile)
             results.append(pool.apply_async(run_hmmsearch2, args=(self.hmmsearch_execute_command, absolute_path_outfile,
@@ -2247,18 +2249,9 @@ class ProteinRunner():
         open(done_file, "w").close()
 
         # 2. parse hmmsearch output
-        protein_headers = []
-        with open(self.protein_path, 'r') as fin:
-            for line in fin:
-                if line.startswith(">"):
-                    ## >24998at4891
-                    protein_headers.append(line.strip().split()[0].replace(">", ""))
-
         score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
         length_cutoff_dict = load_length_cutoff(os.path.join(self.library_path, self.lineage, "lengths_cutoff"))
-        protein_hmmsearch_output_dict = {}  ## key: protein name, value: list of aligned hmm and complete or fragment
-        for protein_name in protein_headers:
-            protein_hmmsearch_output_dict[protein_name] = []
+
         for hmmsearch_output in os.listdir(self.output_folder):
             outfile = os.path.join(self.output_folder, hmmsearch_output)
             with open(outfile, 'r') as fin:
@@ -2303,12 +2296,12 @@ class ProteinRunner():
                     # hmm_length_dict[keyname] = interval[2]
                     if interval[2] >= length_cutoff_dict[query_name]["length"] - 2 * length_cutoff_dict[query_name][
                         "sigma"]:
-                        protein_hmmsearch_output_dict[tname].append((query_name, 0))  # 0 means complete
+                        protein_hmmsearch_output_dict[query_name].append((tname, 0))  # 0 means complete
                     else:
-                        protein_hmmsearch_output_dict[tname].append((query_name, 1))  # 1 means fragment
+                        protein_hmmsearch_output_dict[query_name].append((tname, 1))  # 1 means fragment
 
         # 3. assign each protein to Single, Duplicate, Fragment or Missing
-        protein_num = len(protein_headers)
+        protein_num = len(protein_hmmsearch_output_dict.keys())
         single_copy_proteins, duplicate_proteins, fragmented_proteins, missing_proteins = [], [], [], []
         for protein_name in protein_hmmsearch_output_dict.keys():
             if len(protein_hmmsearch_output_dict[protein_name]) == 0:
