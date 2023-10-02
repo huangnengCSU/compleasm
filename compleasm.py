@@ -2488,7 +2488,12 @@ def list_lineages(args):
 def protein_fun(args):
     ckdh = CheckDependency(args.hmmsearch_execute_path)
     hmmsearch_execute_command = ckdh.check_hmmsearch()
-    pr = ProteinRunner(hmmsearch_execute_command, args.outdir, args.threads)
+    pr = ProteinRunner(protein_path=args.proteins,
+                       output_folder=args.outdir,
+                       library_path=args.library_path,
+                       lineage=args.lineage,
+                       nthreads=args.threads,
+                       hmmsearch_execute_command=hmmsearch_execute_command)
     pr.run()
 
 
