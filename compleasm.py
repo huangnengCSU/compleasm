@@ -2223,7 +2223,7 @@ class ProteinRunner():
         self.nthreads = nthreads
         self.hmmsearch_execute_command = hmmsearch_execute_command
         if not os.path.exists(self.output_folder):
-            os.makedirs(self.output_folder)
+            os.mkdir(self.output_folder)
 
     def run(self):
         # 1. run hmmsearch
