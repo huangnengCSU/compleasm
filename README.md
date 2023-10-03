@@ -298,7 +298,7 @@ python compleasm.py list --remote
 ### Using `protein` submodule to assess the completeness of input proteins:
 
 This will evaluate the completeness of input proteins.
-
+#### Usage:
 ```angular2html
 python compleasm.py protein [-h] -p PROTEINS -l LINEAGE -o OUTDIR [-t THREADS]
                             [-L LIBRARY_PATH]
