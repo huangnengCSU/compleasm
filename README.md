@@ -314,7 +314,7 @@ python compleasm.py protein [-h] -p PROTEINS -l LINEAGE -o OUTDIR [-t THREADS]
 -t, --threads              Number of threads to use
 -L, --library_path         Folder path to stored lineages
 --hmmsearch_execute_path   Path to hmmsearch executable.
-If not specified, compleasm will search for miniprot in the directory where compleasm.py is located, the current execution directory, and system environment variables.
+                           If not specified, compleasm will search for miniprot in the directory where compleasm.py is located, the current execution directory, and system environment variables.
 ```
 
 #### Example:
