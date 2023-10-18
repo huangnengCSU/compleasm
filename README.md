@@ -31,6 +31,7 @@ compleasm_kit/compleasm.py run --autolineage -a hg38.fa -o hs38-mb
   - [Using `download` submodule to download lineage](#using-download-submodule-to-download-lineage)
   - [Using `miniprot` submodule to run miniprot alignment](#using-miniprot-submodule-to-run-miniprot-alignment)
   - [Using `list` submodule to show local or remote Busco lineages](#using-list-submodule-to-show-local-or-remote-busco-lineages)
+  - [Output description](#output-description)
 
 
 
@@ -292,4 +293,15 @@ python compleasm.py list --local -L /path/to/lineages_folder
 # list remote lineages
 python compleasm.py list --remote
 ```
+
+### Output description
+The assessment result by compleasm is saved in the file ```summary.txt``` in the output folder. These BUSCO genes are categorized into the following classes:   
+- **S** (**Single Copy Complete Genes**): The BUSCO genes that can be entirely aligned in the assembly, with only one copy present.  
+- **D** (**Duplicated Complete Genes**): The BUSCO genes that can be completely aligned in the assembly, with more than one copy present.
+- **F** (**Fragmented Genes, subclass 1**): The BUSCO genes which only a portion of the gene is present in the assembly, and the rest of the gene cannot be aligned.
+- **I** (**Fragmented Genes, subclass 2**): The BUSCO genes in which a section of the gene aligns to one position in the assembly, while the remaining part aligns to another position.
+- **M** (**Missing Genes**): The BUSCO genes with no alignment present in the assembly.
+
+
+
 
