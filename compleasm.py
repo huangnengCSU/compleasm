@@ -2355,11 +2355,9 @@ def list_lineages(args):
 
 
 def miniprot(args):
-    if args.miniprot_execute_path is None:
-        miniprot_execute_path = MiniprotRunner.search_miniprot()
-    else:
-        miniprot_execute_path = args.miniprot_execute_path
-    mr = MiniprotRunner(miniprot_execute_path, args.outs, args.threads)
+    ckdm = CheckDependency(args.miniprot_execute_path)
+    miniprot_execute_command = ckdm.check_miniprot()
+    mr = MiniprotRunner(miniprot_execute_command, args.outs, args.threads)
     if not os.path.exists(os.path.join(args.outdir, "miniprot.done")):
         mr.run_miniprot(args.assembly, args.protein, args.outdir)
     else:
