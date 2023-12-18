@@ -31,6 +31,7 @@ compleasm_kit/compleasm.py run --autolineage -a hg38.fa -o hs38-mb
   - [Using `download` submodule to download lineage](#using-download-submodule-to-download-lineage)
   - [Using `miniprot` submodule to run miniprot alignment](#using-miniprot-submodule-to-run-miniprot-alignment)
   - [Using `list` submodule to show local or remote Busco lineages](#using-list-submodule-to-show-local-or-remote-busco-lineages)
+  - [Using `protein` submodule to assess the completeness of input proteins](#using-protein-submodule-to-assess-the-completeness-of-input-proteins)
   - [Output description](#output-description)
 
 
@@ -293,6 +294,37 @@ python compleasm.py list --local -L /path/to/lineages_folder
 # list remote lineages
 python compleasm.py list --remote
 ```
+
+
+### Using `protein` submodule to assess the completeness of input proteins:
+
+This will evaluate the completeness of input proteins.
+#### Usage:
+```angular2html
+python compleasm.py protein [-h] -p PROTEINS -l LINEAGE -o OUTDIR [-t THREADS]
+                            [-L LIBRARY_PATH]
+                            [--hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH]
+```
+
+#### Important parameters:
+
+```angular2html
+-p, --proteins             Input protein file
+-l, --lineage              BUSCO lineage name
+-o, --outdir               Output analysis folder
+-t, --threads              Number of threads to use
+-L, --library_path         Folder path to stored lineages
+--hmmsearch_execute_path   Path to hmmsearch executable.
+                           If not specified, compleasm will search for miniprot in the directory where compleasm.py is located, the current execution directory, and system environment variables.
+```
+
+#### Example:
+
+```angular2html
+python compleasm.py protein -p input.faa -l eukaryota -t 8 -o output_dir
+```
+
+
 
 ### Output description
 The assessment result by compleasm is saved in the file ```summary.txt``` in the output folder. These BUSCO genes are categorized into the following classes:   

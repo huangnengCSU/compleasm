@@ -519,6 +519,14 @@ def run_hmmsearch(hmmsearch_execute_command, output_file, hmm_profile, protein_s
     exitcode = hmmer_process.returncode
     return exitcode
 
+def run_hmmsearch2(hmmsearch_execute_command, output_file, hmm_profile, protein_file):
+    hmmer_process = subprocess.Popen(shlex.split(
+        "{} --domtblout {} --cpu 1 {} {}".format(hmmsearch_execute_command, output_file, hmm_profile, protein_file)),
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    output, error = hmmer_process.communicate()
+    output.decode()
+    exitcode = hmmer_process.returncode
+    return exitcode
 
 class Hmmersearch:
     def __init__(self, hmmsearch_execute_command, hmm_profiles, threads, output_folder):
@@ -2214,6 +2222,145 @@ class CompleasmRunner:
         print("## Total runtime: {:.2f}(s)".format(end_time - begin_time))
 
 
+### Protein Runner ###
+class ProteinRunner():
+    def __init__(self, protein_path, output_folder, library_path, lineage, nthreads, hmmsearch_execute_command):
+        if not lineage.endswith("_odb10"):
+            lineage = lineage + "_odb10"
+        self.lineage = lineage
+        self.protein_path = protein_path
+        self.output_folder = output_folder
+        self.completeness_output_file = os.path.join(output_folder, "summary.txt")
+        self.library_path = library_path
+        self.nthreads = nthreads
+        self.hmmsearch_execute_command = hmmsearch_execute_command
+        if not os.path.exists(self.output_folder):
+            os.mkdir(self.output_folder)
+
+    def run(self):
+        # 1. run hmmsearch
+        hmm_profiles = os.path.join(self.library_path, self.lineage, "hmms")
+        pool = Pool(self.nthreads)
+        results = []
+        protein_hmmsearch_output_dict = {}  ## key: hmm protein name, value: list of aligned hmm and complete or fragment
+        for profile in os.listdir(hmm_profiles):
+            outfile = profile.replace(".hmm", ".out")
+            target_specie = profile.replace(".hmm", "")
+            protein_hmmsearch_output_dict[target_specie] = []
+            absolute_path_outfile = os.path.join(self.output_folder, outfile)
+            absolute_path_profile = os.path.join(hmm_profiles, profile)
+            results.append(pool.apply_async(run_hmmsearch2, args=(self.hmmsearch_execute_command, absolute_path_outfile,
+                                                                  absolute_path_profile, self.protein_path)))
+        pool.close()
+        pool.join()
+        for res in results:
+            exitcode = res.get()
+            if exitcode != 0:
+                raise Exception("hmmsearch exited with non-zero exit code: {}".format(exitcode))
+        done_file = os.path.join(os.path.dirname(self.output_folder), "protein_hmmsearch.done")
+        open(done_file, "w").close()
+
+        # 2. parse hmmsearch output
+        score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
+        length_cutoff_dict = load_length_cutoff(os.path.join(self.library_path, self.lineage, "lengths_cutoff"))
+
+        for hmmsearch_output in os.listdir(self.output_folder):
+            outfile = os.path.join(self.output_folder, hmmsearch_output)
+            with open(outfile, 'r') as fin:
+                coords_dict = defaultdict(list)
+                for line in fin:
+                    if line.startswith('#'):
+                        continue
+                    line = line.strip().split()
+                    target_name = line[0]
+                    query_name = line[3]
+                    hmm_score = float(line[7])
+                    hmm_from = int(line[15])
+                    hmm_to = int(line[16])
+                    assert hmm_to >= hmm_from
+                    if hmm_score < score_cutoff_dict[query_name]:
+                        # failed to pass the score cutoff
+                        continue
+                    coords_dict[target_name].append((hmm_from, hmm_to))
+                for tname in coords_dict.keys():
+                    coords = coords_dict[tname]
+                    interval = []
+                    coords = sorted(coords, key=lambda x: x[0])
+                    for i in range(len(coords)):
+                        hmm_from, hmm_to = coords[i]
+                        if i == 0:
+                            interval.extend([hmm_from, hmm_to, hmm_to - hmm_from])
+                        else:
+                            try:
+                                assert hmm_from >= interval[0]
+                            except:
+                                raise Error("Error parsing the hmmsearch output file {}.".format(outfile))
+                            if hmm_from >= interval[1]:
+                                interval[1] = hmm_to
+                                interval[2] += hmm_to - hmm_from
+                            elif hmm_from < interval[1] <= hmm_to:
+                                interval[2] += hmm_to - interval[1]
+                                interval[1] = hmm_to
+                            elif hmm_to < interval[1]:
+                                continue
+                            else:
+                                raise Error("Error parsing the hmmsearch output file {}.".format(outfile))
+                    # hmm_length_dict[keyname] = interval[2]
+                    if interval[2] >= length_cutoff_dict[query_name]["length"] - 2 * length_cutoff_dict[query_name][
+                        "sigma"]:
+                        protein_hmmsearch_output_dict[query_name].append((tname, 0))  # 0 means complete
+                    else:
+                        protein_hmmsearch_output_dict[query_name].append((tname, 1))  # 1 means fragment
+
+        # 3. assign each protein to Single, Duplicate, Fragment or Missing
+        protein_num = len(protein_hmmsearch_output_dict.keys())
+        single_copy_proteins, duplicate_proteins, fragmented_proteins, missing_proteins = [], [], [], []
+        for protein_name in protein_hmmsearch_output_dict.keys():
+            if len(protein_hmmsearch_output_dict[protein_name]) == 0:
+                missing_proteins.append(protein_name)
+            elif len(protein_hmmsearch_output_dict[protein_name]) == 1:
+                if protein_hmmsearch_output_dict[protein_name][0][1] == 0:
+                    single_copy_proteins.append(protein_name)
+                elif protein_hmmsearch_output_dict[protein_name][0][1] == 1:
+                    fragmented_proteins.append(protein_name)
+            elif len(protein_hmmsearch_output_dict[protein_name]) > 1:
+                nc, nf = 0, 0
+                for (q, v) in protein_hmmsearch_output_dict[protein_name]:
+                    if v == 0:
+                        nc += 1
+                    elif v == 1:
+                        nf += 1
+                    else:
+                        raise Exception("Error parsing hmmsearch output file.")
+                if nc == 0:
+                    fragmented_proteins.append(protein_name)
+                elif nc == 1:
+                    single_copy_proteins.append(protein_name)
+                elif nc > 1:
+                    duplicate_proteins.append(protein_name)
+        assert len(single_copy_proteins) + len(duplicate_proteins) + len(fragmented_proteins) + len(
+            missing_proteins) == protein_num
+        print()
+        print("S:{:.2f}%, {}".format(len(single_copy_proteins) / protein_num * 100, len(single_copy_proteins)))
+        print("D:{:.2f}%, {}".format(len(duplicate_proteins) / protein_num * 100, len(duplicate_proteins)))
+        print("F:{:.2f}%, {}".format(len(fragmented_proteins) / protein_num * 100, len(fragmented_proteins)))
+        # print("I:{:.2f}%, {}".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
+        print("M:{:.2f}%, {}".format(len(missing_proteins) / protein_num * 100, len(missing_proteins)))
+        print("N:{}".format(protein_num))
+        print()
+
+        with open(self.completeness_output_file, 'a') as fout:
+            if self.lineage is not None:
+                fout.write("## lineage: {}\n".format(self.lineage))
+            else:
+                fout.write("## lineage: xx_xx\n")
+            fout.write("S:{:.2f}%, {}\n".format(len(single_copy_proteins) / protein_num * 100, len(single_copy_proteins)))
+            fout.write("D:{:.2f}%, {}\n".format(len(duplicate_proteins) / protein_num * 100, len(duplicate_proteins)))
+            fout.write("F:{:.2f}%, {}\n".format(len(fragmented_proteins) / protein_num * 100, len(fragmented_proteins)))
+            fout.write("M:{:.2f}%, {}\n".format(len(missing_proteins) / protein_num * 100, len(missing_proteins)))
+            fout.write("N:{}\n".format(protein_num))
+
+
 ### main function ###
 
 class CheckDependency():
@@ -2353,6 +2500,16 @@ def list_lineages(args):
         for lineage in downloader.lineage_description.keys():
             print(lineage)
 
+def protein_fun(args):
+    ckdh = CheckDependency(args.hmmsearch_execute_path)
+    hmmsearch_execute_command = ckdh.check_hmmsearch()
+    pr = ProteinRunner(protein_path=args.proteins,
+                       output_folder=args.outdir,
+                       library_path=args.library_path,
+                       lineage=args.lineage,
+                       nthreads=args.threads,
+                       hmmsearch_execute_command=hmmsearch_execute_command)
+    pr.run()
 
 def miniprot(args):
     ckdm = CheckDependency(args.miniprot_execute_path)
@@ -2455,6 +2612,17 @@ def main():
     list_parser.add_argument("--local", action="store_true", help="List local BUSCO lineages")
     list_parser.add_argument("-L", "--library_path", type=str, help="Folder path to stored lineages. ", default=None)
     list_parser.set_defaults(func=list_lineages)
+
+    ### sub-command: protein
+    protein_parser = subparser.add_parser("protein", help="Evaluate the completeness of provided protein sequences")
+    protein_parser.add_argument("-p", "--proteins", type=str, help="Input protein file", required=True)
+    protein_parser.add_argument("-l", "--lineage", type=str, help="BUSCO lineage name", required=True)
+    protein_parser.add_argument("-o", "--outdir", type=str, help="Output analysis folder", required=True)
+    protein_parser.add_argument("-t", "--threads", type=int, help="Number of threads to use", default=1)
+    protein_parser.add_argument("-L", "--library_path", type=str, default="mb_downloads",
+                                help="Folder path to stored lineages. ")
+    protein_parser.add_argument("--hmmsearch_execute_path", type=str, default=None, help="Path to hmmsearch executable")
+    protein_parser.set_defaults(func=protein_fun)
 
     ### sub-command: miniprot
     run_miniprot_parser = subparser.add_parser("miniprot", help="Run miniprot alignment")
