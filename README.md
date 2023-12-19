@@ -33,6 +33,7 @@ compleasm_kit/compleasm.py run --autolineage -a hg38.fa -o hs38-mb
   - [Using `list` submodule to show local or remote Busco lineages](#using-list-submodule-to-show-local-or-remote-busco-lineages)
   - [Using `protein` submodule to assess the completeness of input proteins](#using-protein-submodule-to-assess-the-completeness-of-input-proteins)
   - [Output description](#output-description)
+  - [Citing compleasm](#cite-compleasm)
 
 
 
@@ -333,6 +334,17 @@ The assessment result by compleasm is saved in the file ```summary.txt``` in the
 - **F** (**Fragmented Genes, subclass 1**): The BUSCO genes which only a portion of the gene is present in the assembly, and the rest of the gene cannot be aligned.
 - **I** (**Fragmented Genes, subclass 2**): The BUSCO genes in which a section of the gene aligns to one position in the assembly, while the remaining part aligns to another position.
 - **M** (**Missing Genes**): The BUSCO genes with no alignment present in the assembly.
+
+
+### Cite compleasm
+If you use compleasm, please cite:
+
+> Neng Huang, Heng Li, compleasm: a faster and more accurate reimplementation of BUSCO. *Bioinformatics*, **39**, btad595, 2023. [doi:10.1093/bioinformatics/btad595][doi]
+
+
+
+
+[doi]: https://doi.org/10.1093/bioinformatics/btad595
 
 
 
