@@ -58,14 +58,14 @@ compleasm -h
 ### Docker Installation
 Compleasm can be installed with docker. If you don't have docker, please install [docker](https://docs.docker.com/get-docker/) first. Then you can pull the docker image with compleasm installed.
 ```angular2html
-VERSION=0.2.2
+VERSION=0.2.4
 docker run huangnengcsu/compleasm:v${VERSION} compleasm -h
 ```
 
 ### Singularity Installation
 Compleasm can be installed with singularity. If you don't have singularity, please install [singularity](https://docs.sylabs.io/guides/3.9/user-guide/quick_start.html#quick-installation-steps) first. Then you can pull the singularity image with compleasm installed.
 ```angular2html
-VERSION=0.2.2
+VERSION=0.2.4
 singularity exec docker://huangnengcsu/compleasm:v${VERSION} compleasm -h
 ```
 
