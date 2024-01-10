@@ -519,6 +519,7 @@ def run_hmmsearch(hmmsearch_execute_command, output_file, hmm_profile, protein_s
     exitcode = hmmer_process.returncode
     return exitcode
 
+
 def run_hmmsearch2(hmmsearch_execute_command, output_file, hmm_profile, protein_file):
     hmmer_process = subprocess.Popen(shlex.split(
         "{} --domtblout {} --cpu 1 {} {}".format(hmmsearch_execute_command, output_file, hmm_profile, protein_file)),
@@ -527,6 +528,7 @@ def run_hmmsearch2(hmmsearch_execute_command, output_file, hmm_profile, protein_
     output.decode()
     exitcode = hmmer_process.returncode
     return exitcode
+
 
 class Hmmersearch:
     def __init__(self, hmmsearch_execute_command, hmm_profiles, threads, output_folder):
@@ -2231,11 +2233,15 @@ class ProteinRunner():
         self.protein_path = protein_path
         self.output_folder = output_folder
         self.completeness_output_file = os.path.join(output_folder, "summary.txt")
+        self.full_table_output_file = os.path.join(output_folder, "full_table.tsv")
         self.library_path = library_path
         self.nthreads = nthreads
         self.hmmsearch_execute_command = hmmsearch_execute_command
         if not os.path.exists(self.output_folder):
             os.mkdir(self.output_folder)
+        self.hmmsearch_output_folder = os.path.join(self.output_folder, "{}_hmmsearch_output".format(self.lineage))
+        if not os.path.exists(self.hmmsearch_output_folder):
+            os.mkdir(self.hmmsearch_output_folder)
 
     def run(self):
         # 1. run hmmsearch
@@ -2247,7 +2253,7 @@ class ProteinRunner():
             outfile = profile.replace(".hmm", ".out")
             target_specie = profile.replace(".hmm", "")
             protein_hmmsearch_output_dict[target_specie] = []
-            absolute_path_outfile = os.path.join(self.output_folder, outfile)
+            absolute_path_outfile = os.path.join(self.hmmsearch_output_folder, outfile)
             absolute_path_profile = os.path.join(hmm_profiles, profile)
             results.append(pool.apply_async(run_hmmsearch2, args=(self.hmmsearch_execute_command, absolute_path_outfile,
                                                                   absolute_path_profile, self.protein_path)))
@@ -2257,15 +2263,15 @@ class ProteinRunner():
             exitcode = res.get()
             if exitcode != 0:
                 raise Exception("hmmsearch exited with non-zero exit code: {}".format(exitcode))
-        done_file = os.path.join(os.path.dirname(self.output_folder), "protein_hmmsearch.done")
+        done_file = os.path.join(self.output_folder, "protein_hmmsearch.done")
         open(done_file, "w").close()
 
         # 2. parse hmmsearch output
         score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
         length_cutoff_dict = load_length_cutoff(os.path.join(self.library_path, self.lineage, "lengths_cutoff"))
 
-        for hmmsearch_output in os.listdir(self.output_folder):
-            outfile = os.path.join(self.output_folder, hmmsearch_output)
+        for hmmsearch_output in os.listdir(self.hmmsearch_output_folder):
+            outfile = os.path.join(self.hmmsearch_output_folder, hmmsearch_output)
             with open(outfile, 'r') as fin:
                 coords_dict = defaultdict(list)
                 for line in fin:
@@ -2313,33 +2319,48 @@ class ProteinRunner():
                         protein_hmmsearch_output_dict[query_name].append((tname, 1))  # 1 means fragment
 
         # 3. assign each protein to Single, Duplicate, Fragment or Missing
+        full_table_writer = open(self.full_table_output_file, "w")
+        full_table_writer.write("Gene\tStatus\tSequence\n")
         protein_num = len(protein_hmmsearch_output_dict.keys())
         single_copy_proteins, duplicate_proteins, fragmented_proteins, missing_proteins = [], [], [], []
         for protein_name in protein_hmmsearch_output_dict.keys():
             if len(protein_hmmsearch_output_dict[protein_name]) == 0:
                 missing_proteins.append(protein_name)
+                full_table_writer.write("{}\t{}\n".format(protein_name, "Missing"))
             elif len(protein_hmmsearch_output_dict[protein_name]) == 1:
                 if protein_hmmsearch_output_dict[protein_name][0][1] == 0:
                     single_copy_proteins.append(protein_name)
+                    full_table_writer.write("{}\t{}\t{}\n".format(protein_name, "Single", protein_hmmsearch_output_dict[protein_name][0][0]))
                 elif protein_hmmsearch_output_dict[protein_name][0][1] == 1:
                     fragmented_proteins.append(protein_name)
+                    full_table_writer.write("{}\t{}\t{}\n".format(protein_name, "Fragmented", protein_hmmsearch_output_dict[protein_name][0][0]))
             elif len(protein_hmmsearch_output_dict[protein_name]) > 1:
                 nc, nf = 0, 0
+                complete_tnames = []
+                fragmented_tnames = []
                 for (q, v) in protein_hmmsearch_output_dict[protein_name]:
                     if v == 0:
                         nc += 1
+                        complete_tnames.append(q)
                     elif v == 1:
                         nf += 1
+                        fragmented_tnames.append(q)
                     else:
                         raise Exception("Error parsing hmmsearch output file.")
                 if nc == 0:
                     fragmented_proteins.append(protein_name)
+                    for tname in fragmented_tnames:
+                        full_table_writer.write("{}\t{}\t{}\n".format(protein_name, "Fragmented", tname))
                 elif nc == 1:
                     single_copy_proteins.append(protein_name)
+                    for tname in complete_tnames:
+                        full_table_writer.write("{}\t{}\t{}\n".format(protein_name, "Single", tname))
                 elif nc > 1:
                     duplicate_proteins.append(protein_name)
-        assert len(single_copy_proteins) + len(duplicate_proteins) + len(fragmented_proteins) + len(
-            missing_proteins) == protein_num
+                    for tname in complete_tnames:
+                        full_table_writer.write("{}\t{}\t{}\n".format(protein_name, "Duplicated", tname))
+        assert len(single_copy_proteins) + len(duplicate_proteins) + len(fragmented_proteins) + len(missing_proteins) == protein_num
+        full_table_writer.close()
         print()
         print("S:{:.2f}%, {}".format(len(single_copy_proteins) / protein_num * 100, len(single_copy_proteins)))
         print("D:{:.2f}%, {}".format(len(duplicate_proteins) / protein_num * 100, len(duplicate_proteins)))
@@ -2500,6 +2521,7 @@ def list_lineages(args):
         for lineage in downloader.lineage_description.keys():
             print(lineage)
 
+
 def protein_fun(args):
     ckdh = CheckDependency(args.hmmsearch_execute_path)
     hmmsearch_execute_command = ckdh.check_hmmsearch()
@@ -2510,6 +2532,7 @@ def protein_fun(args):
                        nthreads=args.threads,
                        hmmsearch_execute_command=hmmsearch_execute_command)
     pr.run()
+
 
 def miniprot(args):
     ckdm = CheckDependency(args.miniprot_execute_path)
