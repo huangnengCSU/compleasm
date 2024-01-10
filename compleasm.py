@@ -1217,6 +1217,7 @@ class MiniprotAlignmentParser:
             hmmsearcher.Run(translated_proteins)
         score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
         length_cutoff_dict = load_length_cutoff(os.path.join(self.library_path, self.lineage, "lengths_cutoff"))
+        # TODO: records_df["Score"] is miniprot alignment score instead of hmmsearch score. hmmsearch score is stored in reliable_mappings.
         reliable_mappings, hmm_length_dict = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
         reliable_mappings = set(reliable_mappings)
         records_df = pd.DataFrame(records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
@@ -2283,44 +2284,40 @@ class ProteinRunner():
                     hmm_score = float(line[7])
                     hmm_from = int(line[15])
                     hmm_to = int(line[16])
+                    env_from = int(line[19])
+                    env_to = int(line[20])
                     assert hmm_to >= hmm_from
                     if hmm_score < score_cutoff_dict[query_name]:
                         # failed to pass the score cutoff
                         continue
-                    coords_dict[target_name].append((hmm_from, hmm_to))
+                    coords_dict[target_name].append((hmm_from, hmm_to, hmm_score, env_from, env_to))
                 for tname in coords_dict.keys():
                     coords = coords_dict[tname]
                     interval = []
                     coords = sorted(coords, key=lambda x: x[0])
                     for i in range(len(coords)):
-                        hmm_from, hmm_to = coords[i]
+                        hmm_from, hmm_to, hmm_score, env_from, env_to = coords[i]
                         if i == 0:
-                            interval.extend([hmm_from, hmm_to, hmm_to - hmm_from])
+                            interval.extend([env_from, env_to, hmm_to - hmm_from])
                         else:
-                            try:
-                                assert hmm_from >= interval[0]
-                            except:
-                                raise Error("Error parsing the hmmsearch output file {}.".format(outfile))
-                            if hmm_from >= interval[1]:
-                                interval[1] = hmm_to
-                                interval[2] += hmm_to - hmm_from
-                            elif hmm_from < interval[1] <= hmm_to:
-                                interval[2] += hmm_to - interval[1]
-                                interval[1] = hmm_to
-                            elif hmm_to < interval[1]:
-                                continue
-                            else:
-                                raise Error("Error parsing the hmmsearch output file {}.".format(outfile))
-                    # hmm_length_dict[keyname] = interval[2]
-                    if interval[2] >= length_cutoff_dict[query_name]["length"] - 2 * length_cutoff_dict[query_name][
-                        "sigma"]:
-                        protein_hmmsearch_output_dict[query_name].append((tname, 0))  # 0 means complete
+                            if env_from < interval[0]:
+                                interval[0] = env_from
+                            if env_to > interval[1]:
+                                interval[1] = env_to
+                            interval[2] += hmm_to - hmm_from
+                    if interval[2] >= length_cutoff_dict[query_name]["length"] - 2 * length_cutoff_dict[query_name]["sigma"]:
+                        ## filter overlap
+                        # if len(protein_hmmsearch_output_dict[query_name]) >= 1:
+                        #     if interval[0] > protein_hmmsearch_output_dict[query_name][0][4] and interval[1] < protein_hmmsearch_output_dict[query_name][0][5]:
+                        #         ## overlap
+                        #         continue
+                        protein_hmmsearch_output_dict[query_name].append((tname, 0, hmm_score, interval[2], interval[0], interval[1]))  # 0 means complete
                     else:
-                        protein_hmmsearch_output_dict[query_name].append((tname, 1))  # 1 means fragment
+                        protein_hmmsearch_output_dict[query_name].append((tname, 1, hmm_score, interval[2], interval[0], interval[1]))  # 1 means fragment
 
         # 3. assign each protein to Single, Duplicate, Fragment or Missing
         full_table_writer = open(self.full_table_output_file, "w")
-        full_table_writer.write("Gene\tStatus\tSequence\n")
+        full_table_writer.write("# Busco id\tStatus\tSequence\tScore\tLength\n")
         protein_num = len(protein_hmmsearch_output_dict.keys())
         single_copy_proteins, duplicate_proteins, fragmented_proteins, missing_proteins = [], [], [], []
         for protein_name in protein_hmmsearch_output_dict.keys():
@@ -2330,35 +2327,41 @@ class ProteinRunner():
             elif len(protein_hmmsearch_output_dict[protein_name]) == 1:
                 if protein_hmmsearch_output_dict[protein_name][0][1] == 0:
                     single_copy_proteins.append(protein_name)
-                    full_table_writer.write("{}\t{}\t{}\n".format(protein_name, "Single", protein_hmmsearch_output_dict[protein_name][0][0]))
+                    full_table_writer.write("{}\t{}\t{}\t{}\t{}\n".format(protein_name, "Single",
+                                                                          protein_hmmsearch_output_dict[protein_name][0][0],
+                                                                          protein_hmmsearch_output_dict[protein_name][0][2],
+                                                                          protein_hmmsearch_output_dict[protein_name][0][3]))
                 elif protein_hmmsearch_output_dict[protein_name][0][1] == 1:
                     fragmented_proteins.append(protein_name)
-                    full_table_writer.write("{}\t{}\t{}\n".format(protein_name, "Fragmented", protein_hmmsearch_output_dict[protein_name][0][0]))
+                    full_table_writer.write("{}\t{}\t{}\t{}\t{}\n".format(protein_name, "Fragmented",
+                                                                          protein_hmmsearch_output_dict[protein_name][0][0],
+                                                                          protein_hmmsearch_output_dict[protein_name][0][2],
+                                                                          protein_hmmsearch_output_dict[protein_name][0][3]))
             elif len(protein_hmmsearch_output_dict[protein_name]) > 1:
                 nc, nf = 0, 0
-                complete_tnames = []
-                fragmented_tnames = []
-                for (q, v) in protein_hmmsearch_output_dict[protein_name]:
+                complete_items = []     # list of (tname, score, length)
+                fragmented_items = []   # list of (tname, score, length)
+                for (q, v, s, l, _, _) in protein_hmmsearch_output_dict[protein_name]:
                     if v == 0:
                         nc += 1
-                        complete_tnames.append(q)
+                        complete_items.append((q, s, l))
                     elif v == 1:
                         nf += 1
-                        fragmented_tnames.append(q)
+                        fragmented_items.append((q, s, l))
                     else:
                         raise Exception("Error parsing hmmsearch output file.")
                 if nc == 0:
                     fragmented_proteins.append(protein_name)
-                    for tname in fragmented_tnames:
-                        full_table_writer.write("{}\t{}\t{}\n".format(protein_name, "Fragmented", tname))
+                    for (tname, score, length) in fragmented_items:
+                        full_table_writer.write("{}\t{}\t{}\t{}\t{}\n".format(protein_name, "Fragmented", tname, score, length))
                 elif nc == 1:
                     single_copy_proteins.append(protein_name)
-                    for tname in complete_tnames:
-                        full_table_writer.write("{}\t{}\t{}\n".format(protein_name, "Single", tname))
+                    for (tname, score, length) in complete_items:
+                        full_table_writer.write("{}\t{}\t{}\t{}\t{}\n".format(protein_name, "Single", tname, score, length))
                 elif nc > 1:
                     duplicate_proteins.append(protein_name)
-                    for tname in complete_tnames:
-                        full_table_writer.write("{}\t{}\t{}\n".format(protein_name, "Duplicated", tname))
+                    for (tname, score, length) in complete_items:
+                        full_table_writer.write("{}\t{}\t{}\t{}\t{}\n".format(protein_name, "Duplicated", tname, score, length))
         assert len(single_copy_proteins) + len(duplicate_proteins) + len(fragmented_proteins) + len(missing_proteins) == protein_num
         full_table_writer.close()
         print()
