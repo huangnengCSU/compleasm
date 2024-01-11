@@ -131,7 +131,7 @@ class Downloader:
                 raise Error("Unable to download necessary file {}".format("file_versions.tsv.hash"))
 
             with open(hash_download_path, 'r') as fin:
-                expected_file_version_hash = fin.readline().strip()
+                expected_file_version_hash = fin.readline().strip().split()[0]
 
             download_success = self.download_single_file(file_version_url,
                                                          file_version_download_path,
