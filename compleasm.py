@@ -22,6 +22,7 @@ from enum import Enum
 from collections import defaultdict
 import pandas as pd
 import time
+from _version import __version__
 
 
 ### utils
@@ -2621,6 +2622,7 @@ def run(args):
 ### main.py
 def main():
     parser = argparse.ArgumentParser(description="Compleasm")
+    parser.add_argument('-v', '--version', action='version', version='%(prog)s {version}'.format(version=__version__))
     subparser = parser.add_subparsers(dest="command", help="Compleasm modules help", required=True)
 
     ### sub-command: download
