@@ -874,10 +874,12 @@ class MiniprotAlignmentParser:
                         items.frameshift_lengths = 0
                         items.frame_shifts = []
                         continue
-                    items.score = int(fields[13].strip().split(":")[2])
-                    # Score = fields[12].strip().split(":")[2]
-                    cg = fields[17].replace("cg:Z:", "")
-                    cs = fields[18].replace("cs:Z:", "")
+                    additional_fields = fields[12:]
+                    additional_fields_dict = {}
+                    for sub_f in additional_fields:
+                        additional_fields_dict[sub_f.split(":")[0]] = sub_f
+                    items.score = int(additional_fields_dict["ms"].strip().split(":")[2])
+                    cg = additional_fields_dict["cg"].replace("cg:Z:", "")
                     frame_shifts, frameshift_events, frameshift_lengths = find_frameshifts2(cg)
                     items.frameshift_events = frameshift_events
                     items.frameshift_lengths = frameshift_lengths
