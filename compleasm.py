@@ -2299,24 +2299,21 @@ class ProteinRunner():
                     interval = []
                     coords = sorted(coords, key=lambda x: x[0])
                     for i in range(len(coords)):
-                        hmm_from, hmm_to, hmm_score, env_from, env_to = coords[i]
                         if i == 0:
-                            interval.extend([env_from, env_to, hmm_to - hmm_from])
+                            interval.append([coords[0][0], coords[0][1]])
                         else:
-                            if env_from < interval[0]:
-                                interval[0] = env_from
-                            if env_to > interval[1]:
-                                interval[1] = env_to
-                            interval[2] += hmm_to - hmm_from
-                    if interval[2] >= length_cutoff_dict[query_name]["length"] - 2 * length_cutoff_dict[query_name]["sigma"]:
-                        ## filter overlap
-                        # if len(protein_hmmsearch_output_dict[query_name]) >= 1:
-                        #     if interval[0] > protein_hmmsearch_output_dict[query_name][0][4] and interval[1] < protein_hmmsearch_output_dict[query_name][0][5]:
-                        #         ## overlap
-                        #         continue
-                        protein_hmmsearch_output_dict[query_name].append((tname, 0, hmm_score, interval[2], interval[0], interval[1]))  # 0 means complete
+                            for j in range(len(interval)):
+                                if interval[j][0] <= coords[i][0] <= interval[j][1]:
+                                    if coords[i][1] > interval[j][1]:
+                                        interval[j][1] = coords[i][1]
+                                    break
+                            else:
+                                interval.append([coords[i][0], coords[i][1]])
+                    match_length = sum([x[1] - x[0] for x in interval])
+                    if match_length >= length_cutoff_dict[query_name]["length"] - 2 * length_cutoff_dict[query_name]["sigma"]:
+                        protein_hmmsearch_output_dict[query_name].append((tname, 0, hmm_score, match_length))  # 0 means complete
                     else:
-                        protein_hmmsearch_output_dict[query_name].append((tname, 1, hmm_score, interval[2], interval[0], interval[1]))  # 1 means fragment
+                        protein_hmmsearch_output_dict[query_name].append((tname, 1, hmm_score, match_length))  # 1 means fragment
 
         # 3. assign each protein to Single, Duplicate, Fragment or Missing
         full_table_writer = open(self.full_table_output_file, "w")
@@ -2344,7 +2341,7 @@ class ProteinRunner():
                 nc, nf = 0, 0
                 complete_items = []     # list of (tname, score, length)
                 fragmented_items = []   # list of (tname, score, length)
-                for (q, v, s, l, _, _) in protein_hmmsearch_output_dict[protein_name]:
+                for (q, v, s, l) in protein_hmmsearch_output_dict[protein_name]:
                     if v == 0:
                         nc += 1
                         complete_items.append((q, s, l))
@@ -2353,7 +2350,9 @@ class ProteinRunner():
                         fragmented_items.append((q, s, l))
                     else:
                         raise Exception("Error parsing hmmsearch output file.")
+                assert nc + nf >= 1
                 if nc == 0:
+                    assert nf > 0
                     fragmented_proteins.append(protein_name)
                     for (tname, score, length) in fragmented_items:
                         full_table_writer.write("{}\t{}\t{}\t{}\t{}\n".format(protein_name, "Fragmented", tname, score, length))
