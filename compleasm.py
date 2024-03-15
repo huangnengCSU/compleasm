@@ -216,7 +216,11 @@ class Downloader:
                 open(os.path.join(self.download_dir, lineage) + ".done", 'w').close()
                 os.remove(os.path.join(self.download_dir, lineage) + ".tmp")
         else:
-            self.lineage_description[lineage].append(os.path.join(self.download_dir, lineage))
+            if lineage not in self.lineage_description.keys():
+                ## for modified lineage file by user
+                self.lineage_description[lineage] = [lineage, "Unknown", "Unknown", os.path.join(self.download_dir, lineage)]
+            else:
+                self.lineage_description[lineage].append(os.path.join(self.download_dir, lineage))
 
     def download_placement(self):
         if os.path.exists(self.placement_dir + ".tmp"):
