@@ -129,12 +129,14 @@ protein sequences in the lineage file to the genome sequence with miniprot, and 
 evaluate genome completeness.
 #### Usage:
 ```angular2html
-python compleasm.py run [-h] -a ASSEMBLY_PATH -o OUTPUT_DIR [-t THREADS] 
-                        [-l LINEAGE] [-L LIBRARY_PATH] [-m {lite,busco}] [--specified_contigs SPECIFIED_CONTIGS [SPECIFIED_CONTIGS ...]] 
-                        [--miniprot_execute_path MINIPROT_EXECUTE_PATH] [--hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH] 
-                        [--autolineage] [--sepp_execute_path SEPP_EXECUTE_PATH] 
-                        [--min_diff MIN_DIFF] [--min_identity MIN_IDENTITY] [--min_length_percent MIN_LENGTH_PERCENT] 
+python compleasm.py run [-h] -a ASSEMBLY_PATH -o OUTPUT_DIR [-t THREADS] [-l LINEAGE] [-L LIBRARY_PATH] [--odb ODB] 
+                        [--specified_contigs SPECIFIED_CONTIGS [SPECIFIED_CONTIGS ...]] [--outs OUTS]
+                        [--miniprot_execute_path MINIPROT_EXECUTE_PATH] 
+                        [--hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH] [--autolineage] 
+                        [--sepp_execute_path SEPP_EXECUTE_PATH] [--min_diff MIN_DIFF]
+                        [--min_identity MIN_IDENTITY] [--min_length_percent MIN_LENGTH_PERCENT] 
                         [--min_complete MIN_COMPLETE] [--min_rise MIN_RISE]
+
 ```
 
 #### Important parameters:
@@ -145,9 +147,7 @@ python compleasm.py run [-h] -a ASSEMBLY_PATH -o OUTPUT_DIR [-t THREADS]
   -l, --lineage              Specify the name of the BUSCO lineage to be used. (e.g. eukaryota, primates, saccharomycetes etc.)
   -L, --library_path         Folder path to download lineages or already downloaded lineages. 
                              If not specified, a folder named "mb_downloads" will be created on the current running path by default to store the downloaded lineage files.
-  -m, --mode                 The mode of evaluation. Default mode is busco. 
-                             lite:  Without using hmmsearch to filtering protein alignment.
-                             busco: Using hmmsearch on all candidate predicted proteins to purify the miniprot alignment to improve accuracy.
+  --odb ODB                  OrthoDB version, default: odb12
   --specified_contigs        Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.
   --outs                     output if score at least FLOAT*bestScore [0.95]
   --miniprot_execute_path    Path to miniprot executable file. 
@@ -187,11 +187,14 @@ python compleasm.py run -a genome.fasta -o output_dir -l eukaryota -t 8 --specif
 This will directly parse the provided miniprot alignment result to evaluate genome completeness. The execute command of miniprot should be like `miniprot --trans -u -I --outs=0.95 --gff -t 8 ref-file protein.faa > output.gff`.
 #### Usage:
 ```angular2html
-python compleasm.py analyze [-h] -g GFF -l LINEAGE -o OUTPUT_DIR [-t THREADS] [-L LIBRARY_PATH] 
-                            [-m {lite,busco}] [--hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH]
+python compleasm.py analyze [-h] -g GFF -l LINEAGE -o OUTPUT_DIR [-t THREADS] [-L LIBRARY_PATH] [--odb ODB] 
+                            [--hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH]
                             [--specified_contigs SPECIFIED_CONTIGS [SPECIFIED_CONTIGS ...]] 
-                            [--min_diff MIN_DIFF] [--min_identity MIN_IDENTITY] [--min_length_percent MIN_LENGTH_PERCENT] 
-                            [--min_complete MIN_COMPLETE] [--min_rise MIN_RISE]
+                            [--min_diff MIN_DIFF] [--min_identity MIN_IDENTITY] 
+                            [--min_length_percent MIN_LENGTH_PERCENT] 
+                            [--min_complete MIN_COMPLETE]
+                            [--min_rise MIN_RISE]
+
 ```
 #### Important parameters:
 ```angular2html
@@ -200,9 +203,7 @@ python compleasm.py analyze [-h] -g GFF -l LINEAGE -o OUTPUT_DIR [-t THREADS] [-
   -o, --output_dir          Output analysis folder
   -t, --threads             Number of threads to use
   -L, --library_path        Folder path to stored lineages.
-  -m, --mode                The mode of evaluation. Default mode is fast. 
-                            lite:  Without using hmmsearch to filtering protein alignment.
-                            busco: Using hmmsearch on all candidate predicted proteins to purify the miniprot alignment to improve accuracy.
+  --odb ODB                 OrthoDB version, default: odb12
   --hmmsearch_execute_path  Path to hmmsearch executable
                             If not specified, compleasm will search for hmmsearch in the directory where compleasm.py is located, the current execution directory, and system environment variables.
   --specified_contigs       Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.
@@ -224,7 +225,7 @@ compleasm analyze -g miniprot.gff -o output_dir -l eukaryota -t 8 --specified_co
 This will download the specified lineages and save to the specified folder.
 #### Usage:
 ```angular2html
-python compleasm.py download [-h] [-L LIBRARY_PATH] lineages [lineages ...]
+python compleasm.py download [-h] [-L LIBRARY_PATH] [--odb ODB] lineages [lineages ...]
 ```
 
 #### Parameters:
@@ -235,6 +236,7 @@ positional arguments:
 optional arguments:
   -L, --library_path      The destination folder to store the downloaded lineage files.
                           If not specified, a folder named "mb_downloads" will be created on the current running path by default.
+  --odb ODB               OrthoDB version, default: odb12
 ```
 
 #### Example:
@@ -252,7 +254,8 @@ python compleasm.py download saccharomycetes,primates,brassicales -L /path/to/li
 This will run miniprot alignment and output the gff file.
 #### Usage:
 ```angular2html
-python compleasm.py miniprot [-h] -a ASSEMBLY -p PROTEIN -o OUTDIR [-t THREADS] [--miniprot_execute_path MINIPROT_EXECUTE_PATH]
+python compleasm.py miniprot [-h] -a ASSEMBLY -p PROTEIN -o OUTDIR [-t THREADS] 
+                             [--miniprot_execute_path MINIPROT_EXECUTE_PATH]
 ```
 
 #### Important parameters:
@@ -277,13 +280,14 @@ python compleasm.py miniprot -a genome.fasta -p protein.faa -o output_dir -t 8
 This will list the local or remote BUSCO lineages.
 #### Usage:
 ```angular2html
-python compleasm.py list [-h] [--remote] [--local] [-L LIBRARY_PATH]
+python compleasm.py list [-h] [--remote] [--local] [--odb ODB] [-L LIBRARY_PATH]
 ```
 
 #### Important parameters:
 ```angular2html
   --remote             List remote BUSCO lineages
   --local              List local BUSCO lineages
+  --odb ODB            OrthoDB version, default: odb12
   -L, --library_path   Folder path to stored lineages.
 ```
 
@@ -302,9 +306,8 @@ python compleasm.py list --remote
 This will evaluate the completeness of input proteins.
 #### Usage:
 ```angular2html
-python compleasm.py protein [-h] -p PROTEINS -l LINEAGE -o OUTDIR [-t THREADS]
-                            [-L LIBRARY_PATH]
-                            [--hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH]
+python compleasm.py protein [-h] -p PROTEINS -l LINEAGE -o OUTDIR [-t THREADS] [-L LIBRARY_PATH] 
+                            [--odb ODB] [--hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH]
 ```
 
 #### Important parameters:
@@ -315,6 +318,7 @@ python compleasm.py protein [-h] -p PROTEINS -l LINEAGE -o OUTDIR [-t THREADS]
 -o, --outdir               Output analysis folder
 -t, --threads              Number of threads to use
 -L, --library_path         Folder path to stored lineages
+--odb ODB                  OrthoDB version, default: odb12
 --hmmsearch_execute_path   Path to hmmsearch executable.
                            If not specified, compleasm will search for miniprot in the directory where compleasm.py is located, the current execution directory, and system environment variables.
 ```

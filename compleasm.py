@@ -55,24 +55,10 @@ def md5(fname):
     return hash_md5.hexdigest()
 
 
-class Downloader2:
-    def __init__(self, download_dir=None, download_lineage=True, download_placement=True):
-        pass
-
-    def download_single_file(self):
-        pass
-
-    def download_file_version_document(self):
-        pass
-
-    def download_placement(self):
-        pass
-
-
 class Downloader:
-    def __init__(self, download_dir=None, download_lineage=True, download_placement=True):
+    def __init__(self, odb, download_dir=None, download_lineage=True, download_placement=True):
         self.base_url = "https://busco-data.ezlab.org/v5/data/"
-        self.default_lineage = ["eukaryota_odb10"]
+        self.default_lineage = ["eukaryota_{}".format(odb)]
         if download_dir is None:
             self.download_dir = "mb_downloads"
         else:
@@ -93,7 +79,7 @@ class Downloader:
 
         if download_lineage:
             for lineage in self.default_lineage:
-                self.download_lineage(lineage)
+                self.download_lineage(lineage, odb)
 
     def download_single_file(self, remote_filepath, local_filepath, expected_hash):
         try:
@@ -156,9 +142,8 @@ class Downloader:
                     placement_description_dict[strain] = [date, hash_value, category]
         return lineages_description_dict, placement_description_dict
 
-    def download_lineage(self, lineage):
-        if not lineage.endswith("_odb10"):
-            lineage = lineage + "_odb10"
+    def download_lineage(self, lineage, odb):
+        lineage = "{}_{}".format(lineage.strip().split("_")[0], odb)
         if os.path.exists(os.path.join(self.download_dir, lineage) + ".tmp"):
             sys.exit("{}.tmp exists, another process is downloading, please run again later.".format(lineage))
 
@@ -181,34 +166,16 @@ class Downloader:
 
             if download_success:
                 tar = tarfile.open(download_path)
-                # tar.extractall(self.download_dir)
                 try:
                     tar.extractall(self.download_dir, members=[tar.getmember('{}/refseq_db.faa.gz'.format(lineage)),
-                                                               tar.getmember('{}/links_to_ODB10.txt'.format(lineage)),
                                                                tar.getmember('{}/hmms'.format(lineage)),
-                                                               tar.getmember('{}/scores_cutoff'.format(lineage)),
-                                                               tar.getmember('{}/lengths_cutoff'.format(lineage))])
-                    hmm_files = [u for u in tar.getnames() if ".hmm" in u]
-                    tar.extractall(self.download_dir, members=[tar.getmember(u) for u in hmm_files])
-                except KeyError:
-                    if "{}/refseq_db.faa.gz".format(lineage) not in tar.getnames():
-                        os.remove(os.path.join(self.download_dir, lineage) + ".tmp")
-                        os.remove(download_path)
-                        sys.exit(
-                            "No refseq_db.faa.gz in lineage {}, this lineage cannot be used in compleasm! Lineage file has been deleted.".format(
-                                lineage))
-                    tar.extractall(self.download_dir, members=[tar.getmember('{}/refseq_db.faa.gz'.format(lineage)),
-                                                               tar.getmember('{}/hmms'.format(lineage)),
-                                                               tar.getmember('{}/scores_cutoff'.format(lineage)),
-                                                               tar.getmember('{}/lengths_cutoff'.format(lineage))])
+                                                               tar.getmember('{}/scores_cutoff'.format(lineage))])
                     hmm_files = [u for u in tar.getnames() if ".hmm" in u]
                     tar.extractall(self.download_dir, members=[tar.getmember(u) for u in hmm_files])
                 except:
                     os.remove(os.path.join(self.download_dir, lineage) + ".tmp")
                     os.remove(download_path)
-                    raise Error("Unable to extract file: {} or {} from {}".format("refseq_db.faa.gz",
-                                                                                  "links_to_ODB10.txt",
-                                                                                  download_path))
+                    raise Error("Unable to extract files from {}".format("{}.{}.tar.gz".format(lineage, date)))
 
                 tar.close()
                 print("Lineage file extraction path: {}/{}".format(self.download_dir, lineage))
@@ -315,20 +282,20 @@ class MiniprotRunner:
 
 ### auto lineage ###
 class AutoLineager:
-    def __init__(self, sepp_output_directory, sepp_tmp_directory, library_path, threads, sepp_execute_command=None):
+    def __init__(self, sepp_output_directory, sepp_tmp_directory, library_path, odb, threads, sepp_execute_command=None):
         self.sepp_output_folder = sepp_output_directory
         self.sepp_tmp_folder = sepp_tmp_directory
         self.threads = threads
-        self.downloader = Downloader(library_path)
+        self.downloader = Downloader(odb=odb, download_dir=library_path)
         self.lineage_description = self.downloader.lineage_description
         self.placement_description = self.downloader.placement_description
         self.library_folder = self.downloader.download_dir
+        self.odb = odb
         self.placement_file_folder = self.downloader.placement_dir
         self.sepp_execute_command = sepp_execute_command
 
     def run_sepp(self, marker_genes_filapath):
-        # select the best one in ["archaea_odb10", "bacteria_odb10", "eukaryota_odb10"] as search_lineage to run repp
-        search_lineage = "eukaryota_odb10"
+        search_lineage = "eukaryota_{}".format(self.odb)
         sepp_output_folder = self.sepp_output_folder
         tmp_file_folder = self.sepp_tmp_folder
         tree_nwk_path = self.placement_description["tree.{}.nwk".format(search_lineage)][3]
@@ -416,10 +383,14 @@ class AutoLineager:
                 # find the taxid in tree
                 node = individual_placement[0]
 
-                match = re.findall(  # deal with weird character in the json file, see the output yourself.
-                    # if this pattern is inconsistant with pplacer version, it may break buscoplacer.
-                    "[^0-9][0-9]*:[0-9]*[^0-9]{0,1}[0-9]*[^0-9]{0,2}[0-9]*\[%s\]"
-                    % node,
+                # match = re.findall(  # deal with weird character in the json file, see the output yourself.
+                #     # if this pattern is inconsistant with pplacer version, it may break buscoplacer.
+                #     "[^0-9][0-9]*:[0-9]*[^0-9]{0,1}[0-9]*[^0-9]{0,2}[0-9]*\[%s\]"
+                #     % node,
+                #     tree,
+                # )
+                match = re.findall(
+                    r"[^0-9][0-9]*:[0-9]*[^0-9]{0,1}[0-9]*[^0-9]{0,2}[0-9]*\[%s\]" % node,
                     tree,
                 )
                 # extract taxid:
@@ -486,7 +457,7 @@ class AutoLineager:
         else:
 
             lineage = datasets_mapping[taxid_dataset[choice[0]]]
-        lineage = "{}_{}".format(lineage, "odb10")
+        lineage = "{}_{}".format(lineage, self.odb)
         placed_markers = sum(node_weight.values())
         return [lineage, max_markers, placed_markers]
 
@@ -586,8 +557,8 @@ class MiniprotGffItems:
     def __init__(self):
         self.atn_seq = ""
         self.ata_seq = ""
-        self.target_id = ""
-        self.contig_id = ""
+        self.protein_name = ""
+        self.contig_name = ""
         self.protein_length = 0
         self.protein_start = 0
         self.protein_end = 0
@@ -606,8 +577,8 @@ class MiniprotGffItems:
     def show(self):
         return [self.atn_seq,
                 self.ata_seq,
-                self.target_id,
-                self.contig_id,
+                self.protein_name,
+                self.contig_name,
                 self.protein_length,
                 self.protein_start,
                 self.protein_end,
@@ -748,11 +719,12 @@ def load_length_cutoff(lengths_cutoff_file):
 
 def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
     reliable_mappings = {}
+    reliable_mappings_qlen = {}
     hmm_length_dict = {}
     for outfile in os.listdir(hmmsearch_output_folder):
         outfile = os.path.join(hmmsearch_output_folder, outfile)
         with open(outfile, 'r') as fin:
-            best_one_candidate = None
+            best_protein = None
             coords_dict = defaultdict(list)
             for line in fin:
                 if line.startswith('#'):
@@ -760,24 +732,30 @@ def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
                 line = line.strip().split()
                 target_name = line[0]
                 query_name = line[3]
+                qlen = int(line[5])
                 hmm_score = float(line[7])
                 hmm_from = int(line[15])
                 hmm_to = int(line[16])
                 assert hmm_to >= hmm_from
+                protein_name = target_name.split("|", maxsplit=1)[0]
+                busco_name = protein_name.split("_")[0]
+                short_busco_name = busco_name.split("at")[0]
+
                 ## query name must match the target name
-                if target_name.split("|", maxsplit=1)[0].split("_")[0] != query_name:
+                if short_busco_name != query_name:
                     continue
                 ## save records of the best candidate only (maybe duplicated)
-                if best_one_candidate is not None and best_one_candidate != target_name.split("|", maxsplit=1)[0]:
+                if best_protein is not None and best_protein != protein_name:
                     continue
-                if hmm_score >= cutoff_dict[query_name]:
+                if hmm_score >= cutoff_dict[busco_name]:
                     reliable_mappings[target_name] = hmm_score
+                    reliable_mappings_qlen[target_name] = qlen
                 location = target_name.split("|", maxsplit=1)[1]
                 coords_dict[location].append((hmm_from, hmm_to))
-                best_one_candidate = target_name.split("|", maxsplit=1)[0]
+                best_protein = protein_name
             for location in coords_dict.keys():
                 coords = coords_dict[location]
-                keyname = "{}|{}".format(best_one_candidate, location)
+                keyname = "{}|{}".format(best_protein, location)
                 interval = []
                 coords = sorted(coords, key=lambda x: x[0])
                 for i in range(len(coords)):
@@ -803,12 +781,12 @@ def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
     reliable_mappings = list(reliable_mappings.keys())
     if len(reliable_mappings) == 0:
         print("Warning: no reliable mappings found. All candidates do not pass the cutoff of BUSCO gene.")
-    return reliable_mappings, hmm_length_dict
+    return reliable_mappings, reliable_mappings_qlen, hmm_length_dict
 
 
 class MiniprotAlignmentParser:
-    def __init__(self, run_folder, gff_file, lineage, min_length_percent, min_diff, min_identity, min_complete,
-                 min_rise, specified_contigs, autolineage, hmmsearch_execute_command, nthreads, library_path, mode):
+    def __init__(self, run_folder, gff_file, lineage, odb, min_length_percent, min_diff, min_identity, min_complete,
+                 min_rise, specified_contigs, autolineage, hmmsearch_execute_command, nthreads, library_path):
         self.autolineage = autolineage
         self.run_folder = run_folder
         if not os.path.exists(run_folder):
@@ -818,8 +796,7 @@ class MiniprotAlignmentParser:
             self.full_table_output_file = os.path.join(self.run_folder, "full_table.tsv")
             self.full_table_busco_format_output_file = os.path.join(self.run_folder, "full_table_busco_format.tsv")
         else:
-            if not lineage.endswith("_odb10"):
-                lineage = lineage + "_odb10"
+            lineage = "{}_{}".format(lineage.strip().split("_")[0], odb)
             self.run_folder = os.path.join(run_folder, lineage)
             if not os.path.exists(self.run_folder):
                 os.makedirs(self.run_folder)
@@ -841,8 +818,6 @@ class MiniprotAlignmentParser:
         self.hmmsearch_execute_command = hmmsearch_execute_command
         self.hmm_output_folder = os.path.join(self.run_folder, "hmmer_output")
         self.nthreads = nthreads
-        self.mode = mode
-        assert mode in ["lite", "busco"]
 
         if not os.path.exists(self.hmm_output_folder):
             os.makedirs(self.hmm_output_folder)
@@ -854,23 +829,23 @@ class MiniprotAlignmentParser:
             while True:
                 line = gff.readline()
                 if not line:
-                    if items.target_id != "":
+                    if items.protein_name != "":
                         yield items
                     return
                 if line.startswith("##gff-version"):
                     continue
                 if line.startswith("##PAF"):
-                    if items.target_id != "":
+                    if items.protein_name != "":
                         yield items
                     items.__init__()
                     fields = line.strip().split("\t")[1:]
-                    items.target_id = fields[0]
+                    items.protein_name = fields[0]
                     items.protein_length = int(fields[1])
-                    items.protein_start = int(fields[2])
+                    items.protein_start = int(fields[2])    # alignment start coordinate on protein, 0-based
                     items.protein_end = int(fields[3])
                     items.strand = fields[4]
-                    items.contig_id = fields[5]
-                    items.contig_start = int(fields[7])
+                    items.contig_name = fields[5]
+                    items.contig_start = int(fields[7]) # alignment start coordinate on contig, 0-based
                     items.contig_end = int(fields[8])
                     if fields[5] == "*":
                         ## Unmapped protein
@@ -883,7 +858,7 @@ class MiniprotAlignmentParser:
                     additional_fields_dict = {}
                     for sub_f in additional_fields:
                         additional_fields_dict[sub_f.split(":")[0]] = sub_f
-                    items.score = int(additional_fields_dict["ms"].strip().split(":")[2])
+                    items.score = int(additional_fields_dict["ms"].strip().split(":")[2])   # Alignment score excluding introns
                     cg = additional_fields_dict["cg"].replace("cg:Z:", "")
                     frame_shifts, frameshift_events, frameshift_lengths = find_frameshifts2(cg)
                     items.frameshift_events = frameshift_events
@@ -912,22 +887,22 @@ class MiniprotAlignmentParser:
                         codon_end = int(fields[4])  # 1-based
                         codon_strand = fields[6]
                         info_dict = dict(x.split("=") for x in fields[8].split()[0].split(";"))
-                        target_id = info_dict["Target"]
-                        assert target_id == items.target_id and seq_id == items.contig_id
+                        target_name = info_dict["Target"]
+                        assert target_name == items.protein_name and seq_id == items.contig_name
                         items.codons.append("{}_{}_{}".format(codon_start, codon_end, codon_strand))
 
     @staticmethod
     def record_1st_gene_label(dataframe, min_identity, min_complete, by_length=False):
         # check records with same tid of the best record
         output = OutputFormat()
-        gene_id = dataframe.iloc[0]["Target_id"]
+        protein_name = dataframe.iloc[0]["Protein_name"]
         # dataframe = dataframe[dataframe["Identity"] >= min_identity]
         if dataframe.shape[0] == 0:
             output.gene_label = GeneLabel.Missing
             return output
         elif dataframe.shape[0] == 1:
             if by_length:
-                if dataframe.iloc[0]["Protein_mapped_length"] >= min_complete:
+                if dataframe.iloc[0]["Protein_mapped_length"] >= 0.8 * dataframe.iloc[0]["qlen"]:
                     output.gene_label = GeneLabel.Single
                     output.data_record = dataframe.iloc[0]
                     return output
@@ -949,19 +924,19 @@ class MiniprotAlignmentParser:
             fragmented_regions = []
             for i in range(dataframe.shape[0]):
                 if by_length:
-                    if dataframe.iloc[i]["Protein_mapped_length"] >= min_complete:
+                    if dataframe.iloc[i]["Protein_mapped_length"] >= 0.8 * dataframe.iloc[i]["qlen"]:
                         complete_regions.append(
-                            (dataframe.iloc[i]["Contig_id"], dataframe.iloc[i]["Start"], dataframe.iloc[i]["Stop"]))
+                            (dataframe.iloc[i]["Contig_name"], dataframe.iloc[i]["Contig_Start"], dataframe.iloc[i]["Contig_Stop"]))
                     else:
                         fragmented_regions.append(
-                            (dataframe.iloc[i]["Contig_id"], dataframe.iloc[i]["Start"], dataframe.iloc[i]["Stop"]))
+                            (dataframe.iloc[i]["Contig_name"], dataframe.iloc[i]["Contig_Start"], dataframe.iloc[i]["Contig_Stop"]))
                 else:
                     if dataframe.iloc[i]["Protein_mapped_rate"] >= min_complete:
                         complete_regions.append(
-                            (dataframe.iloc[i]["Contig_id"], dataframe.iloc[i]["Start"], dataframe.iloc[i]["Stop"]))
+                            (dataframe.iloc[i]["Contig_name"], dataframe.iloc[i]["Contig_Start"], dataframe.iloc[i]["Contig_Stop"]))
                     else:
                         fragmented_regions.append(
-                            (dataframe.iloc[i]["Contig_id"], dataframe.iloc[i]["Start"], dataframe.iloc[i]["Stop"]))
+                            (dataframe.iloc[i]["Contig_name"], dataframe.iloc[i]["Contig_Start"], dataframe.iloc[i]["Contig_Stop"]))
             if len(complete_regions) == 0:
                 output.gene_label = GeneLabel.Fragmented
                 output.data_record = dataframe.iloc[0]
@@ -1003,8 +978,8 @@ class MiniprotAlignmentParser:
             output.gene_label = GeneLabel.Missing
             return output
         else:
-            gene_id1 = dataframe_1st.iloc[0]["Target_id"]
-            gene_id2 = dataframe_2nd.iloc[0]["Target_id"]
+            protein_name1 = dataframe_1st.iloc[0]["Protein_name"]
+            protein_name2 = dataframe_2nd.iloc[0]["Protein_name"]
             protein_length1 = dataframe_1st.iloc[0]["Protein_length"]
             protein_length2 = dataframe_2nd.iloc[0]["Protein_length"]
 
@@ -1094,35 +1069,35 @@ class MiniprotAlignmentParser:
             return output
         if dataframe.shape[0] == 1:
             return MiniprotAlignmentParser.record_1st_gene_label(
-                dataframe[dataframe["Target_id"] == dataframe.iloc[0]["Target_id"]], min_identity, min_complete,
+                dataframe[dataframe["Protein_name"] == dataframe.iloc[0]["Protein_name"]], min_identity, min_complete,
                 by_length)
         record_1st = dataframe.iloc[0]
-        record_1st_tid = record_1st["Target_id"]
+        record_1st_tid = record_1st["Protein_name"]
         record_2nd = dataframe.iloc[1]
-        record_2nd_tid = record_2nd["Target_id"]
+        record_2nd_tid = record_2nd["Protein_name"]
         if (record_1st["I+L"] - record_2nd["I+L"]) / (record_2nd["I+L"] + 1e-9) >= difficial_rate:
-            return MiniprotAlignmentParser.record_1st_gene_label(dataframe[dataframe["Target_id"] == record_1st_tid],
+            return MiniprotAlignmentParser.record_1st_gene_label(dataframe[dataframe["Protein_name"] == record_1st_tid],
                                                                  min_identity, min_complete, by_length)
         else:
             if record_1st_tid == record_2nd_tid:
                 return MiniprotAlignmentParser.record_1st_gene_label(
-                    dataframe[dataframe["Target_id"] == record_1st_tid], min_identity, min_complete, by_length)
+                    dataframe[dataframe["Protein_name"] == record_1st_tid], min_identity, min_complete, by_length)
             else:
                 return MiniprotAlignmentParser.record_1st_2nd_gene_label(
-                    dataframe[dataframe["Target_id"] == record_1st_tid],
-                    dataframe[dataframe["Target_id"] == record_2nd_tid], min_identity, min_complete, min_rise,
+                    dataframe[dataframe["Protein_name"] == record_1st_tid],
+                    dataframe[dataframe["Protein_name"] == record_2nd_tid], min_identity, min_complete, min_rise,
                     by_length)
 
     @staticmethod
     def refine_fragmented(dataframe):
-        target_ids = dataframe["Target_id"].unique()
+        protein_names = dataframe["Protein_name"].unique()
         identity_plus_length = defaultdict(int)
-        for tid in target_ids:
-            sub_dataframe = dataframe[dataframe["Target_id"] == tid]
+        for protein_name in protein_names:
+            sub_dataframe = dataframe[dataframe["Protein_name"] == protein_name]
             if sub_dataframe.shape[0] == 1:
-                identity_plus_length[tid] = sub_dataframe["I+L"].iloc[0]
+                identity_plus_length[protein_name] = sub_dataframe["I+L"].iloc[0]
             else:
-                regions = sorted(sub_dataframe[["Protein_Start", "Protein_End", "Contig_id", "Start", "Stop",
+                regions = sorted(sub_dataframe[["Protein_Start", "Protein_End", "Contig_name", "Contig_Start", "Contig_Stop",
                                                 "I+L"]].values.tolist(), key=lambda x: x[0])
                 clusters = []
                 for region in regions:
@@ -1137,7 +1112,7 @@ class MiniprotAlignmentParser:
                             else:
                                 pass
                 if len(clusters) == 1:
-                    identity_plus_length[tid] = clusters[0][5]
+                    identity_plus_length[protein_name] = clusters[0][5]
                 else:
                     new_clusters = defaultdict(list)
                     for region in clusters:
@@ -1157,11 +1132,11 @@ class MiniprotAlignmentParser:
                                         pass
                     for cid in new_clusters.keys():
                         for region in new_clusters[cid]:
-                            identity_plus_length[tid] += region[5]
+                            identity_plus_length[protein_name] += region[5]
         identity_plus_length = sorted(identity_plus_length.items(), key=lambda x: x[1], reverse=True)
-        tid = identity_plus_length[0][0]
+        pn = identity_plus_length[0][0]
         output = OutputFormat()
-        sub_dataframe = dataframe[dataframe["Target_id"] == tid]
+        sub_dataframe = dataframe[dataframe["Protein_name"] == pn]
         if sub_dataframe.shape[0] > 1 and identity_plus_length[0][1] > dataframe.iloc[0]["I+L"]:
             output.gene_label = GeneLabel.Interspaced
             output.data_record = sub_dataframe.iloc[0]
@@ -1171,14 +1146,6 @@ class MiniprotAlignmentParser:
         return output
 
     def Run(self):
-        if self.mode == "busco":
-            self.Run_busco_mode()
-        elif self.mode == "lite":
-            self.Run_lite_mode()
-        # elif self.mode == "fast":
-        #     self.Run_fast_mode2()
-
-    def Run_busco_mode(self):
         single_genes = []
         duplicate_genes = []
         fragmented_genes = []
@@ -1187,31 +1154,88 @@ class MiniprotAlignmentParser:
         records = []
         single_complete_proteins = []
         identities_list = []
-        filtered_species = []
+        filtered_busco_names = []
         gff_file = self.gff_file
         translated_proteins = defaultdict(str)
         translated_protein_writer = open(self.translated_protein_path, "w")
         try:
             reader = iter(self.parse_miniprot_records(gff_file))
             for items in reader:
-                (Atn_seq, Ata_seq, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End, Start, Stop,
-                 Strand, Score, Rank, Identity, Positive, Codons, Frameshift_events, Frameshift_lengths,
+                (Atn_seq,
+                 Ata_seq,
+                 Protein_name,
+                 Contig_name,
+                 Protein_length,
+                 Protein_Start,
+                 Protein_End,
+                 Contig_Start,
+                 Contig_Stop,
+                 Strand,
+                 Score,
+                 Rank,
+                 Identity,
+                 Positive,
+                 Codons,
+                 Frameshift_events,
+                 Frameshift_lengths,
                  Frame_shifts) = items.show()
-                Target_species = Target_id.split("_")[0]
-                if Contig_id != "*":
-                    records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
-                                    Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
-                                    Stop, Stop - Start, Strand, Rank, Identity, Positive,
+                Busco_name = Protein_name.split("_")[0]
+                if Contig_name != "*":
+                    records.append([Busco_name,
+                                    Protein_name,
+                                    Contig_name,
+                                    Protein_length,
+                                    Protein_Start,
+                                    Protein_End,
+                                    Protein_End - Protein_Start,
+                                    (Protein_End - Protein_Start) / Protein_length,
+                                    Contig_Start,
+                                    Contig_Stop,
+                                    Contig_Stop - Contig_Start,
+                                    Strand,
+                                    Rank,
+                                    Identity,
+                                    Positive,
                                     (Protein_End - Protein_Start) * Identity,
-                                    Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq, Codons])
-                    translated_protein_writer.write(
-                        ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start, Stop, Ata_seq))
-                    translated_proteins[Target_species] += ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start,
-                                                                                       Stop, Ata_seq)
+                                    Frameshift_events,
+                                    Frameshift_lengths,
+                                    Score,
+                                    Atn_seq,
+                                    Ata_seq,
+                                    Codons])
+                    translated_protein_writer.write(">{}|{}:{}-{}\n{}\n".format(Protein_name,
+                                                                                Contig_name,
+                                                                                Contig_Start,
+                                                                                Contig_Stop,
+                                                                                Ata_seq))
+                    translated_proteins[Busco_name] += ">{}|{}:{}-{}\n{}\n".format(Protein_name,
+                                                                                       Contig_name,
+                                                                                       Contig_Start,
+                                                                                       Contig_Stop,
+                                                                                       Ata_seq)
                 else:
-                    records.append(
-                        [Target_species, Target_id, Contig_id, 0, 0, 0, 0, 0, 0, 0, 0, "+", 0, 0, 0, 0, 0, 0, 0,
-                         Atn_seq, Ata_seq, Codons])
+                    records.append([Busco_name,
+                                    Protein_name,
+                                    Contig_name,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    "+",
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    Atn_seq,
+                                    Ata_seq,
+                                    Codons])
         except StopIteration:
             pass
         translated_protein_writer.close()
@@ -1224,74 +1248,93 @@ class MiniprotAlignmentParser:
         if not os.path.exists(os.path.join(self.run_folder, "hmmsearch.done")):
             hmmsearcher.Run(translated_proteins)
         score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
-        length_cutoff_dict = load_length_cutoff(os.path.join(self.library_path, self.lineage, "lengths_cutoff"))
+        # length_cutoff_dict = load_length_cutoff(os.path.join(self.library_path, self.lineage, "lengths_cutoff"))
         # TODO: records_df["Score"] is miniprot alignment score instead of hmmsearch score. hmmsearch score is stored in reliable_mappings.
-        reliable_mappings, hmm_length_dict = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
+        reliable_mappings, reliable_mappings_qlen, hmm_length_dict = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
         reliable_mappings = set(reliable_mappings)
-        records_df = pd.DataFrame(records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
-                                                    "Protein_Start", "Protein_End", "Protein_mapped_length",
-                                                    "Protein_mapped_rate", "Start", "Stop", "Genome_mapped_length",
-                                                    "Strand", "Rank", "Identity", "Positive", "I+L",
-                                                    "Frameshift_events", "Frameshift_lengths", "Score", "Atn_seq",
-                                                    "Ata_seq", "Codons"])
-        all_species = records_df["Target_species"].unique()
-        all_contigs = records_df["Contig_id"].unique()
+        records_df = pd.DataFrame(records, columns=["Busco_name",
+                                                    "Protein_name",
+                                                    "Contig_name",
+                                                    "Protein_length",
+                                                    "Protein_Start",
+                                                    "Protein_End",
+                                                    "Protein_mapped_length",
+                                                    "Protein_mapped_rate",
+                                                    "Contig_Start",
+                                                    "Contig_Stop",
+                                                    "Genome_mapped_length",
+                                                    "Strand",
+                                                    "Rank",
+                                                    "Identity",
+                                                    "Positive",
+                                                    "I+L",
+                                                    "Frameshift_events",
+                                                    "Frameshift_lengths",
+                                                    "Score",
+                                                    "Atn_seq",
+                                                    "Ata_seq",
+                                                    "Codons"])
+        all_busco_names = records_df["Busco_name"].unique().tolist()
+        ## some busco protein exists in refseq_db.faa.gz, but not in hmms, discard these genes
+        all_busco_names = set(all_busco_names).intersection(score_cutoff_dict.keys())
+        all_contig_names = set(records_df["Contig_name"].unique().tolist())
 
         full_table_writer = open(self.full_table_output_file, "w")
-        full_table_writer.write(
-            "Gene\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tIdentity\tFraction\tFrameshift events\tBest gene\tCodons\n")
-        dbinfo = None
-        if self.library_path is not None and self.lineage is not None:
-            dbinfo_path = os.path.join(self.library_path, self.lineage, "links_to_ODB10.txt")
-            if os.path.exists(dbinfo_path):
-                dbinfo = load_dbinfo(dbinfo_path)
+        full_table_writer.write("Gene\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tIdentity\t"
+                                "Fraction\tFrameshift events\tBest gene\tCodons\n")
         full_table_busco_format_writer = open(self.full_table_busco_format_output_file, "w")
-        if dbinfo is None:
-            full_table_busco_format_writer.write(
-                "# Busco id\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\n")
-        else:
-            full_table_busco_format_writer.write(
-                "# Busco id\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tOrthoDB url\tDescription\n")
+        full_table_busco_format_writer.write("# Busco id\tStatus\tSequence\tGene Start\tGene End\t"
+                                             "Strand\tScore\tLength\n")
 
         filtered_candidate_hits = []
         for rx in range(records_df.shape[0]):
-            target_id = records_df.iloc[rx]["Target_id"]
-            contig_id = records_df.iloc[rx]["Contig_id"]
-            start = records_df.iloc[rx]["Start"]
-            stop = records_df.iloc[rx]["Stop"]
-            if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) in reliable_mappings:
+            protein_name = records_df.iloc[rx]["Protein_name"]
+            contig_name = records_df.iloc[rx]["Contig_name"]
+            contig_start = records_df.iloc[rx]["Contig_Start"]
+            contig_stop = records_df.iloc[rx]["Contig_Stop"]
+            if "{}|{}:{}-{}".format(protein_name, contig_name, contig_start, contig_stop) in reliable_mappings:
                 try:
-                    records_df.loc[rx, "Protein_mapped_length"] = hmm_length_dict[
-                        "{}|{}:{}-{}".format(target_id, contig_id, start, stop)]
-                    tmp_record = records_df.iloc[rx]
+                    records_df.loc[rx, "Protein_mapped_length"] = hmm_length_dict["{}|{}:{}-{}".format(protein_name,
+                                                                                                       contig_name,
+                                                                                                       contig_start,
+                                                                                                       contig_stop)]
+                    tmp_record = records_df.iloc[rx].copy()
+                    tmp_record.loc["qlen"] = reliable_mappings_qlen["{}|{}:{}-{}".format(protein_name,
+                                                                                         contig_name,
+                                                                                         contig_start,
+                                                                                         contig_stop)]
                     filtered_candidate_hits.append(tmp_record)
                 except KeyError:
-                    print("{}|{}:{}-{}".format(target_id, contig_id, start, stop))
+                    print("{}|{}:{}-{}".format(protein_name,
+                                               contig_name,
+                                               contig_start,
+                                               contig_stop))
         if len(filtered_candidate_hits) == 0:
-            print("Warning: No reliable hits found! Check the lineage file: {}, alignment file: {}, hmmsearch output folder: {}.".format(self.lineage, gff_file, self.hmm_output_folder))
+            print("Warning: No reliable hits found! Check the lineage file: {}, alignment file: {}, "
+                  "hmmsearch output folder: {}.".format(self.lineage, gff_file, self.hmm_output_folder))
         else:
-            records_df = pd.DataFrame(filtered_candidate_hits)  # filtered by hmmsearch
-            filtered_species = records_df["Target_species"].unique()
+            filtered_records_df = pd.DataFrame(filtered_candidate_hits)  # filtered by hmmsearch
+            filtered_busco_names.extend(filtered_records_df["Busco_name"].unique().tolist())
             if self.specified_contigs is not None:
-                if len(set(all_contigs) & set(self.specified_contigs)) == 0:
+                if len(all_contig_names & set(self.specified_contigs)) == 0:
                     raise Exception("No contigs found in the specified contigs!")
-            grouped_df = records_df.groupby(["Target_species"])
+            grouped_filtered_records_df = filtered_records_df.groupby(["Busco_name"])
 
             # remaining genes
-            for gene_id in filtered_species:
-                mapped_records = grouped_df.get_group(gene_id)
+            for busco_name in filtered_busco_names:
+                mapped_records = grouped_filtered_records_df.get_group(busco_name)
                 mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
                 if self.specified_contigs is not None:
-                    mapped_records = mapped_records[mapped_records["Contig_id"].isin(self.specified_contigs)]
+                    mapped_records = mapped_records[mapped_records["Contig_name"].isin(self.specified_contigs)]
 
                 if mapped_records.shape[0] > 0:
                     min_identity = 0
-                    min_complete = length_cutoff_dict[gene_id]["length"] - 2 * length_cutoff_dict[gene_id]["sigma"]
+                    min_complete = 0
                     output = self.Ost_eval(mapped_records, self.min_diff, min_identity, min_complete, self.min_rise,
                                            by_length=True)
                     if output.gene_label == GeneLabel.Single:
-                        single_complete_proteins.append(
-                            ">{}\n{}\n".format(output.data_record["Target_id"], output.data_record["Ata_seq"]))
+                        single_complete_proteins.append(">{}\n{}\n".format(output.data_record["Protein_name"],
+                                                                           output.data_record["Ata_seq"]))
                     if output.gene_label == GeneLabel.Fragmented:
                         output = self.refine_fragmented(mapped_records)
                 else:
@@ -1299,25 +1342,25 @@ class MiniprotAlignmentParser:
                     output.gene_label = GeneLabel.Missing
 
                 if output.gene_label == GeneLabel.Missing:
-                    full_table_writer.write("{}\t{}\n".format(gene_id, output.gene_label.name))
-                    full_table_busco_format_writer.write("{}\t{}\n".format(gene_id, output.gene_label.name))
+                    full_table_writer.write("{}\t{}\n".format(busco_name, output.gene_label.name))
+                    full_table_busco_format_writer.write("{}\t{}\n".format(busco_name, output.gene_label.name))
                 else:
                     assert output.data_record.shape[0] >= 1
                     if output.data_record.ndim == 1:
                         identities_list.append(output.data_record["Identity"])
                         full_table_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                                format(output.data_record["Target_species"],
+                                                format(output.data_record["Busco_name"],
                                                        output.gene_label.name,
-                                                       output.data_record["Contig_id"],
-                                                       output.data_record["Start"],
-                                                       output.data_record["Stop"],
+                                                       output.data_record["Contig_name"],
+                                                       output.data_record["Contig_Start"],
+                                                       output.data_record["Contig_Stop"],
                                                        output.data_record["Strand"],
                                                        output.data_record["Score"],
                                                        output.data_record["Protein_mapped_length"],
                                                        output.data_record["Identity"],
                                                        output.data_record["Protein_mapped_rate"],
                                                        output.data_record["Frameshift_events"],
-                                                       output.data_record["Target_id"],
+                                                       output.data_record["Protein_name"],
                                                        output.data_record["Codons"]))
                         if output.gene_label.name == "Single":
                             status = "Complete"
@@ -1325,57 +1368,31 @@ class MiniprotAlignmentParser:
                             status = "Fragmented"
                         else:
                             status = output.gene_label.name
-                        if dbinfo is None:
-                            full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                                                 format(output.data_record["Target_species"],
+                        full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
+                                                                 format(output.data_record["Busco_name"],
                                                                         status,
-                                                                        output.data_record["Contig_id"],
-                                                                        output.data_record["Start"],
-                                                                        output.data_record["Stop"],
+                                                                        output.data_record["Contig_name"],
+                                                                        output.data_record["Contig_Start"],
+                                                                        output.data_record["Contig_Stop"],
                                                                         output.data_record["Strand"],
                                                                         output.data_record["Score"],
                                                                         output.data_record["Protein_mapped_length"]))
-                        else:
-                            try:
-                                full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                                                     format(output.data_record["Target_species"],
-                                                                            status,
-                                                                            output.data_record["Contig_id"],
-                                                                            output.data_record["Start"],
-                                                                            output.data_record["Stop"],
-                                                                            output.data_record["Strand"],
-                                                                            output.data_record["Score"],
-                                                                            output.data_record["Protein_mapped_length"],
-                                                                            dbinfo[output.data_record["Target_species"]][0],
-                                                                            dbinfo[output.data_record["Target_species"]][1]))
-                            except KeyError:
-                                full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                                                     format(output.data_record["Target_species"],
-                                                                            status,
-                                                                            output.data_record["Contig_id"],
-                                                                            output.data_record["Start"],
-                                                                            output.data_record["Stop"],
-                                                                            output.data_record["Strand"],
-                                                                            output.data_record["Score"],
-                                                                            output.data_record["Protein_mapped_length"],
-                                                                            "*",
-                                                                            "*"))
                     else:
                         for dri in range(output.data_record.shape[0]):
                             identities_list.append(output.data_record.iloc[dri]["Identity"])
                             full_table_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                                    format(output.data_record.iloc[dri]["Target_species"],
+                                                    format(output.data_record.iloc[dri]["Busco_name"],
                                                            output.gene_label.name,
-                                                           output.data_record.iloc[dri]["Contig_id"],
-                                                           output.data_record.iloc[dri]["Start"],
-                                                           output.data_record.iloc[dri]["Stop"],
+                                                           output.data_record.iloc[dri]["Contig_name"],
+                                                           output.data_record.iloc[dri]["Contig_Start"],
+                                                           output.data_record.iloc[dri]["Contig_Stop"],
                                                            output.data_record.iloc[dri]["Strand"],
                                                            output.data_record.iloc[dri]["Score"],
                                                            output.data_record.iloc[dri]["Protein_mapped_length"],
                                                            output.data_record.iloc[dri]["Identity"],
                                                            output.data_record.iloc[dri]["Protein_mapped_rate"],
                                                            output.data_record.iloc[dri]["Frameshift_events"],
-                                                           output.data_record.iloc[dri]["Target_id"],
+                                                           output.data_record.iloc[dri]["Protein_name"],
                                                            output.data_record.iloc[dri]["Codons"]))
                             if output.gene_label.name == "Single":
                                 status = "Complete"
@@ -1383,77 +1400,49 @@ class MiniprotAlignmentParser:
                                 status = "Fragmented"
                             else:
                                 status = output.gene_label.name
-                            if dbinfo is None:
-                                full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
+                            full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
                                 format(
-                                    output.data_record.iloc[dri]["Target_species"],
+                                    output.data_record.iloc[dri]["Busco_name"],
                                     status,
-                                    output.data_record.iloc[dri]["Contig_id"],
-                                    output.data_record.iloc[dri]["Start"],
-                                    output.data_record.iloc[dri]["Stop"],
+                                    output.data_record.iloc[dri]["Contig_name"],
+                                    output.data_record.iloc[dri]["Contig_Start"],
+                                    output.data_record.iloc[dri]["Contig_Stop"],
                                     output.data_record.iloc[dri]["Strand"],
                                     output.data_record.iloc[dri]["Score"],
-                                    output.data_record.iloc[dri][
-                                        "Protein_mapped_length"]))
-                            else:
-                                try:
-                                    full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                    format(
-                                        output.data_record.iloc[dri]["Target_species"],
-                                        status,
-                                        output.data_record.iloc[dri]["Contig_id"],
-                                        output.data_record.iloc[dri]["Start"],
-                                        output.data_record.iloc[dri]["Stop"],
-                                        output.data_record.iloc[dri]["Strand"],
-                                        output.data_record.iloc[dri]["Score"],
-                                        output.data_record.iloc[dri]["Protein_mapped_length"],
-                                        dbinfo[output.data_record.iloc[dri]["Target_species"]][0],
-                                        dbinfo[output.data_record.iloc[dri]["Target_species"]][1]))
-                                except KeyError:
-                                    full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                    format(
-                                        output.data_record.iloc[dri]["Target_species"],
-                                        status,
-                                        output.data_record.iloc[dri]["Contig_id"],
-                                        output.data_record.iloc[dri]["Start"],
-                                        output.data_record.iloc[dri]["Stop"],
-                                        output.data_record.iloc[dri]["Strand"],
-                                        output.data_record.iloc[dri]["Score"],
-                                        output.data_record.iloc[dri]["Protein_mapped_length"],
-                                        "*",
-                                        "*"))
+                                    output.data_record.iloc[dri]["Protein_mapped_length"]))
                 if output.gene_label == GeneLabel.Single:
-                    single_genes.append(gene_id)
+                    single_genes.append(busco_name)
                 elif output.gene_label == GeneLabel.Duplicated:
-                    duplicate_genes.append(gene_id)
+                    duplicate_genes.append(busco_name)
                 elif output.gene_label == GeneLabel.Fragmented:
-                    fragmented_genes.append(gene_id)
+                    fragmented_genes.append(busco_name)
                 elif output.gene_label == GeneLabel.Interspaced:
-                    interspaced_genes.append(gene_id)
+                    interspaced_genes.append(busco_name)
                 elif output.gene_label == GeneLabel.Missing:
-                    missing_genes.append(gene_id)
+                    missing_genes.append(busco_name)
                 else:
                     print("Error: output.gene_label!")
                     raise ValueError
 
         # missing genes
-        for gene_id in set(all_species) - set(filtered_species):
-            full_table_writer.write("{}\t{}\n".format(gene_id, GeneLabel.Missing.name))
-            full_table_busco_format_writer.write("{}\t{}\n".format(gene_id, GeneLabel.Missing.name))
+        for busco_name in all_busco_names - set(filtered_busco_names):
+            full_table_writer.write("{}\t{}\n".format(busco_name, GeneLabel.Missing.name))
+            full_table_busco_format_writer.write("{}\t{}\n".format(busco_name, GeneLabel.Missing.name))
 
         full_table_writer.close()
         full_table_busco_format_writer.close()
 
-        total_genes = len(all_species)
-        d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(
+        total_busco_genes = len(all_busco_names)
+        d = total_busco_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(
             interspaced_genes) - len(missing_genes)
+        print("d:{}".format(d))
         print()
-        print("S:{:.2f}%, {}".format(len(single_genes) / total_genes * 100, len(single_genes)))
-        print("D:{:.2f}%, {}".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
-        print("F:{:.2f}%, {}".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
-        print("I:{:.2f}%, {}".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
-        print("M:{:.2f}%, {}".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
-        print("N:{}".format(total_genes))
+        print("S:{:.2f}%, {}".format(len(single_genes) / total_busco_genes * 100, len(single_genes)))
+        print("D:{:.2f}%, {}".format(len(duplicate_genes) / total_busco_genes * 100, len(duplicate_genes)))
+        print("F:{:.2f}%, {}".format(len(fragmented_genes) / total_busco_genes * 100, len(fragmented_genes)))
+        print("I:{:.2f}%, {}".format(len(interspaced_genes) / total_busco_genes * 100, len(interspaced_genes)))
+        print("M:{:.2f}%, {}".format((len(missing_genes) + d) / total_busco_genes * 100, len(missing_genes) + d))
+        print("N:{}".format(total_busco_genes))
         print()
         if len(identities_list) > 0:
             average_identity = round(sum(identities_list) * 1.0 / len(identities_list), 2)
@@ -1467,643 +1456,30 @@ class MiniprotAlignmentParser:
                 fout.write("## lineage: {}\n".format(self.lineage))
             else:
                 fout.write("## lineage: xx_xx\n")
-            fout.write("S:{:.2f}%, {}\n".format(len(single_genes) / total_genes * 100, len(single_genes)))
-            fout.write("D:{:.2f}%, {}\n".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
-            fout.write("F:{:.2f}%, {}\n".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
-            fout.write("I:{:.2f}%, {}\n".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
+            fout.write("S:{:.2f}%, {}\n".format(len(single_genes) / total_busco_genes * 100, len(single_genes)))
+            fout.write("D:{:.2f}%, {}\n".format(len(duplicate_genes) / total_busco_genes * 100, len(duplicate_genes)))
+            fout.write("F:{:.2f}%, {}\n".format(len(fragmented_genes) / total_busco_genes * 100, len(fragmented_genes)))
+            fout.write("I:{:.2f}%, {}\n".format(len(interspaced_genes) / total_busco_genes * 100, len(interspaced_genes)))
             fout.write(
-                "M:{:.2f}%, {}\n".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
-            fout.write("N:{}\n".format(total_genes))
+                "M:{:.2f}%, {}\n".format((len(missing_genes) + d) / total_busco_genes * 100, len(missing_genes) + d))
+            fout.write("N:{}\n".format(total_busco_genes))
 
         with open(self.marker_gene_path, "w") as fout:
             for x in single_complete_proteins:
                 fout.write(x)
-
-    def Run_lite_mode(self):
-        single_genes = []
-        duplicate_genes = []
-        fragmented_genes = []
-        interspaced_genes = []
-        missing_genes = []
-        records = []
-        single_complete_proteins = []
-        identities_list = []
-        gff_file = self.gff_file
-        translated_protein_writer = open(self.translated_protein_path, "w")
-        try:
-            reader = iter(self.parse_miniprot_records(gff_file))
-            for items in reader:
-                (Atn_seq, Ata_seq, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End, Start, Stop,
-                 Strand, Score, Rank, Identity, Positive, Codons, Frameshift_events, Frameshift_lengths,
-                 Frame_shifts) = items.show()
-                Target_species = Target_id.split("_")[0]
-                if Contig_id != "*":
-                    records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
-                                    Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
-                                    Stop, Stop - Start, Strand, Rank, Identity, Positive,
-                                    (Protein_End - Protein_Start) * Identity,
-                                    Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq, Codons])
-                    translated_protein_writer.write(
-                        ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start, Stop, Ata_seq))
-                else:
-                    records.append(
-                        [Target_species, Target_id, Contig_id, 0, 0, 0, 0, 0, 0, 0, 0, "+", 0, 0, 0, 0, 0, 0, 0,
-                         Atn_seq, Ata_seq, Codons])
-        except StopIteration:
-            pass
-        translated_protein_writer.close()
-        if len(records) == 0:
-            raise Error("No records was parsed from miniprot alignment, please check the file: {}", gff_file)
-        records_df = pd.DataFrame(records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
-                                                    "Protein_Start", "Protein_End", "Protein_mapped_length",
-                                                    "Protein_mapped_rate", "Start", "Stop", "Genome_mapped_length",
-                                                    "Strand", "Rank", "Identity", "Positive", "I+L",
-                                                    "Frameshift_events", "Frameshift_lengths", "Score", "Atn_seq",
-                                                    "Ata_seq", "Codons"])
-        all_species = records_df["Target_species"].unique()
-        all_contigs = records_df["Contig_id"].unique()
-        if self.specified_contigs is not None:
-            if len(set(all_contigs) & set(self.specified_contigs)) == 0:
-                raise Exception("No contigs found in the specified contigs!")
-        grouped_df = records_df.groupby(["Target_species"])
-        full_table_writer = open(self.full_table_output_file, "w")
-        full_table_writer.write(
-            "Gene\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tIdentity\tFraction\tFrameshift events\tBest gene\tCodons\n")
-        dbinfo = None
-        if self.library_path is not None and self.lineage is not None:
-            dbinfo_path = os.path.join(self.library_path, self.lineage, "links_to_ODB10.txt")
-            if os.path.exists(dbinfo_path):
-                dbinfo = load_dbinfo(dbinfo_path)
-        full_table_busco_format_writer = open(self.full_table_busco_format_output_file, "w")
-        if dbinfo is None:
-            full_table_busco_format_writer.write(
-                "# Busco id\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\n")
-        else:
-            full_table_busco_format_writer.write(
-                "# Busco id\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tOrthoDB url\tDescription\n")
-        for gene_id in all_species:
-            mapped_records = grouped_df.get_group(gene_id)
-            mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
-            if self.specified_contigs is not None:
-                mapped_records = mapped_records[mapped_records["Contig_id"].isin(self.specified_contigs)]
-            # mapped_records = mapped_records[mapped_records["Identity"]>0]   # filter genes not passing hmmsearch
-            pass_tids = mapped_records[(mapped_records["Protein_mapped_rate"] >= self.min_length_percent) | (
-                    mapped_records["Identity"] >= self.min_identity)]["Target_id"].unique()
-
-            # length filter
-            if len(pass_tids) >= 3:
-                lengths_dict = {}
-                for tid in pass_tids:
-                    lengths_dict[tid] = max(
-                        mapped_records[mapped_records["Target_id"] == tid]["Protein_mapped_length"].values)
-                length_values = list(lengths_dict.values())
-                second_smallest = sorted(length_values, reverse=False)[1]
-                lower_bound = second_smallest * 0.9
-                pass_tids = [tid for tid in pass_tids if lengths_dict[tid] >= lower_bound]
-
-            if len(pass_tids) > 0:
-                mapped_records = mapped_records[mapped_records["Target_id"].isin(pass_tids)]
-                output = self.Ost_eval(mapped_records, self.min_diff, self.min_identity, self.min_complete,
-                                       self.min_rise, by_length=False)
-                if output.gene_label == GeneLabel.Single:
-                    single_complete_proteins.append(
-                        ">{}\n{}\n".format(output.data_record["Target_id"], output.data_record["Ata_seq"]))
-
-                if output.gene_label == GeneLabel.Fragmented:
-                    output = self.refine_fragmented(mapped_records)
-            else:
-                output = OutputFormat()
-                output.gene_label = GeneLabel.Missing
-
-            if output.gene_label == GeneLabel.Missing:
-                full_table_writer.write("{}\t{}\n".format(gene_id, output.gene_label.name))
-                full_table_busco_format_writer.write("{}\t{}\n".format(gene_id, output.gene_label.name))
-            else:
-                assert output.data_record.shape[0] >= 1
-                if output.data_record.ndim == 1:
-                    identities_list.append(output.data_record["Identity"])
-                    full_table_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                            format(output.data_record["Target_species"],
-                                                   output.gene_label.name,
-                                                   output.data_record["Contig_id"],
-                                                   output.data_record["Start"],
-                                                   output.data_record["Stop"],
-                                                   output.data_record["Strand"],
-                                                   output.data_record["Score"],
-                                                   output.data_record["Protein_mapped_length"],
-                                                   output.data_record["Identity"],
-                                                   output.data_record["Protein_mapped_rate"],
-                                                   output.data_record["Frameshift_events"],
-                                                   output.data_record["Target_id"],
-                                                   output.data_record["Codons"]))
-                    # translated_protein_writer.write(
-                    #     ">{}\n{}\n".format(output.data_record["Target_species"], output.data_record["Ata_seq"]))
-                    if output.gene_label.name == "Single":
-                        status = "Complete"
-                    elif output.gene_label.name == "Interspaced":
-                        status = "Fragmented"
-                    else:
-                        status = output.gene_label.name
-                    if dbinfo is None:
-                        full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                                             format(output.data_record["Target_species"],
-                                                                    status,
-                                                                    output.data_record["Contig_id"],
-                                                                    output.data_record["Start"],
-                                                                    output.data_record["Stop"],
-                                                                    output.data_record["Strand"],
-                                                                    output.data_record["Score"],
-                                                                    output.data_record["Protein_mapped_length"]))
-                    else:
-                        try:
-                            full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                                                 format(output.data_record["Target_species"],
-                                                                        status,
-                                                                        output.data_record["Contig_id"],
-                                                                        output.data_record["Start"],
-                                                                        output.data_record["Stop"],
-                                                                        output.data_record["Strand"],
-                                                                        output.data_record["Score"],
-                                                                        output.data_record["Protein_mapped_length"],
-                                                                        dbinfo[output.data_record["Target_species"]][0],
-                                                                        dbinfo[output.data_record["Target_species"]][
-                                                                            1]))
-                        except KeyError:
-                            full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                                                 format(output.data_record["Target_species"],
-                                                                        status,
-                                                                        output.data_record["Contig_id"],
-                                                                        output.data_record["Start"],
-                                                                        output.data_record["Stop"],
-                                                                        output.data_record["Strand"],
-                                                                        output.data_record["Score"],
-                                                                        output.data_record["Protein_mapped_length"],
-                                                                        "*",
-                                                                        "*"))
-                else:
-                    for dri in range(output.data_record.shape[0]):
-                        identities_list.append(output.data_record.iloc[dri]["Identity"])
-                        full_table_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                                format(output.data_record.iloc[dri]["Target_species"],
-                                                       output.gene_label.name,
-                                                       output.data_record.iloc[dri]["Contig_id"],
-                                                       output.data_record.iloc[dri]["Start"],
-                                                       output.data_record.iloc[dri]["Stop"],
-                                                       output.data_record.iloc[dri]["Strand"],
-                                                       output.data_record.iloc[dri]["Score"],
-                                                       output.data_record.iloc[dri]["Protein_mapped_length"],
-                                                       output.data_record.iloc[dri]["Identity"],
-                                                       output.data_record.iloc[dri]["Protein_mapped_rate"],
-                                                       output.data_record.iloc[dri]["Frameshift_events"],
-                                                       output.data_record.iloc[dri]["Target_id"],
-                                                       output.data_record.iloc[dri]["Codons"]))
-                        # translated_protein_writer.write(
-                        #     ">{}\n{}\n".format(output.data_record.iloc[dri]["Target_species"],
-                        #                        output.data_record.iloc[dri]["Ata_seq"]))
-                        if output.gene_label.name == "Single":
-                            status = "Complete"
-                        elif output.gene_label.name == "Interspaced":
-                            status = "Fragmented"
-                        else:
-                            status = output.gene_label.name
-                        if dbinfo is None:
-                            full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                                                 format(output.data_record.iloc[dri]["Target_species"],
-                                                                        status,
-                                                                        output.data_record.iloc[dri]["Contig_id"],
-                                                                        output.data_record.iloc[dri]["Start"],
-                                                                        output.data_record.iloc[dri]["Stop"],
-                                                                        output.data_record.iloc[dri]["Strand"],
-                                                                        output.data_record.iloc[dri]["Score"],
-                                                                        output.data_record.iloc[dri][
-                                                                            "Protein_mapped_length"]))
-                        else:
-                            try:
-                                full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                format(
-                                    output.data_record.iloc[dri]["Target_species"],
-                                    status,
-                                    output.data_record.iloc[dri]["Contig_id"],
-                                    output.data_record.iloc[dri]["Start"],
-                                    output.data_record.iloc[dri]["Stop"],
-                                    output.data_record.iloc[dri]["Strand"],
-                                    output.data_record.iloc[dri]["Score"],
-                                    output.data_record.iloc[dri]["Protein_mapped_length"],
-                                    dbinfo[output.data_record.iloc[dri]["Target_species"]][0],
-                                    dbinfo[output.data_record.iloc[dri]["Target_species"]][1]))
-                            except KeyError:
-                                full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-                                format(
-                                    output.data_record.iloc[dri]["Target_species"],
-                                    status,
-                                    output.data_record.iloc[dri]["Contig_id"],
-                                    output.data_record.iloc[dri]["Start"],
-                                    output.data_record.iloc[dri]["Stop"],
-                                    output.data_record.iloc[dri]["Strand"],
-                                    output.data_record.iloc[dri]["Score"],
-                                    output.data_record.iloc[dri]["Protein_mapped_length"],
-                                    "*",
-                                    "*"))
-            if output.gene_label == GeneLabel.Single:
-                single_genes.append(gene_id)
-            elif output.gene_label == GeneLabel.Duplicated:
-                duplicate_genes.append(gene_id)
-            elif output.gene_label == GeneLabel.Fragmented:
-                fragmented_genes.append(gene_id)
-            elif output.gene_label == GeneLabel.Interspaced:
-                interspaced_genes.append(gene_id)
-            elif output.gene_label == GeneLabel.Missing:
-                missing_genes.append(gene_id)
-            else:
-                print("Error: output.gene_label!")
-                raise ValueError
-        full_table_writer.close()
-        full_table_busco_format_writer.close()
-        # translated_protein_writer.close()
-
-        total_genes = len(all_species)
-        d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(
-            interspaced_genes) - len(missing_genes)
-        print()
-        print("S:{:.2f}%, {}".format(len(single_genes) / total_genes * 100, len(single_genes)))
-        print("D:{:.2f}%, {}".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
-        print("F:{:.2f}%, {}".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
-        print("I:{:.2f}%, {}".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
-        print("M:{:.2f}%, {}".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
-        print("N:{}".format(total_genes))
-        print()
-        if len(identities_list) > 0:
-            average_identity = round(sum(identities_list) * 1.0 / len(identities_list), 2)
-            if average_identity <= 0.5:
-                print(
-                    "Warning: Given the potentially high diversity of the sample, compleasm results may not be reliable!"
-                    "We recommend reassessing the sample using BUSCO.")
-                print()
-        with open(self.completeness_output_file, 'a') as fout:
-            if self.lineage is not None:
-                fout.write("## lineage: {}\n".format(self.lineage))
-            else:
-                fout.write("## lineage: xx_xx\n")
-            fout.write("S:{:.2f}%, {}\n".format(len(single_genes) / total_genes * 100, len(single_genes)))
-            fout.write("D:{:.2f}%, {}\n".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
-            fout.write("F:{:.2f}%, {}\n".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
-            fout.write("I:{:.2f}%, {}\n".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
-            fout.write(
-                "M:{:.2f}%, {}\n".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
-            fout.write("N:{}\n".format(total_genes))
-
-        with open(self.marker_gene_path, "w") as fout:
-            for x in single_complete_proteins:
-                fout.write(x)
-
-    # def Run_fast_mode2(self):
-    #     single_genes = []
-    #     duplicate_genes = []
-    #     fragmented_genes = []
-    #     interspaced_genes = []
-    #     missing_genes = []
-    #     records = []
-    #     single_complete_proteins = []
-    #     gff_file = self.gff_file
-    #     translated_proteins = defaultdict(str)
-    #     translated_protein_writer = open(self.translated_protein_path, "w")
-    #     try:
-    #         reader = iter(self.parse_miniprot_records(gff_file))
-    #         for items in reader:
-    #             (Atn_seq, Ata_seq, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End, Start, Stop,
-    #              Strand, Score, Rank, Identity, Positive, Codons, Frameshift_events, Frameshift_lengths,
-    #              Frame_shifts) = items.show()
-    #             Target_species = Target_id.split("_")[0]
-    #             if Contig_id != "*":
-    #                 records.append([Target_species, Target_id, Contig_id, Protein_length, Protein_Start, Protein_End,
-    #                                 Protein_End - Protein_Start, (Protein_End - Protein_Start) / Protein_length, Start,
-    #                                 Stop, Stop - Start, Strand, Rank, Identity, Positive,
-    #                                 (Protein_End - Protein_Start) * Identity,
-    #                                 Frameshift_events, Frameshift_lengths, Score, Atn_seq, Ata_seq, Codons])
-    #             else:
-    #                 records.append(
-    #                     [Target_species, Target_id, Contig_id, 0, 0, 0, 0, 0, 0, 0, 0, "+", 0, 0, 0, 0, 0, 0, 0,
-    #                      Atn_seq, Ata_seq, Codons])
-    #     except StopIteration:
-    #         pass
-    #     records_df = pd.DataFrame(records, columns=["Target_species", "Target_id", "Contig_id", "Protein_length",
-    #                                                 "Protein_Start", "Protein_End", "Protein_mapped_length",
-    #                                                 "Protein_mapped_rate", "Start", "Stop", "Genome_mapped_length",
-    #                                                 "Strand", "Rank", "Identity", "Positive", "I+L",
-    #                                                 "Frameshift_events", "Frameshift_lengths", "Score", "Atn_seq",
-    #                                                 "Ata_seq", "Codons"])
-    #     all_species = records_df["Target_species"].unique()
-    #     all_contigs = records_df["Contig_id"].unique()
-    #     grouped_df = records_df.groupby(["Target_species"])
-    #     if self.outs is None:
-    #         nmc = self.outn
-    #         for gene_id in all_species:
-    #             mapped_records = grouped_df.get_group(gene_id)
-    #             mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
-    #             if mapped_records.shape[0] >= nmc:
-    #                 candidate_tids = mapped_records.iloc[:nmc]["Target_id"].unique().tolist()
-    #             else:
-    #                 candidate_tids = mapped_records["Target_id"].unique().tolist()
-    #             for tid in candidate_tids:
-    #                 tid_df = mapped_records[mapped_records["Target_id"] == tid]
-    #                 for i in range(tid_df.shape[0]):
-    #                     Target_species = tid_df.iloc[i]["Target_species"]
-    #                     Target_id = tid_df.iloc[i]["Target_id"]
-    #                     Contig_id = tid_df.iloc[i]["Contig_id"]
-    #                     Start = tid_df.iloc[i]["Start"]
-    #                     Stop = tid_df.iloc[i]["Stop"]
-    #                     Ata_seq = tid_df.iloc[i]["Ata_seq"]
-    #                     translated_protein_writer.write(
-    #                         ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start, Stop, Ata_seq))
-    #                     translated_proteins[Target_species] += ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start,
-    #                                                                                        Stop, Ata_seq)
-    #     else:
-    #         for gene_id in all_species:
-    #             mapped_records = grouped_df.get_group(gene_id)
-    #             mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
-    #             candidate_tids = []
-    #             try:
-    #                 highest_IL = mapped_records.iloc[0]["I+L"]
-    #             except:
-    #                 continue
-    #             for j in range(mapped_records.shape[0]):
-    #                 if mapped_records.iloc[j]["I+L"] >= highest_IL * self.outs:
-    #                     candidate_tids.append(mapped_records.iloc[j]["Target_id"])
-    #             candidate_tids = list(set(candidate_tids))
-    #             for tid in candidate_tids:
-    #                 tid_df = mapped_records[mapped_records["Target_id"] == tid]
-    #                 for i in range(tid_df.shape[0]):
-    #                     Target_species = tid_df.iloc[i]["Target_species"]
-    #                     Target_id = tid_df.iloc[i]["Target_id"]
-    #                     Contig_id = tid_df.iloc[i]["Contig_id"]
-    #                     Start = tid_df.iloc[i]["Start"]
-    #                     Stop = tid_df.iloc[i]["Stop"]
-    #                     Ata_seq = tid_df.iloc[i]["Ata_seq"]
-    #                     translated_protein_writer.write(
-    #                         ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start, Stop, Ata_seq))
-    #                     translated_proteins[Target_species] += ">{}|{}:{}-{}\n{}\n".format(Target_id, Contig_id, Start,
-    #                                                                                        Stop, Ata_seq)
-    #     translated_protein_writer.close()
-    #     hmmsearcher = Hmmersearch(hmmsearch_execute_command=self.hmmsearch_execute_command,
-    #                               hmm_profiles=self.hmm_profiles,
-    #                               threads=self.nthreads,
-    #                               output_folder=self.hmm_output_folder)
-    #     if not os.path.exists(os.path.join(self.run_folder, "hmmsearch.done")):
-    #         hmmsearcher.Run(translated_proteins)
-    #     score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
-    #     length_cutoff_dict = load_length_cutoff(os.path.join(self.library_path, self.lineage, "lengths_cutoff"))
-    #     reliable_mappings, hmm_length_dict = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
-    #     reliable_mappings = set(reliable_mappings)
-    #     filtered_candidate_hits = []
-    #     for rx in range(records_df.shape[0]):
-    #         target_id = records_df.iloc[rx]["Target_id"]
-    #         contig_id = records_df.iloc[rx]["Contig_id"]
-    #         start = records_df.iloc[rx]["Start"]
-    #         stop = records_df.iloc[rx]["Stop"]
-    #         if "{}|{}:{}-{}".format(target_id, contig_id, start, stop) in reliable_mappings:
-    #             try:
-    #                 records_df.loc[rx, "Protein_mapped_length"] = hmm_length_dict[
-    #                     "{}|{}:{}-{}".format(target_id, contig_id, start, stop)]
-    #                 tmp_record = records_df.iloc[rx]
-    #                 filtered_candidate_hits.append(tmp_record)
-    #             except KeyError:
-    #                 print("{}|{}:{}-{}".format(target_id, contig_id, start, stop))
-    #     records_df = pd.DataFrame(filtered_candidate_hits)  # filtered by hmmsearch
-    #
-    #     filtered_species = records_df["Target_species"].unique()
-    #     if self.specified_contigs is not None:
-    #         if len(set(all_contigs) & set(self.specified_contigs)) == 0:
-    #             raise Exception("No contigs found in the specified contigs!")
-    #     grouped_df = records_df.groupby(["Target_species"])
-    #     full_table_writer = open(self.full_table_output_file, "w")
-    #     full_table_writer.write(
-    #         "Gene\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tIdentity\tFraction\tFrameshift events\tBest gene\tCodons\n")
-    #     dbinfo = None
-    #     if self.library_path is not None and self.lineage is not None:
-    #         dbinfo_path = os.path.join(self.library_path, self.lineage, "links_to_ODB10.txt")
-    #         if os.path.exists(dbinfo_path):
-    #             dbinfo = load_dbinfo(dbinfo_path)
-    #     full_table_busco_format_writer = open(self.full_table_busco_format_output_file, "w")
-    #     if dbinfo is None:
-    #         full_table_busco_format_writer.write(
-    #             "# Busco id\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\n")
-    #     else:
-    #         full_table_busco_format_writer.write(
-    #             "# Busco id\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tOrthoDB url\tDescription\n")
-    #
-    #     # remaining genes
-    #     identities_list = []
-    #     for gene_id in filtered_species:
-    #         mapped_records = grouped_df.get_group(gene_id)
-    #         mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
-    #         if self.specified_contigs is not None:
-    #             mapped_records = mapped_records[mapped_records["Contig_id"].isin(self.specified_contigs)]
-    #
-    #         if mapped_records.shape[0] > 0:
-    #             min_identity = 0
-    #             min_complete = length_cutoff_dict[gene_id]["length"] - 2 * length_cutoff_dict[gene_id]["sigma"]
-    #             output = self.Ost_eval(mapped_records, self.min_diff, min_identity, min_complete, self.min_rise,
-    #                                    by_length=True)
-    #             if output.gene_label == GeneLabel.Single:
-    #                 single_complete_proteins.append(
-    #                     ">{}\n{}\n".format(output.data_record["Target_id"], output.data_record["Ata_seq"]))
-    #             if output.gene_label == GeneLabel.Fragmented:
-    #                 output = self.refine_fragmented(mapped_records)
-    #         else:
-    #             output = OutputFormat()
-    #             output.gene_label = GeneLabel.Missing
-    #
-    #         if output.gene_label == GeneLabel.Missing:
-    #             full_table_writer.write("{}\t{}\n".format(gene_id, output.gene_label.name))
-    #             full_table_busco_format_writer.write("{}\t{}\n".format(gene_id, output.gene_label.name))
-    #         else:
-    #             assert output.data_record.shape[0] >= 1
-    #             if output.data_record.ndim == 1:
-    #                 identities_list.append(output.data_record["Identity"])
-    #                 full_table_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-    #                                         format(output.data_record["Target_species"],
-    #                                                output.gene_label.name,
-    #                                                output.data_record["Contig_id"],
-    #                                                output.data_record["Start"],
-    #                                                output.data_record["Stop"],
-    #                                                output.data_record["Strand"],
-    #                                                output.data_record["Score"],
-    #                                                output.data_record["Protein_mapped_length"],
-    #                                                output.data_record["Identity"],
-    #                                                output.data_record["Protein_mapped_rate"],
-    #                                                output.data_record["Frameshift_events"],
-    #                                                output.data_record["Target_id"],
-    #                                                output.data_record["Codons"]))
-    #                 if output.gene_label.name == "Single":
-    #                     status = "Complete"
-    #                 elif output.gene_label.name == "Interspaced":
-    #                     status = "Fragmented"
-    #                 else:
-    #                     status = output.gene_label.name
-    #                 if dbinfo is None:
-    #                     full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-    #                                                          format(output.data_record["Target_species"],
-    #                                                                 status,
-    #                                                                 output.data_record["Contig_id"],
-    #                                                                 output.data_record["Start"],
-    #                                                                 output.data_record["Stop"],
-    #                                                                 output.data_record["Strand"],
-    #                                                                 output.data_record["Score"],
-    #                                                                 output.data_record["Protein_mapped_length"]))
-    #                 else:
-    #                     try:
-    #                         full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-    #                                                              format(output.data_record["Target_species"],
-    #                                                                     status,
-    #                                                                     output.data_record["Contig_id"],
-    #                                                                     output.data_record["Start"],
-    #                                                                     output.data_record["Stop"],
-    #                                                                     output.data_record["Strand"],
-    #                                                                     output.data_record["Score"],
-    #                                                                     output.data_record["Protein_mapped_length"],
-    #                                                                     dbinfo[output.data_record["Target_species"]][0],
-    #                                                                     dbinfo[output.data_record["Target_species"]][
-    #                                                                         1]))
-    #                     except KeyError:
-    #                         full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-    #                                                              format(output.data_record["Target_species"],
-    #                                                                     status,
-    #                                                                     output.data_record["Contig_id"],
-    #                                                                     output.data_record["Start"],
-    #                                                                     output.data_record["Stop"],
-    #                                                                     output.data_record["Strand"],
-    #                                                                     output.data_record["Score"],
-    #                                                                     output.data_record["Protein_mapped_length"],
-    #                                                                     "*",
-    #                                                                     "*"))
-    #             else:
-    #                 for dri in range(output.data_record.shape[0]):
-    #                     identities_list.append(output.data_record.iloc[dri]["Identity"])
-    #                     full_table_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-    #                                             format(output.data_record.iloc[dri]["Target_species"],
-    #                                                    output.gene_label.name,
-    #                                                    output.data_record.iloc[dri]["Contig_id"],
-    #                                                    output.data_record.iloc[dri]["Start"],
-    #                                                    output.data_record.iloc[dri]["Stop"],
-    #                                                    output.data_record.iloc[dri]["Strand"],
-    #                                                    output.data_record.iloc[dri]["Score"],
-    #                                                    output.data_record.iloc[dri]["Protein_mapped_length"],
-    #                                                    output.data_record.iloc[dri]["Identity"],
-    #                                                    output.data_record.iloc[dri]["Protein_mapped_rate"],
-    #                                                    output.data_record.iloc[dri]["Frameshift_events"],
-    #                                                    output.data_record.iloc[dri]["Target_id"],
-    #                                                    output.data_record.iloc[dri]["Codons"]))
-    #                     if output.gene_label.name == "Single":
-    #                         status = "Complete"
-    #                     elif output.gene_label.name == "Interspaced":
-    #                         status = "Fragmented"
-    #                     else:
-    #                         status = output.gene_label.name
-    #                     if dbinfo is None:
-    #                         full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-    #                                                              format(output.data_record.iloc[dri]["Target_species"],
-    #                                                                     status,
-    #                                                                     output.data_record.iloc[dri]["Contig_id"],
-    #                                                                     output.data_record.iloc[dri]["Start"],
-    #                                                                     output.data_record.iloc[dri]["Stop"],
-    #                                                                     output.data_record.iloc[dri]["Strand"],
-    #                                                                     output.data_record.iloc[dri]["Score"],
-    #                                                                     output.data_record.iloc[dri][
-    #                                                                         "Protein_mapped_length"]))
-    #                     else:
-    #                         try:
-    #                             full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-    #                             format(
-    #                                 output.data_record.iloc[dri]["Target_species"],
-    #                                 status,
-    #                                 output.data_record.iloc[dri]["Contig_id"],
-    #                                 output.data_record.iloc[dri]["Start"],
-    #                                 output.data_record.iloc[dri]["Stop"],
-    #                                 output.data_record.iloc[dri]["Strand"],
-    #                                 output.data_record.iloc[dri]["Score"],
-    #                                 output.data_record.iloc[dri]["Protein_mapped_length"],
-    #                                 dbinfo[output.data_record.iloc[dri]["Target_species"]][0],
-    #                                 dbinfo[output.data_record.iloc[dri]["Target_species"]][1]))
-    #                         except KeyError:
-    #                             full_table_busco_format_writer.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".
-    #                             format(
-    #                                 output.data_record.iloc[dri]["Target_species"],
-    #                                 status,
-    #                                 output.data_record.iloc[dri]["Contig_id"],
-    #                                 output.data_record.iloc[dri]["Start"],
-    #                                 output.data_record.iloc[dri]["Stop"],
-    #                                 output.data_record.iloc[dri]["Strand"],
-    #                                 output.data_record.iloc[dri]["Score"],
-    #                                 output.data_record.iloc[dri]["Protein_mapped_length"],
-    #                                 "*",
-    #                                 "*"))
-    #         if output.gene_label == GeneLabel.Single:
-    #             single_genes.append(gene_id)
-    #         elif output.gene_label == GeneLabel.Duplicated:
-    #             duplicate_genes.append(gene_id)
-    #         elif output.gene_label == GeneLabel.Fragmented:
-    #             fragmented_genes.append(gene_id)
-    #         elif output.gene_label == GeneLabel.Interspaced:
-    #             interspaced_genes.append(gene_id)
-    #         elif output.gene_label == GeneLabel.Missing:
-    #             missing_genes.append(gene_id)
-    #         else:
-    #             print("Error: output.gene_label!")
-    #             raise ValueError
-    #
-    #     # missing genes
-    #     for gene_id in set(all_species) - set(filtered_species):
-    #         full_table_writer.write("{}\t{}\n".format(gene_id, GeneLabel.Missing.name))
-    #         full_table_busco_format_writer.write("{}\t{}\n".format(gene_id, GeneLabel.Missing.name))
-    #
-    #     full_table_writer.close()
-    #     full_table_busco_format_writer.close()
-    #
-    #     total_genes = len(all_species)
-    #     d = total_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(
-    #         interspaced_genes) - len(missing_genes)
-    #     print()
-    #     print("S:{:.2f}%, {}".format(len(single_genes) / total_genes * 100, len(single_genes)))
-    #     print("D:{:.2f}%, {}".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
-    #     print("F:{:.2f}%, {}".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
-    #     print("I:{:.2f}%, {}".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
-    #     print("M:{:.2f}%, {}".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
-    #     print("N:{}".format(total_genes))
-    #     print()
-    #     average_identity = round(sum(identities_list) * 1.0 / len(identities_list), 2)
-    #     if average_identity <= 0.5:
-    #         print("Warning: Given the potentially high diversity of the sample, compleasm results may not be reliable!"
-    #               "We recommend reassessing the sample using BUSCO.")
-    #         print()
-    #     with open(self.completeness_output_file, 'a') as fout:
-    #         if self.lineage is not None:
-    #             fout.write("## lineage: {}\n".format(self.lineage))
-    #         else:
-    #             fout.write("## lineage: xx_xx\n")
-    #         fout.write("S:{:.2f}%, {}\n".format(len(single_genes) / total_genes * 100, len(single_genes)))
-    #         fout.write("D:{:.2f}%, {}\n".format(len(duplicate_genes) / total_genes * 100, len(duplicate_genes)))
-    #         fout.write("F:{:.2f}%, {}\n".format(len(fragmented_genes) / total_genes * 100, len(fragmented_genes)))
-    #         fout.write("I:{:.2f}%, {}\n".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
-    #         fout.write(
-    #             "M:{:.2f}%, {}\n".format((len(missing_genes) + d) / total_genes * 100, len(missing_genes) + d))
-    #         fout.write("N:{}\n".format(total_genes))
-    #
-    #     with open(self.marker_gene_path, "w") as fout:
-    #         for x in single_complete_proteins:
-    #             fout.write(x)
 
 
 ### Compleasm Runner ###
 class CompleasmRunner:
-    def __init__(self, assembly_path, output_folder, library_path, lineage, autolineage, nthreads, outs,
+    def __init__(self, assembly_path, output_folder, library_path, lineage, odb, autolineage, nthreads, outs,
                  miniprot_execute_command, hmmsearch_execute_command, sepp_execute_command, min_diff,
-                 min_length_percent, min_identity, min_complete, min_rise, specified_contigs, mode):
+                 min_length_percent, min_identity, min_complete, min_rise, specified_contigs):
         if lineage is None:
-            lineage = "eukaryota_odb10"
+            lineage = "eukaryota_{}".format(odb)
         else:
-            if not lineage.endswith("_odb10"):
-                lineage = lineage + "_odb10"
+            lineage = "{}_{}".format(lineage.strip().split("_")[0], odb)
         self.lineage = lineage
+        self.odb = odb
         self.autolineage = autolineage
         self.output_folder = output_folder
         self.library_path = library_path
@@ -2116,26 +1492,25 @@ class CompleasmRunner:
         self.specified_contigs = specified_contigs
         self.nthreads = nthreads
         self.hmmsearch_execute_command = hmmsearch_execute_command
-        self.mode = mode
 
         self.miniprot_runner = MiniprotRunner(miniprot_execute_command, outs, nthreads)
-        self.downloader = Downloader(library_path)
+        self.downloader = Downloader(odb=odb, download_dir=library_path)
 
         self.hmm_profiles = os.path.join(self.downloader.download_dir, self.lineage, "hmms")
 
         sepp_output_path = os.path.join(output_folder, "sepp_output")
         sepp_tmp_path = os.path.join(output_folder, "sepp_tmp")
-        self.lineage_searcher = AutoLineager(sepp_output_path, sepp_tmp_path, library_path, nthreads,
+        self.lineage_searcher = AutoLineager(sepp_output_path, sepp_tmp_path, library_path, odb, nthreads,
                                              sepp_execute_command)
 
     def Run(self):
         begin_time = time.time()
         if self.autolineage:
-            lineage = "eukaryota_odb10"
+            lineage = "eukaryota_{}".format(self.odb)
         else:
             lineage = self.lineage
         download_lineage_start_time = time.time()
-        self.downloader.download_lineage(lineage)
+        self.downloader.download_lineage(lineage, self.odb)
         download_lineage_end_time = time.time()
         print("lineage: {}".format(lineage))
         lineage_filepath = os.path.join(self.downloader.lineage_description[lineage][3], "refseq_db.faa.gz")
@@ -2155,6 +1530,7 @@ class CompleasmRunner:
         miniprot_alignment_parser = MiniprotAlignmentParser(run_folder=self.output_folder,
                                                             gff_file=miniprot_output_path,
                                                             lineage=lineage,
+                                                            odb=self.odb,
                                                             min_diff=self.min_diff,
                                                             min_length_percent=self.min_length_percent,
                                                             min_identity=self.min_identity,
@@ -2164,8 +1540,7 @@ class CompleasmRunner:
                                                             autolineage=self.autolineage,
                                                             library_path=self.library_path,
                                                             hmmsearch_execute_command=self.hmmsearch_execute_command,
-                                                            nthreads=self.nthreads,
-                                                            mode=self.mode)
+                                                            nthreads=self.nthreads)
 
         if os.path.exists(miniprot_alignment_parser.completeness_output_file):
             os.remove(miniprot_alignment_parser.completeness_output_file)
@@ -2186,7 +1561,7 @@ class CompleasmRunner:
                 print("## Autolineage: {:.2f}(s)".format(autolineage_end_time - autolineage_start_time))
                 print("## Total runtime: {:.2f}(s)".format(end_time - begin_time))
                 return
-            self.downloader.download_lineage(best_match_lineage)
+            self.downloader.download_lineage(best_match_lineage, self.odb)
             lineage = best_match_lineage
             lineage_filepath = os.path.join(self.downloader.lineage_description[lineage][3], "refseq_db.faa.gz")
             alignment_output_dir = os.path.join(self.output_folder, lineage)
@@ -2204,6 +1579,7 @@ class CompleasmRunner:
             miniprot_alignment_parser = MiniprotAlignmentParser(run_folder=self.output_folder,
                                                                 gff_file=miniprot_output_path,
                                                                 lineage=lineage,
+                                                                odb=self.odb,
                                                                 min_diff=self.min_diff,
                                                                 min_length_percent=self.min_length_percent,
                                                                 min_identity=self.min_identity,
@@ -2213,8 +1589,7 @@ class CompleasmRunner:
                                                                 autolineage=self.autolineage,
                                                                 library_path=self.library_path,
                                                                 hmmsearch_execute_command=self.hmmsearch_execute_command,
-                                                                nthreads=self.nthreads,
-                                                                mode=self.mode)
+                                                                nthreads=self.nthreads)
             miniprot_alignment_parser.Run()
             second_analysis_miniprot_end_time = time.time()
         end_time = time.time()
@@ -2235,9 +1610,8 @@ class CompleasmRunner:
 
 ### Protein Runner ###
 class ProteinRunner():
-    def __init__(self, protein_path, output_folder, library_path, lineage, nthreads, hmmsearch_execute_command):
-        if not lineage.endswith("_odb10"):
-            lineage = lineage + "_odb10"
+    def __init__(self, protein_path, output_folder, library_path, lineage, odb, nthreads, hmmsearch_execute_command):
+        lineage = "{}_{}".format(lineage.strip().split("_")[0], odb)
         self.lineage = lineage
         self.protein_path = protein_path
         self.output_folder = output_folder
@@ -2501,12 +1875,12 @@ class CheckDependency():
 
 
 def download(args):
-    downloader = Downloader(args.library_path)
+    downloader = Downloader(odb=args.odb, download_dir=args.library_path)
     lineages = []
     for v in args.lineages:
         lineages.extend(v.strip().split(','))
     for lineage in lineages:
-        downloader.download_lineage(lineage)
+        downloader.download_lineage(lineage, args.odb)
 
 
 def list_lineages(args):
@@ -2520,13 +1894,13 @@ def list_lineages(args):
         else:
             print("Local available lineages:")
             for file in os.listdir(args.library_path):
-                if file.endswith("_odb10.done"):
-                    print(file.replace("_odb10.done", ""))
+                if file.endswith("_{}.done".format(args.odb)):
+                    print(file.replace("_{}.done".format(args.odb), ""))
     if args.remote:
         if args.library_path is not None:
-            downloader = Downloader(args.library_path, download_lineage=False, download_placement=False)
+            downloader = Downloader(odb=args.odb, download_dir=args.library_path, download_lineage=False, download_placement=False)
         else:
-            downloader = Downloader(download_lineage=False, download_placement=False)
+            downloader = Downloader(args.odb, download_lineage=False, download_placement=False)
         print("Remote available lineages:")
         for lineage in downloader.lineage_description.keys():
             print(lineage)
@@ -2539,6 +1913,7 @@ def protein_fun(args):
                        output_folder=args.outdir,
                        library_path=args.library_path,
                        lineage=args.lineage,
+                       odb=args.odb,
                        nthreads=args.threads,
                        hmmsearch_execute_command=hmmsearch_execute_command)
     pr.run()
@@ -2561,6 +1936,7 @@ def analyze(args):
     ar = MiniprotAlignmentParser(run_folder=args.output_dir,
                                  gff_file=args.gff,
                                  lineage=args.lineage,
+                                 odb=args.odb,
                                  min_length_percent=args.min_length_percent,
                                  min_diff=args.min_diff,
                                  min_identity=args.min_identity,
@@ -2570,8 +1946,7 @@ def analyze(args):
                                  autolineage=False,
                                  library_path=args.library_path,
                                  hmmsearch_execute_command=hmmsearch_execute_command,
-                                 nthreads=args.threads,
-                                 mode=args.mode)
+                                 nthreads=args.threads)
     ar.Run()
 
 
@@ -2580,6 +1955,7 @@ def run(args):
     output_folder = args.output_dir
     library_path = args.library_path
     lineage = args.lineage
+    odb = args.odb
     autolineage = args.autolineage
     nthreads = args.threads
     outs = args.outs
@@ -2598,7 +1974,6 @@ def run(args):
     min_complete = args.min_complete
     min_rise = args.min_rise
     specified_contigs = args.specified_contigs
-    mode = args.mode
 
     if lineage is None and autolineage is False:
         sys.exit(
@@ -2609,6 +1984,7 @@ def run(args):
                          output_folder=output_folder,
                          library_path=library_path,
                          lineage=lineage,
+                         odb=odb,
                          autolineage=autolineage,
                          nthreads=nthreads,
                          outs=outs,
@@ -2620,8 +1996,7 @@ def run(args):
                          min_identity=min_identity,
                          min_complete=min_complete,
                          min_rise=min_rise,
-                         specified_contigs=specified_contigs,
-                         mode=mode)
+                         specified_contigs=specified_contigs)
     mr.Run()
 
 
@@ -2638,12 +2013,14 @@ def main():
     download_parser.add_argument("-L", "--library_path", type=str, default="mb_downloads",
                                  help="The destination folder to store the downloaded lineage files."
                                       "If not specified, a folder named \"mb_downloads\" will be created on the current running path.")
+    download_parser.add_argument("--odb", help="OrthoDB version, default: odb12", default="odb12")
     download_parser.set_defaults(func=download)
 
     ### sub-command: list
     list_parser = subparser.add_parser("list", help="List local or remote BUSCO lineages")
     list_parser.add_argument("--remote", action="store_true", help="List remote BUSCO lineages")
     list_parser.add_argument("--local", action="store_true", help="List local BUSCO lineages")
+    list_parser.add_argument("--odb", help="OrthoDB version, default: odb12", default="odb12")
     list_parser.add_argument("-L", "--library_path", type=str, help="Folder path to stored lineages. ", default=None)
     list_parser.set_defaults(func=list_lineages)
 
@@ -2655,6 +2032,7 @@ def main():
     protein_parser.add_argument("-t", "--threads", type=int, help="Number of threads to use", default=1)
     protein_parser.add_argument("-L", "--library_path", type=str, default="mb_downloads",
                                 help="Folder path to stored lineages. ")
+    protein_parser.add_argument("--odb", help="OrthoDB version, default: odb12", default="odb12")
     protein_parser.add_argument("--hmmsearch_execute_path", type=str, default=None, help="Path to hmmsearch executable")
     protein_parser.set_defaults(func=protein_fun)
 
@@ -2681,10 +2059,7 @@ def main():
     analysis_parser.add_argument("-t", "--threads", type=int, help="Number of threads to use", default=1)
     analysis_parser.add_argument("-L", "--library_path", type=str, default="mb_downloads",
                                  help="Folder path to stored lineages. ")
-    analysis_parser.add_argument("-m", "--mode", type=str, choices=["lite", "busco"], default="busco",
-                                 help="The mode of evaluation. dafault mode: busco.\n"
-                                      "lite:  Without using hmmsearch to filtering protein alignment.\n"
-                                      "busco: Using hmmsearch on all candidate protein alignment to purify the miniprot alignment to imporve accuracy.")
+    analysis_parser.add_argument("--odb", help="OrthoDB version, default: odb12", default="odb12")
     analysis_parser.add_argument("--hmmsearch_execute_path", type=str, default=None,
                                  help="Path to hmmsearch executable")
     analysis_parser.add_argument("--specified_contigs", type=str, nargs='+', default=None,
@@ -2712,10 +2087,7 @@ def main():
     run_parser.add_argument("-L", "--library_path", type=str, default="mb_downloads",
                             help="Folder path to download lineages or already downloaded lineages. "
                                  "If not specified, a folder named \"mb_downloads\" will be created on the current running path by default to store the downloaded lineage files.")
-    run_parser.add_argument("-m", "--mode", type=str, choices=["lite", "busco"], default="busco",
-                            help="The mode of evaluation. dafault mode: busco.\n"
-                                 "lite:  Without using hmmsearch to filtering protein alignment.\n"
-                                 "busco: Using hmmsearch on all candidate protein alignment to purify the miniprot alignment to imporve accuracy.")
+    run_parser.add_argument("--odb", help="OrthoDB version, default: odb12", default="odb12")
     run_parser.add_argument("--specified_contigs", type=str, nargs='+', default=None,
                             help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.")
     run_parser.add_argument("--outs", type=float, default=0.95, help="output if score at least FLOAT*bestScore [0.99]")
