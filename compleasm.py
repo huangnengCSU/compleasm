@@ -1435,7 +1435,6 @@ class MiniprotAlignmentParser:
         total_busco_genes = len(all_busco_names)
         d = total_busco_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(
             interspaced_genes) - len(missing_genes)
-        print("d:{}".format(d))
         print()
         print("S:{:.2f}%, {}".format(len(single_genes) / total_busco_genes * 100, len(single_genes)))
         print("D:{:.2f}%, {}".format(len(duplicate_genes) / total_busco_genes * 100, len(duplicate_genes)))
@@ -1447,9 +1446,9 @@ class MiniprotAlignmentParser:
         if len(identities_list) > 0:
             average_identity = round(sum(identities_list) * 1.0 / len(identities_list), 2)
             if average_identity <= 0.5:
-                print(
-                    "Warning: Given the potentially high diversity of the sample, compleasm results may not be reliable!"
-                    "We recommend reassessing the sample using BUSCO.")
+                print("Warning: Given the potentially high diversity of the sample, "
+                      "compleasm results may not be reliable!"
+                      "We recommend reassessing the sample using BUSCO.")
                 print()
         with open(self.completeness_output_file, 'a') as fout:
             if self.lineage is not None:
@@ -1556,8 +1555,7 @@ class CompleasmRunner:
                 end_time = time.time()
                 print("## Download lineage: {:.2f}(s)".format(download_lineage_end_time - download_lineage_start_time))
                 print("## Run miniprot: {:.2f}(s)".format(run_miniprot_end_time - run_miniprot_start_time))
-                print(
-                    "## Analyze miniprot: {:.2f}(s)".format(analysis_miniprot_end_time - analysis_miniprot_start_time))
+                print("## Analyze miniprot: {:.2f}(s)".format(analysis_miniprot_end_time - analysis_miniprot_start_time))
                 print("## Autolineage: {:.2f}(s)".format(autolineage_end_time - autolineage_start_time))
                 print("## Total runtime: {:.2f}(s)".format(end_time - begin_time))
                 return
@@ -1926,8 +1924,8 @@ def miniprot(args):
     if not os.path.exists(os.path.join(args.outdir, "miniprot.done")):
         mr.run_miniprot(args.assembly, args.protein, args.outdir)
     else:
-        print(
-            "Miniprot has been run before. If you want to run it again, please delete the miniprot.done file in the output folder.")
+        print("Miniprot has been run before. If you want to run it again, "
+              "please delete the miniprot.done file in the output folder.")
 
 
 def analyze(args):
