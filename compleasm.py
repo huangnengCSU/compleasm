@@ -56,7 +56,7 @@ def md5(fname):
 
 
 class Downloader:
-    def __init__(self, odb, download_dir=None, download_lineage=True, download_placement=True):
+    def __init__(self, odb, download_dir=None, download_lineage=True, download_placement=True, autolineage=False):
         self.base_url = "https://busco-data.ezlab.org/v5/data/"
         self.default_lineage = ["eukaryota_{}".format(odb)]
         if download_dir is None:
@@ -75,6 +75,10 @@ class Downloader:
             if not os.path.exists(self.placement_dir):
                 os.mkdir(self.placement_dir)
             if not os.path.exists(self.placement_dir + ".done"):
+                self.download_placement()  # download placement files
+            if autolineage:
+                if os.path.exists(self.placement_dir + ".done"):
+                    os.remove(self.placement_dir + ".done")
                 self.download_placement()  # download placement files
 
         if download_lineage:
@@ -286,7 +290,7 @@ class AutoLineager:
         self.sepp_output_folder = sepp_output_directory
         self.sepp_tmp_folder = sepp_tmp_directory
         self.threads = threads
-        self.downloader = Downloader(odb=odb, download_dir=library_path)
+        self.downloader = Downloader(odb=odb, download_dir=library_path, autolineage=True)
         self.lineage_description = self.downloader.lineage_description
         self.placement_description = self.downloader.placement_description
         self.library_folder = self.downloader.download_dir
@@ -318,9 +322,6 @@ class AutoLineager:
 
     # Code from https://gitlab.com/ezlab/busco
     def pick_dataset(self, search_lineage):
-        # run_folder = self.run_folder
-
-        # load busco dataset name by id in a dict {taxid:name}
         datasets_mapping = {}
 
         taxid_busco_file_name = "mapping_taxids-busco_dataset_name.{}.txt".format(search_lineage)
@@ -357,15 +358,10 @@ class AutoLineager:
                     parents.update({t: levels[0: i + 1][::-1]})
 
         for t in parents:
-            for p in parents[t]:  # get the deepest parent, not the root one
+            for p in parents[t]:
                 if p in datasets_mapping:
                     taxid_dataset.update({t: p})
                     break
-        # load json
-        # load "tree" in a string
-        # load placements
-        # obtain a dict of taxid num of markers
-        # figure out which taxid to use by using the highest number of markers and some extra rules
 
         try:
             with open(os.path.join(self.sepp_output_folder, "output_placement.json")) as json_file:
@@ -380,43 +376,38 @@ class AutoLineager:
         for placement in placements:
             n_p += 1
             for individual_placement in placement["p"]:
-                # find the taxid in tree
                 node = individual_placement[0]
 
-                # match = re.findall(  # deal with weird character in the json file, see the output yourself.
-                #     # if this pattern is inconsistant with pplacer version, it may break buscoplacer.
-                #     "[^0-9][0-9]*:[0-9]*[^0-9]{0,1}[0-9]*[^0-9]{0,2}[0-9]*\[%s\]"
-                #     % node,
-                #     tree,
-                # )
                 match = re.findall(
-                    r"[^0-9][0-9]*:[0-9]*[^0-9]{0,1}[0-9]*[^0-9]{0,2}[0-9]*\[%s\]" % node,
+                    "[^0-9][0-9]*:[0-9]*[^0-9]{0,1}[0-9]*[^0-9]{0,2}[0-9]*\[%s\]"
+                    % node,
                     tree,
                 )
-                # extract taxid:
                 try:
                     if re.match("^[A-Za-z]", match[0]):
                         taxid = match[0][7:].split(":")[0]
                     else:
                         taxid = match[0][1:].split(":")[0]
                 except IndexError as e:
-                    raise e
-                if taxid_dataset[taxid] in node_weight:
-                    node_weight[taxid_dataset[taxid]] += 1
+                    continue
+                if not taxid:
+                    continue
+                if taxid in taxid_dataset:
+                    taxid_key = taxid_dataset[taxid]
                 else:
-                    node_weight[taxid_dataset[taxid]] = 1
-                break  # Break here to keep only the best match. In my experience, keeping all does not change much.
-
-        # from here, define which placement can be trusted
+                    continue
+                if taxid_key in node_weight:
+                    node_weight[taxid_key] += 1
+                else:
+                    node_weight[taxid_key] = 1
+                break
         max_markers = 0
         choice = []
 
-        # taxid for which no threshold or minimal amount of placement should be considered.
-        # If it is the best, go for it.
         no_rules = ["204428"]
 
         ratio = 2.5
-        if search_lineage.split("_")[-2] == "archaea":
+        if search_lineage.split("/")[-1].split("_")[-2] == "archaea":
             ratio = 1.2
         min_markers = 12
 
@@ -429,28 +420,26 @@ class AutoLineager:
             choice = [node_with_max_markers]
         else:
             for n in node_weight:
-                # if the ration between the best and the current one is not enough, keep both
                 if node_weight[n] * ratio >= max_markers:
                     choice.append(n)
         if len(choice) > 1:
-            # more than one taxid should be considered, pick the common ancestor
             choice = self._get_common_ancestor(choice, parents)
         elif len(choice) == 0:
-            if search_lineage.split("_")[-2] == "bacteria":
+            if search_lineage.split("/")[-1].split("_")[-2] == "bacteria":
                 choice.append("2")
-            elif search_lineage.split("_")[-2] == "archaea":
+            elif search_lineage.split("/")[-1].split("_")[-2] == "archaea":
                 choice.append("2157")
-            elif search_lineage.split("_")[-2] == "eukaryota":
+            elif search_lineage.split("/")[-1].split("_")[-2] == "eukaryota":
                 choice.append("2759")
         if max_markers < min_markers and not (choice[0] in no_rules):
-            if search_lineage.split("_")[-2] == "bacteria":
+            if search_lineage.split("/")[-1].split("_")[-2] == "bacteria":
                 key_taxid = "2"
-            elif search_lineage.split("_")[-2] == "archaea":
+            elif search_lineage.split("/")[-1].split("_")[-2] == "archaea":
                 key_taxid = "2157"
-            elif search_lineage.split("_")[-2] == "eukaryota":
+            elif search_lineage.split("/")[-1].split("_")[-2] == "eukaryota":
                 key_taxid = "2759"
             else:
-                key_taxid = None  # unexpected. Should throw an exception or use assert.
+                key_taxid = None
 
             lineage = datasets_mapping[taxid_dataset[key_taxid]]
 
@@ -463,25 +452,19 @@ class AutoLineager:
 
     @staticmethod
     def _get_common_ancestor(choice, parents):
-        # starts with the parents of the first choice
         all_ancestors = set(parents[choice[0]])
-        # order will be lost with sets, so keep in a list the lineage of one entry to later pick the deepest ancestor
         ordered_lineage = []
         for c in choice:
             if len(parents[c]) > len(ordered_lineage):
-                # probably useless. Init with parents[choice[0] should work
                 ordered_lineage = parents[c]
-            # keep in set only entries that are in the currently explored lineage
             all_ancestors = all_ancestors.intersection(parents[c])
-
-        # go through the ordered list of the deepest linage until you found a common ancestor.
         for parent in ordered_lineage:
             if parent in all_ancestors:
                 return [parent]
 
     def Run(self, marker_gene_filepath):
         search_lineage = self.run_sepp(marker_gene_filepath)
-        lineage, max_markers, placed_markers = self.pick_dataset(search_lineage)
+        lineage, _, _ = self.pick_dataset(search_lineage)
         return lineage
 
 
@@ -1499,7 +1482,8 @@ class CompleasmRunner:
 
         sepp_output_path = os.path.join(output_folder, "sepp_output")
         sepp_tmp_path = os.path.join(output_folder, "sepp_tmp")
-        self.lineage_searcher = AutoLineager(sepp_output_path, sepp_tmp_path, library_path, odb, nthreads,
+        if autolineage:
+            self.lineage_searcher = AutoLineager(sepp_output_path, sepp_tmp_path, library_path, odb, nthreads,
                                              sepp_execute_command)
 
     def Run(self):
