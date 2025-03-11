@@ -534,6 +534,7 @@ class GeneLabel(Enum):
     Fragmented = 3
     Interspaced = 4
     Missing = 5
+    Retrocopy = 6
 
 
 class MiniprotGffItems:
@@ -553,6 +554,7 @@ class MiniprotGffItems:
         self.identity = 0
         self.positive = 0
         self.codons = []
+        self.num_introns = 0
         self.frameshift_events = 0
         self.frameshift_lengths = 0
         self.frame_shifts = []
@@ -573,6 +575,7 @@ class MiniprotGffItems:
                 self.identity,
                 self.positive,
                 "|".join(self.codons),
+                self.num_introns,
                 self.frameshift_events,
                 self.frameshift_lengths,
                 self.frame_shifts]
@@ -619,12 +622,15 @@ def find_frameshifts2(cs_seq):
     frameshifts = []
     frameshift_events = 0
     frameshift_lengths = 0
+    number_of_introns = 0
     pt = r"[0-9]+[MIDFGNUV]"
     it = re.finditer(pt, cs_seq)
     pattern_lst = []
     for m in it:
         l, type = int(m.group(0)[:-1]), m.group(0)[-1]
         pattern_lst.append((l, type))
+        if type == "N" or type == "U" or type == "V":
+            number_of_introns += 1
     for i in range(len(pattern_lst)):
         if pattern_lst[i][1] == "F" or pattern_lst[i][1] == "G":
             ## left search
@@ -649,7 +655,7 @@ def find_frameshifts2(cs_seq):
                 frameshifts.append(str(pattern_lst[i][0]) + pattern_lst[i][1])
                 frameshift_events += 1
                 frameshift_lengths += int(pattern_lst[i][0])
-    return frameshifts, frameshift_events, frameshift_lengths
+    return frameshifts, frameshift_events, frameshift_lengths, number_of_introns
 
 
 def load_dbinfo(dbinfo_file):
@@ -669,6 +675,23 @@ def load_score_cutoff(scores_cutoff_file):
                 line = line.strip().split()
                 try:
                     taxid = line[0]
+                    score = float(line[1])
+                    cutoff_dict[taxid] = score
+                except IndexError:
+                    raise Error("Error parsing the scores_cutoff file.")
+    except IOError:
+        raise Error("Impossible to read the scores in {}".format(scores_cutoff_file))
+    return cutoff_dict
+
+
+def load_score_cutoff_protein_mode(scores_cutoff_file):
+    cutoff_dict = {}
+    try:
+        with open(scores_cutoff_file, "r") as f:
+            for line in f:
+                line = line.strip().split()
+                try:
+                    taxid = line[0].split("at")[0]
                     score = float(line[1])
                     cutoff_dict[taxid] = score
                 except IndexError:
@@ -769,7 +792,7 @@ def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
 
 class MiniprotAlignmentParser:
     def __init__(self, run_folder, gff_file, lineage, odb, min_length_percent, min_diff, min_identity, min_complete,
-                 min_rise, specified_contigs, autolineage, hmmsearch_execute_command, nthreads, library_path):
+                 min_rise, specified_contigs, autolineage, retrocopy, hmmsearch_execute_command, nthreads, library_path):
         self.autolineage = autolineage
         self.run_folder = run_folder
         if not os.path.exists(run_folder):
@@ -789,6 +812,7 @@ class MiniprotAlignmentParser:
         self.library_path = library_path
         self.gff_file = gff_file
         self.lineage = lineage
+        self.retrocopy = retrocopy
         self.min_length_percent = min_length_percent
         self.min_diff = min_diff
         self.min_identity = min_identity
@@ -843,7 +867,8 @@ class MiniprotAlignmentParser:
                         additional_fields_dict[sub_f.split(":")[0]] = sub_f
                     items.score = int(additional_fields_dict["ms"].strip().split(":")[2])   # Alignment score excluding introns
                     cg = additional_fields_dict["cg"].replace("cg:Z:", "")
-                    frame_shifts, frameshift_events, frameshift_lengths = find_frameshifts2(cg)
+                    frame_shifts, frameshift_events, frameshift_lengths, num_of_introns = find_frameshifts2(cg)
+                    items.num_introns = num_of_introns
                     items.frameshift_events = frameshift_events
                     items.frameshift_lengths = frameshift_lengths
                     items.frame_shifts = frame_shifts
@@ -875,7 +900,7 @@ class MiniprotAlignmentParser:
                         items.codons.append("{}_{}_{}".format(codon_start, codon_end, codon_strand))
 
     @staticmethod
-    def record_1st_gene_label(dataframe, min_identity, min_complete, by_length=False):
+    def record_1st_gene_label(dataframe, min_identity, min_complete, by_length=False, retrocopy=False):
         # check records with same tid of the best record
         output = OutputFormat()
         protein_name = dataframe.iloc[0]["Protein_name"]
@@ -909,17 +934,17 @@ class MiniprotAlignmentParser:
                 if by_length:
                     if dataframe.iloc[i]["Protein_mapped_length"] >= 0.8 * dataframe.iloc[i]["qlen"]:
                         complete_regions.append(
-                            (dataframe.iloc[i]["Contig_name"], dataframe.iloc[i]["Contig_Start"], dataframe.iloc[i]["Contig_Stop"]))
+                            (dataframe.iloc[i]["Contig_name"], dataframe.iloc[i]["Contig_Start"], dataframe.iloc[i]["Contig_Stop"], dataframe.iloc[i]["Num_introns"]))
                     else:
                         fragmented_regions.append(
-                            (dataframe.iloc[i]["Contig_name"], dataframe.iloc[i]["Contig_Start"], dataframe.iloc[i]["Contig_Stop"]))
+                            (dataframe.iloc[i]["Contig_name"], dataframe.iloc[i]["Contig_Start"], dataframe.iloc[i]["Contig_Stop"], dataframe.iloc[i]["Num_introns"]))
                 else:
                     if dataframe.iloc[i]["Protein_mapped_rate"] >= min_complete:
                         complete_regions.append(
-                            (dataframe.iloc[i]["Contig_name"], dataframe.iloc[i]["Contig_Start"], dataframe.iloc[i]["Contig_Stop"]))
+                            (dataframe.iloc[i]["Contig_name"], dataframe.iloc[i]["Contig_Start"], dataframe.iloc[i]["Contig_Stop"], dataframe.iloc[i]["Num_introns"]))
                     else:
                         fragmented_regions.append(
-                            (dataframe.iloc[i]["Contig_name"], dataframe.iloc[i]["Contig_Start"], dataframe.iloc[i]["Contig_Stop"]))
+                            (dataframe.iloc[i]["Contig_name"], dataframe.iloc[i]["Contig_Start"], dataframe.iloc[i]["Contig_Stop"], dataframe.iloc[i]["Num_introns"]))
             if len(complete_regions) == 0:
                 output.gene_label = GeneLabel.Fragmented
                 output.data_record = dataframe.iloc[0]
@@ -930,8 +955,14 @@ class MiniprotAlignmentParser:
                 return output
             else:
                 ctgs = [x[0] for x in complete_regions]
+                nintrons = [x[3] for x in complete_regions]
+                zero_intron_count = sum([1 for x in nintrons if x == 0])    # no intron
+                non_zero_intron_count = sum([1 for x in nintrons if x > 0]) # with intron
                 if len(set(ctgs)) > 1:
-                    output.gene_label = GeneLabel.Duplicated
+                    if retrocopy and non_zero_intron_count == 1 and zero_intron_count >= 1:
+                        output.gene_label = GeneLabel.Retrocopy
+                    else:
+                        output.gene_label = GeneLabel.Duplicated
                     output.data_record = dataframe
                     return output
                 regions = [(x[1], x[2]) for x in complete_regions]
@@ -941,7 +972,10 @@ class MiniprotAlignmentParser:
                     output.data_record = dataframe.iloc[0]
                     return output
                 else:
-                    output.gene_label = GeneLabel.Duplicated
+                    if retrocopy and non_zero_intron_count == 1 and zero_intron_count >= 1:
+                        output.gene_label = GeneLabel.Retrocopy
+                    else:
+                        output.gene_label = GeneLabel.Duplicated
                     output.data_record = dataframe
                     return output
 
@@ -983,6 +1017,9 @@ class MiniprotAlignmentParser:
                 output.gene_label = GeneLabel.Duplicated
                 output.data_record = dataframe_1st
                 return output
+            elif label_length.keys() == {GeneLabel.Retrocopy}:
+                output.gene_label = GeneLabel.Retrocopy
+                output.data_record = dataframe_1st
             elif label_length.keys() == {GeneLabel.Single, GeneLabel.Fragmented}:
                 if label_length[GeneLabel.Fragmented][0] > label_length[GeneLabel.Single][0] * (1 + min_rise):
                     output.gene_label = GeneLabel.Fragmented
@@ -1021,6 +1058,25 @@ class MiniprotAlignmentParser:
                     else:
                         raise ValueError
                     return output
+            elif label_length.keys() == {GeneLabel.Single, GeneLabel.Retrocopy}:
+                if label_length[GeneLabel.Retrocopy][0] > label_length[GeneLabel.Single][0] * (1 + min_rise):
+                    output.gene_label = GeneLabel.Retrocopy
+                    if out1.gene_label == GeneLabel.Retrocopy:
+                        output.data_record = dataframe_1st
+                    elif out2.gene_label == GeneLabel.Retrocopy:
+                        output.data_record = dataframe_2nd
+                    else:
+                        raise ValueError
+                    return output
+                else:
+                    output.gene_label = GeneLabel.Single
+                    if out1.gene_label == GeneLabel.Single:
+                        output.data_record = dataframe_1st.iloc[0]
+                    elif out2.gene_label == GeneLabel.Single:
+                        output.data_record = dataframe_2nd.iloc[0]
+                    else:
+                        raise ValueError
+                    return output
             elif label_length.keys() == {GeneLabel.Fragmented, GeneLabel.Duplicated}:
                 if label_length[GeneLabel.Fragmented][0] > label_length[GeneLabel.Duplicated][0] * (1 + min_rise):
                     output.gene_label = GeneLabel.Fragmented
@@ -1028,6 +1084,44 @@ class MiniprotAlignmentParser:
                         output.data_record = dataframe_1st.iloc[0]
                     elif out2.gene_label == GeneLabel.Fragmented:
                         output.data_record = dataframe_2nd.iloc[0]
+                    else:
+                        raise ValueError
+                    return output
+                else:
+                    output.gene_label = GeneLabel.Duplicated
+                    if out1.gene_label == GeneLabel.Duplicated:
+                        output.data_record = dataframe_1st
+                    elif out2.gene_label == GeneLabel.Duplicated:
+                        output.data_record = dataframe_2nd
+                    else:
+                        raise ValueError
+                    return output
+            elif label_length.keys() == {GeneLabel.Fragmented, GeneLabel.Retrocopy}:
+                if label_length[GeneLabel.Fragmented][0] > label_length[GeneLabel.Retrocopy][0] * (1 + min_rise):
+                    output.gene_label = GeneLabel.Fragmented
+                    if out1.gene_label == GeneLabel.Fragmented:
+                        output.data_record = dataframe_1st.iloc[0]
+                    elif out2.gene_label == GeneLabel.Fragmented:
+                        output.data_record = dataframe_2nd.iloc[0]
+                    else:
+                        raise ValueError
+                    return output
+                else:
+                    output.gene_label = GeneLabel.Retrocopy
+                    if out1.gene_label == GeneLabel.Retrocopy:
+                        output.data_record = dataframe_1st
+                    elif out2.gene_label == GeneLabel.Retrocopy:
+                        output.data_record = dataframe_2nd
+                    else:
+                        raise ValueError
+                    return output
+            elif label_length.keys() == {GeneLabel.Duplicated, GeneLabel.Retrocopy}:
+                if label_length[GeneLabel.Retrocopy][0] > label_length[GeneLabel.Duplicated][0] * (1 + min_rise):
+                    output.gene_label = GeneLabel.Retrocopy
+                    if out1.gene_label == GeneLabel.Retrocopy:
+                        output.data_record = dataframe_1st
+                    elif out2.gene_label == GeneLabel.Retrocopy:
+                        output.data_record = dataframe_2nd
                     else:
                         raise ValueError
                     return output
@@ -1134,6 +1228,7 @@ class MiniprotAlignmentParser:
         fragmented_genes = []
         interspaced_genes = []
         missing_genes = []
+        retrocopy_genes = []
         records = []
         single_complete_proteins = []
         identities_list = []
@@ -1159,6 +1254,7 @@ class MiniprotAlignmentParser:
                  Identity,
                  Positive,
                  Codons,
+                 Num_introns,
                  Frameshift_events,
                  Frameshift_lengths,
                  Frame_shifts) = items.show()
@@ -1180,6 +1276,7 @@ class MiniprotAlignmentParser:
                                     Identity,
                                     Positive,
                                     (Protein_End - Protein_Start) * Identity,
+                                    Num_introns,
                                     Frameshift_events,
                                     Frameshift_lengths,
                                     Score,
@@ -1209,6 +1306,7 @@ class MiniprotAlignmentParser:
                                     0,
                                     0,
                                     "+",
+                                    0,
                                     0,
                                     0,
                                     0,
@@ -1251,6 +1349,7 @@ class MiniprotAlignmentParser:
                                                     "Identity",
                                                     "Positive",
                                                     "I+L",
+                                                    "Num_introns",
                                                     "Frameshift_events",
                                                     "Frameshift_lengths",
                                                     "Score",
@@ -1403,6 +1502,8 @@ class MiniprotAlignmentParser:
                     interspaced_genes.append(busco_name)
                 elif output.gene_label == GeneLabel.Missing:
                     missing_genes.append(busco_name)
+                elif output.gene_label == GeneLabel.Retrocopy:
+                    retrocopy_genes.append(busco_name)
                 else:
                     print("Error: output.gene_label!")
                     raise ValueError
@@ -1416,11 +1517,16 @@ class MiniprotAlignmentParser:
         full_table_busco_format_writer.close()
 
         total_busco_genes = len(all_busco_names)
-        d = total_busco_genes - len(single_genes) - len(duplicate_genes) - len(fragmented_genes) - len(
-            interspaced_genes) - len(missing_genes)
+        d = total_busco_genes - len(single_genes) - len(duplicate_genes) - len(retrocopy_genes) - len(fragmented_genes) \
+            - len(interspaced_genes) - len(missing_genes)
         print()
         print("S:{:.2f}%, {}".format(len(single_genes) / total_busco_genes * 100, len(single_genes)))
-        print("D:{:.2f}%, {}".format(len(duplicate_genes) / total_busco_genes * 100, len(duplicate_genes)))
+        if self.retrocopy:
+            print("D:{:.2f}%, {}".format(len(duplicate_genes) / total_busco_genes * 100, len(duplicate_genes)))
+            print("R:{:.2f}%, {}".format(len(retrocopy_genes) / total_busco_genes * 100, len(retrocopy_genes)))
+        else:
+            print("D:{:.2f}%, {}".format((len(duplicate_genes) + len(retrocopy_genes)) / total_busco_genes * 100,
+                                         len(duplicate_genes) + len(retrocopy_genes)))
         print("F:{:.2f}%, {}".format(len(fragmented_genes) / total_busco_genes * 100, len(fragmented_genes)))
         print("I:{:.2f}%, {}".format(len(interspaced_genes) / total_busco_genes * 100, len(interspaced_genes)))
         print("M:{:.2f}%, {}".format((len(missing_genes) + d) / total_busco_genes * 100, len(missing_genes) + d))
@@ -1439,11 +1545,16 @@ class MiniprotAlignmentParser:
             else:
                 fout.write("## lineage: xx_xx\n")
             fout.write("S:{:.2f}%, {}\n".format(len(single_genes) / total_busco_genes * 100, len(single_genes)))
-            fout.write("D:{:.2f}%, {}\n".format(len(duplicate_genes) / total_busco_genes * 100, len(duplicate_genes)))
+            if self.retrocopy:
+                fout.write("D:{:.2f}%, {}\n".format(len(duplicate_genes) / total_busco_genes * 100, len(duplicate_genes)))
+                fout.write("R:{:.2f}%, {}\n".format(len(retrocopy_genes) / total_busco_genes * 100, len(retrocopy_genes)))
+            else:
+                fout.write("D:{:.2f}%, {}\n".format((len(duplicate_genes) + len(retrocopy_genes)) / total_busco_genes * 100,
+                                                    len(duplicate_genes) + len(retrocopy_genes)))
             fout.write("F:{:.2f}%, {}\n".format(len(fragmented_genes) / total_busco_genes * 100, len(fragmented_genes)))
             fout.write("I:{:.2f}%, {}\n".format(len(interspaced_genes) / total_busco_genes * 100, len(interspaced_genes)))
-            fout.write(
-                "M:{:.2f}%, {}\n".format((len(missing_genes) + d) / total_busco_genes * 100, len(missing_genes) + d))
+            fout.write("M:{:.2f}%, {}\n".format((len(missing_genes) + d) / total_busco_genes * 100,
+                                                len(missing_genes) + d))
             fout.write("N:{}\n".format(total_busco_genes))
 
         with open(self.marker_gene_path, "w") as fout:
@@ -1453,7 +1564,7 @@ class MiniprotAlignmentParser:
 
 ### Compleasm Runner ###
 class CompleasmRunner:
-    def __init__(self, assembly_path, output_folder, library_path, lineage, odb, autolineage, nthreads, outs,
+    def __init__(self, assembly_path, output_folder, library_path, lineage, odb, autolineage, retrocopy, nthreads, outs,
                  miniprot_execute_command, hmmsearch_execute_command, sepp_execute_command, min_diff,
                  min_length_percent, min_identity, min_complete, min_rise, specified_contigs):
         if lineage is None:
@@ -1463,6 +1574,7 @@ class CompleasmRunner:
         self.lineage = lineage
         self.odb = odb
         self.autolineage = autolineage
+        self.retrocopy = retrocopy
         self.output_folder = output_folder
         self.library_path = library_path
         self.assembly_path = assembly_path
@@ -1521,6 +1633,7 @@ class CompleasmRunner:
                                                             min_rise=self.min_rise,
                                                             specified_contigs=self.specified_contigs,
                                                             autolineage=self.autolineage,
+                                                            retrocopy=self.retrocopy,
                                                             library_path=self.library_path,
                                                             hmmsearch_execute_command=self.hmmsearch_execute_command,
                                                             nthreads=self.nthreads)
@@ -1569,6 +1682,7 @@ class CompleasmRunner:
                                                                 min_rise=self.min_rise,
                                                                 specified_contigs=self.specified_contigs,
                                                                 autolineage=self.autolineage,
+                                                                retrocopy=self.retrocopy,
                                                                 library_path=self.library_path,
                                                                 hmmsearch_execute_command=self.hmmsearch_execute_command,
                                                                 nthreads=self.nthreads)
@@ -1600,8 +1714,10 @@ class ProteinRunner():
         self.completeness_output_file = os.path.join(output_folder, "summary.txt")
         self.full_table_output_file = os.path.join(output_folder, "full_table.tsv")
         self.library_path = library_path
+        self.odb = odb
         self.nthreads = nthreads
         self.hmmsearch_execute_command = hmmsearch_execute_command
+        self.downloader = Downloader(odb=odb, download_dir=library_path)
         if not os.path.exists(self.output_folder):
             os.mkdir(self.output_folder)
         self.hmmsearch_output_folder = os.path.join(self.output_folder, "{}_hmmsearch_output".format(self.lineage))
@@ -1610,14 +1726,15 @@ class ProteinRunner():
 
     def run(self):
         # 1. run hmmsearch
+        self.downloader.download_lineage(self.lineage, self.odb)
         hmm_profiles = os.path.join(self.library_path, self.lineage, "hmms")
         pool = Pool(self.nthreads)
         results = []
         protein_hmmsearch_output_dict = {}  ## key: hmm protein name, value: list of aligned hmm and complete or fragment
         for profile in os.listdir(hmm_profiles):
             outfile = profile.replace(".hmm", ".out")
-            target_specie = profile.replace(".hmm", "")
-            protein_hmmsearch_output_dict[target_specie] = []
+            short_busco_name = profile.replace(".hmm", "").split("at")[0]
+            protein_hmmsearch_output_dict[short_busco_name] = []
             absolute_path_outfile = os.path.join(self.hmmsearch_output_folder, outfile)
             absolute_path_profile = os.path.join(hmm_profiles, profile)
             results.append(pool.apply_async(run_hmmsearch2, args=(self.hmmsearch_execute_command, absolute_path_outfile,
@@ -1632,8 +1749,7 @@ class ProteinRunner():
         open(done_file, "w").close()
 
         # 2. parse hmmsearch output
-        score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
-        length_cutoff_dict = load_length_cutoff(os.path.join(self.library_path, self.lineage, "lengths_cutoff"))
+        score_cutoff_dict = load_score_cutoff_protein_mode(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
 
         for hmmsearch_output in os.listdir(self.hmmsearch_output_folder):
             outfile = os.path.join(self.hmmsearch_output_folder, hmmsearch_output)
@@ -1643,22 +1759,26 @@ class ProteinRunner():
                     if line.startswith('#'):
                         continue
                     line = line.strip().split()
-                    target_name = line[0]
-                    query_name = line[3]
+                    target_name = line[0]   # protein name
+                    query_name = line[3]    # short busco name
+                    qlen = int(line[5])
                     hmm_score = float(line[7])
                     hmm_from = int(line[15])
                     hmm_to = int(line[16])
                     env_from = int(line[19])
                     env_to = int(line[20])
                     assert hmm_to >= hmm_from
-                    if hmm_score < score_cutoff_dict[query_name]:
+
+                    short_busco_name = query_name
+                    if hmm_score < score_cutoff_dict[short_busco_name]:
                         # failed to pass the score cutoff
                         continue
-                    coords_dict[target_name].append((hmm_from, hmm_to, hmm_score, env_from, env_to))
+                    coords_dict[target_name].append((hmm_from, hmm_to, hmm_score, env_from, env_to, qlen))
                 for tname in coords_dict.keys():
                     coords = coords_dict[tname]
                     interval = []
                     coords = sorted(coords, key=lambda x: x[0])
+                    qlen = coords[0][5]
                     for i in range(len(coords)):
                         if i == 0:
                             interval.append([coords[0][0], coords[0][1]])
@@ -1671,38 +1791,39 @@ class ProteinRunner():
                             else:
                                 interval.append([coords[i][0], coords[i][1]])
                     match_length = sum([x[1] - x[0] for x in interval])
-                    if match_length >= length_cutoff_dict[query_name]["length"] - 2 * length_cutoff_dict[query_name]["sigma"]:
-                        protein_hmmsearch_output_dict[query_name].append((tname, 0, hmm_score, match_length))  # 0 means complete
+                    if match_length >= 0.8 * qlen:
+                        protein_hmmsearch_output_dict[short_busco_name].append((tname, 0, hmm_score, match_length))  # 0 means complete
                     else:
-                        protein_hmmsearch_output_dict[query_name].append((tname, 1, hmm_score, match_length))  # 1 means fragment
+                        protein_hmmsearch_output_dict[short_busco_name].append((tname, 1, hmm_score, match_length))  # 1 means fragment
 
         # 3. assign each protein to Single, Duplicate, Fragment or Missing
         full_table_writer = open(self.full_table_output_file, "w")
         full_table_writer.write("# Busco id\tStatus\tSequence\tScore\tLength\n")
-        protein_num = len(protein_hmmsearch_output_dict.keys())
-        single_copy_proteins, duplicate_proteins, fragmented_proteins, missing_proteins = [], [], [], []
-        for protein_name in protein_hmmsearch_output_dict.keys():
-            if len(protein_hmmsearch_output_dict[protein_name]) == 0:
-                missing_proteins.append(protein_name)
-                full_table_writer.write("{}\t{}\n".format(protein_name, "Missing"))
-            elif len(protein_hmmsearch_output_dict[protein_name]) == 1:
-                if protein_hmmsearch_output_dict[protein_name][0][1] == 0:
-                    single_copy_proteins.append(protein_name)
-                    full_table_writer.write("{}\t{}\t{}\t{}\t{}\n".format(protein_name, "Single",
-                                                                          protein_hmmsearch_output_dict[protein_name][0][0],
-                                                                          protein_hmmsearch_output_dict[protein_name][0][2],
-                                                                          protein_hmmsearch_output_dict[protein_name][0][3]))
-                elif protein_hmmsearch_output_dict[protein_name][0][1] == 1:
-                    fragmented_proteins.append(protein_name)
-                    full_table_writer.write("{}\t{}\t{}\t{}\t{}\n".format(protein_name, "Fragmented",
-                                                                          protein_hmmsearch_output_dict[protein_name][0][0],
-                                                                          protein_hmmsearch_output_dict[protein_name][0][2],
-                                                                          protein_hmmsearch_output_dict[protein_name][0][3]))
-            elif len(protein_hmmsearch_output_dict[protein_name]) > 1:
+        all_busco_names = set(protein_hmmsearch_output_dict.keys()).intersection(score_cutoff_dict.keys())
+        total_busco_genes = len(all_busco_names)
+        single_copy_genes, duplicate_genes, fragmented_genes, missing_genes = [], [], [], []
+        for short_busco_name in all_busco_names:
+            if len(protein_hmmsearch_output_dict[short_busco_name]) == 0:
+                missing_genes.append(short_busco_name)
+                full_table_writer.write("{}\t{}\n".format(short_busco_name, "Missing"))
+            elif len(protein_hmmsearch_output_dict[short_busco_name]) == 1:
+                if protein_hmmsearch_output_dict[short_busco_name][0][1] == 0:
+                    single_copy_genes.append(short_busco_name)
+                    full_table_writer.write("{}\t{}\t{}\t{}\t{}\n".format(short_busco_name, "Single",
+                                                                          protein_hmmsearch_output_dict[short_busco_name][0][0],
+                                                                          protein_hmmsearch_output_dict[short_busco_name][0][2],
+                                                                          protein_hmmsearch_output_dict[short_busco_name][0][3]))
+                elif protein_hmmsearch_output_dict[short_busco_name][0][1] == 1:
+                    fragmented_genes.append(short_busco_name)
+                    full_table_writer.write("{}\t{}\t{}\t{}\t{}\n".format(short_busco_name, "Fragmented",
+                                                                          protein_hmmsearch_output_dict[short_busco_name][0][0],
+                                                                          protein_hmmsearch_output_dict[short_busco_name][0][2],
+                                                                          protein_hmmsearch_output_dict[short_busco_name][0][3]))
+            elif len(protein_hmmsearch_output_dict[short_busco_name]) > 1:
                 nc, nf = 0, 0
                 complete_items = []     # list of (tname, score, length)
                 fragmented_items = []   # list of (tname, score, length)
-                for (q, v, s, l) in protein_hmmsearch_output_dict[protein_name]:
+                for (q, v, s, l) in protein_hmmsearch_output_dict[short_busco_name]:
                     if v == 0:
                         nc += 1
                         complete_items.append((q, s, l))
@@ -1714,26 +1835,26 @@ class ProteinRunner():
                 assert nc + nf >= 1
                 if nc == 0:
                     assert nf > 0
-                    fragmented_proteins.append(protein_name)
+                    fragmented_genes.append(short_busco_name)
                     for (tname, score, length) in fragmented_items:
-                        full_table_writer.write("{}\t{}\t{}\t{}\t{}\n".format(protein_name, "Fragmented", tname, score, length))
+                        full_table_writer.write("{}\t{}\t{}\t{}\t{}\n".format(short_busco_name, "Fragmented", tname, score, length))
                 elif nc == 1:
-                    single_copy_proteins.append(protein_name)
+                    single_copy_genes.append(short_busco_name)
                     for (tname, score, length) in complete_items:
-                        full_table_writer.write("{}\t{}\t{}\t{}\t{}\n".format(protein_name, "Single", tname, score, length))
+                        full_table_writer.write("{}\t{}\t{}\t{}\t{}\n".format(short_busco_name, "Single", tname, score, length))
                 elif nc > 1:
-                    duplicate_proteins.append(protein_name)
+                    duplicate_genes.append(short_busco_name)
                     for (tname, score, length) in complete_items:
-                        full_table_writer.write("{}\t{}\t{}\t{}\t{}\n".format(protein_name, "Duplicated", tname, score, length))
-        assert len(single_copy_proteins) + len(duplicate_proteins) + len(fragmented_proteins) + len(missing_proteins) == protein_num
+                        full_table_writer.write("{}\t{}\t{}\t{}\t{}\n".format(short_busco_name, "Duplicated", tname, score, length))
+        d = total_busco_genes - len(single_copy_genes) - len(duplicate_genes) - len(fragmented_genes) - len(missing_genes)
         full_table_writer.close()
         print()
-        print("S:{:.2f}%, {}".format(len(single_copy_proteins) / protein_num * 100, len(single_copy_proteins)))
-        print("D:{:.2f}%, {}".format(len(duplicate_proteins) / protein_num * 100, len(duplicate_proteins)))
-        print("F:{:.2f}%, {}".format(len(fragmented_proteins) / protein_num * 100, len(fragmented_proteins)))
+        print("S:{:.2f}%, {}".format(len(single_copy_genes) / total_busco_genes * 100, len(single_copy_genes)))
+        print("D:{:.2f}%, {}".format(len(duplicate_genes) / total_busco_genes * 100, len(duplicate_genes)))
+        print("F:{:.2f}%, {}".format(len(fragmented_genes) / total_busco_genes * 100, len(fragmented_genes)))
         # print("I:{:.2f}%, {}".format(len(interspaced_genes) / total_genes * 100, len(interspaced_genes)))
-        print("M:{:.2f}%, {}".format(len(missing_proteins) / protein_num * 100, len(missing_proteins)))
-        print("N:{}".format(protein_num))
+        print("M:{:.2f}%, {}".format((len(missing_genes) + d) / total_busco_genes * 100, len(missing_genes)+d))
+        print("N:{}".format(total_busco_genes))
         print()
 
         with open(self.completeness_output_file, 'a') as fout:
@@ -1741,11 +1862,11 @@ class ProteinRunner():
                 fout.write("## lineage: {}\n".format(self.lineage))
             else:
                 fout.write("## lineage: xx_xx\n")
-            fout.write("S:{:.2f}%, {}\n".format(len(single_copy_proteins) / protein_num * 100, len(single_copy_proteins)))
-            fout.write("D:{:.2f}%, {}\n".format(len(duplicate_proteins) / protein_num * 100, len(duplicate_proteins)))
-            fout.write("F:{:.2f}%, {}\n".format(len(fragmented_proteins) / protein_num * 100, len(fragmented_proteins)))
-            fout.write("M:{:.2f}%, {}\n".format(len(missing_proteins) / protein_num * 100, len(missing_proteins)))
-            fout.write("N:{}\n".format(protein_num))
+            fout.write("S:{:.2f}%, {}\n".format(len(single_copy_genes) / total_busco_genes * 100, len(single_copy_genes)))
+            fout.write("D:{:.2f}%, {}\n".format(len(duplicate_genes) / total_busco_genes * 100, len(duplicate_genes)))
+            fout.write("F:{:.2f}%, {}\n".format(len(fragmented_genes) / total_busco_genes * 100, len(fragmented_genes)))
+            fout.write("M:{:.2f}%, {}\n".format((len(missing_genes)+d) / total_busco_genes * 100, len(missing_genes)+d))
+            fout.write("N:{}\n".format(total_busco_genes))
 
 
 ### main function ###
@@ -1926,6 +2047,7 @@ def analyze(args):
                                  min_rise=args.min_rise,
                                  specified_contigs=args.specified_contigs,
                                  autolineage=False,
+                                 retrocopy=args.retrocopy,
                                  library_path=args.library_path,
                                  hmmsearch_execute_command=hmmsearch_execute_command,
                                  nthreads=args.threads)
@@ -1939,6 +2061,7 @@ def run(args):
     lineage = args.lineage
     odb = args.odb
     autolineage = args.autolineage
+    retrocopy = args.retrocopy
     nthreads = args.threads
     outs = args.outs
     ckdm = CheckDependency(args.miniprot_execute_path)
@@ -1968,6 +2091,7 @@ def run(args):
                          lineage=lineage,
                          odb=odb,
                          autolineage=autolineage,
+                         retrocopy=retrocopy,
                          nthreads=nthreads,
                          outs=outs,
                          miniprot_execute_command=miniprot_execute_command,
@@ -2046,6 +2170,8 @@ def main():
                                  help="Path to hmmsearch executable")
     analysis_parser.add_argument("--specified_contigs", type=str, nargs='+', default=None,
                                  help="Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.")
+    analysis_parser.add_argument("--retrocopy", action="store_true",
+                            help="Separate retrocopy genes from duplicated genes.")
     analysis_parser.add_argument("--min_diff", type=float, default=0.2,
                                  help="The thresholds for the best matching and second best matching.")
     analysis_parser.add_argument("--min_identity", type=float, default=0.4,
@@ -2078,6 +2204,8 @@ def main():
     run_parser.add_argument("--hmmsearch_execute_path", type=str, default=None, help="Path to hmmsearch executable")
     run_parser.add_argument("--autolineage", action="store_true",
                             help="Automatically search for the best matching lineage without specifying lineage file.")
+    run_parser.add_argument("--retrocopy", action="store_true",
+                            help="Separate retrocopy genes from duplicated genes.")
     run_parser.add_argument("--sepp_execute_path", type=str, default=None, help="Path to run_sepp.py executable")
     run_parser.add_argument("--min_diff", type=float, default=0.2,
                             help="The thresholds for the best matching and second best matching.")
