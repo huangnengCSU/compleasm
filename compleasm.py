@@ -846,7 +846,7 @@ class MiniprotAlignmentParser:
                         yield items
                     items.__init__()
                     fields = line.strip().split("\t")[1:]
-                    items.protein_name = fields[0]
+                    items.protein_name = fields[0]  # protein name: 36384at3699_50452_0:001875
                     items.protein_length = int(fields[1])
                     items.protein_start = int(fields[2])    # alignment start coordinate on protein, 0-based
                     items.protein_end = int(fields[3])
@@ -900,7 +900,7 @@ class MiniprotAlignmentParser:
                         items.codons.append("{}_{}_{}".format(codon_start, codon_end, codon_strand))
 
     @staticmethod
-    def record_1st_gene_label(dataframe, min_identity, min_complete, by_length=False, retrocopy=False):
+    def record_1st_gene_label(dataframe, min_identity, min_complete, retrocopy, by_length=False):
         # check records with same tid of the best record
         output = OutputFormat()
         protein_name = dataframe.iloc[0]["Protein_name"]
@@ -958,6 +958,7 @@ class MiniprotAlignmentParser:
                 nintrons = [x[3] for x in complete_regions]
                 zero_intron_count = sum([1 for x in nintrons if x == 0])    # no intron
                 non_zero_intron_count = sum([1 for x in nintrons if x > 0]) # with intron
+                # print("retrocopy: {}, zero_intron_count: {}, non_zero_intron_count: {}".format(retrocopy, zero_intron_count, non_zero_intron_count))
                 if len(set(ctgs)) > 1:
                     if retrocopy and non_zero_intron_count == 1 and zero_intron_count >= 1:
                         output.gene_label = GeneLabel.Retrocopy
@@ -980,16 +981,16 @@ class MiniprotAlignmentParser:
                     return output
 
     @staticmethod
-    def record_1st_2nd_gene_label(dataframe_1st, dataframe_2nd, min_identity, min_complete, min_rise, by_length=False):
+    def record_1st_2nd_gene_label(dataframe_1st, dataframe_2nd, min_identity, min_complete, min_rise, retrocopy, by_length=False):
         # check top 1st and 2nd records whether they are the same gene
         output = OutputFormat()
         # dataframe_1st = dataframe_1st[dataframe_1st["Identity"] >= min_identity]
         # dataframe_2nd = dataframe_2nd[dataframe_2nd["Identity"] >= min_identity]
         if dataframe_1st.shape[0] >= 1 and dataframe_2nd.shape[0] == 0:
-            out = MiniprotAlignmentParser.record_1st_gene_label(dataframe_1st, min_identity, min_complete, by_length)
+            out = MiniprotAlignmentParser.record_1st_gene_label(dataframe_1st, min_identity, min_complete, retrocopy, by_length)
             return out
         if dataframe_1st.shape[0] == 0 and dataframe_2nd.shape[0] >= 1:
-            out = MiniprotAlignmentParser.record_1st_gene_label(dataframe_2nd, min_identity, min_complete, by_length)
+            out = MiniprotAlignmentParser.record_1st_gene_label(dataframe_2nd, min_identity, min_complete, retrocopy, by_length)
             return out
         if dataframe_1st.shape[0] == 0 and dataframe_2nd.shape[0] == 0:
             output.gene_label = GeneLabel.Missing
@@ -1001,9 +1002,9 @@ class MiniprotAlignmentParser:
             protein_length2 = dataframe_2nd.iloc[0]["Protein_length"]
 
             label_length = defaultdict(list)
-            out1 = MiniprotAlignmentParser.record_1st_gene_label(dataframe_1st, min_identity, min_complete, by_length)
+            out1 = MiniprotAlignmentParser.record_1st_gene_label(dataframe_1st, min_identity, min_complete, retrocopy, by_length)
             label_length[out1.gene_label].append(protein_length1)
-            out2 = MiniprotAlignmentParser.record_1st_gene_label(dataframe_2nd, min_identity, min_complete, by_length)
+            out2 = MiniprotAlignmentParser.record_1st_gene_label(dataframe_2nd, min_identity, min_complete, retrocopy, by_length)
             label_length[out2.gene_label].append(protein_length2)
             if label_length.keys() == {GeneLabel.Single}:
                 output.gene_label = GeneLabel.Single
@@ -1139,7 +1140,7 @@ class MiniprotAlignmentParser:
                 raise ValueError
 
     @staticmethod
-    def Ost_eval(dataframe, difficial_rate, min_identity, min_complete, min_rise, by_length=False):
+    def Ost_eval(dataframe, difficial_rate, min_identity, min_complete, min_rise, retrocopy, by_length=False):
         if dataframe.shape[0] == 0:
             output = OutputFormat()
             output.gene_label = GeneLabel.Missing
@@ -1147,23 +1148,24 @@ class MiniprotAlignmentParser:
         if dataframe.shape[0] == 1:
             return MiniprotAlignmentParser.record_1st_gene_label(
                 dataframe[dataframe["Protein_name"] == dataframe.iloc[0]["Protein_name"]], min_identity, min_complete,
-                by_length)
+                retrocopy, by_length)
         record_1st = dataframe.iloc[0]
         record_1st_tid = record_1st["Protein_name"]
         record_2nd = dataframe.iloc[1]
         record_2nd_tid = record_2nd["Protein_name"]
         if (record_1st["I+L"] - record_2nd["I+L"]) / (record_2nd["I+L"] + 1e-9) >= difficial_rate:
             return MiniprotAlignmentParser.record_1st_gene_label(dataframe[dataframe["Protein_name"] == record_1st_tid],
-                                                                 min_identity, min_complete, by_length)
+                                                                 min_identity, min_complete, retrocopy, by_length)
         else:
             if record_1st_tid == record_2nd_tid:
                 return MiniprotAlignmentParser.record_1st_gene_label(
-                    dataframe[dataframe["Protein_name"] == record_1st_tid], min_identity, min_complete, by_length)
+                    dataframe[dataframe["Protein_name"] == record_1st_tid],
+                    min_identity, min_complete, retrocopy, by_length)
             else:
                 return MiniprotAlignmentParser.record_1st_2nd_gene_label(
                     dataframe[dataframe["Protein_name"] == record_1st_tid],
                     dataframe[dataframe["Protein_name"] == record_2nd_tid], min_identity, min_complete, min_rise,
-                    by_length)
+                    retrocopy, by_length)
 
     @staticmethod
     def refine_fragmented(dataframe):
@@ -1258,7 +1260,7 @@ class MiniprotAlignmentParser:
                  Frameshift_events,
                  Frameshift_lengths,
                  Frame_shifts) = items.show()
-                Busco_name = Protein_name.split("_")[0]
+                Busco_name = Protein_name.split("_")[0] # busco name: 36384at3699
                 if Contig_name != "*":
                     records.append([Busco_name,
                                     Protein_name,
@@ -1413,7 +1415,7 @@ class MiniprotAlignmentParser:
                     min_identity = 0
                     min_complete = 0
                     output = self.Ost_eval(mapped_records, self.min_diff, min_identity, min_complete, self.min_rise,
-                                           by_length=True)
+                                           self.retrocopy, by_length=True)
                     if output.gene_label == GeneLabel.Single:
                         single_complete_proteins.append(">{}\n{}\n".format(output.data_record["Protein_name"],
                                                                            output.data_record["Ata_seq"]))

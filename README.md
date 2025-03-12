@@ -18,6 +18,7 @@ compleasm_kit/compleasm.py run --autolineage -a hg38.fa -o hs38-mb
 
 ## Contents
 - [Getting Started](#getting-started)
+- [Updates](#updates)
 - [Installation](#installation)
   - [Conda Installation](#conda-installation)
   - [Docker Installation](#docker-installation)
@@ -35,6 +36,11 @@ compleasm_kit/compleasm.py run --autolineage -a hg38.fa -o hs38-mb
   - [Output description](#output-description)
 - [Citing compleasm](#cite-compleasm)
 
+
+## Updates
+### v0.2.7 (March 12, 2025)
+- Added support for BUSCO odb12 but not compatible with odb10 (v0.2.6 supports odb10)
+- Add a new `"duplicate"` class for retrocopies of a gene using the `--retrocopy` option.
 
 
 ## Installation
