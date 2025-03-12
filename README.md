@@ -138,7 +138,7 @@ evaluate genome completeness.
 python compleasm.py run [-h] -a ASSEMBLY_PATH -o OUTPUT_DIR [-t THREADS] [-l LINEAGE] [-L LIBRARY_PATH] [--odb ODB] 
                         [--specified_contigs SPECIFIED_CONTIGS [SPECIFIED_CONTIGS ...]] [--outs OUTS]
                         [--miniprot_execute_path MINIPROT_EXECUTE_PATH] 
-                        [--hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH] [--autolineage] 
+                        [--hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH] [--autolineage] [--retrocopy] 
                         [--sepp_execute_path SEPP_EXECUTE_PATH] [--min_diff MIN_DIFF]
                         [--min_identity MIN_IDENTITY] [--min_length_percent MIN_LENGTH_PERCENT] 
                         [--min_complete MIN_COMPLETE] [--min_rise MIN_RISE]
@@ -161,6 +161,7 @@ python compleasm.py run [-h] -a ASSEMBLY_PATH -o OUTPUT_DIR [-t THREADS] [-l LIN
   --hmmsearch_execute_path   Path to hmmsearch executable file.
                              If not specified, compleasm will search for hmmsearch in the directory where compleasm.py is located, the current execution directory, and system environment variables.
   --autolineage              Automatically search for the best matching lineage without specifying lineage file.
+  --retrocopy                Separate retrocopy genes from duplicated genes.
   --sepp_execute_path        Path to sepp executable file. This is required if you want to use the autolineage mode.
 ```
 
@@ -195,7 +196,7 @@ This will directly parse the provided miniprot alignment result to evaluate geno
 ```angular2html
 python compleasm.py analyze [-h] -g GFF -l LINEAGE -o OUTPUT_DIR [-t THREADS] [-L LIBRARY_PATH] [--odb ODB] 
                             [--hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH]
-                            [--specified_contigs SPECIFIED_CONTIGS [SPECIFIED_CONTIGS ...]] 
+                            [--specified_contigs SPECIFIED_CONTIGS [SPECIFIED_CONTIGS ...]] [--retrocopy]
                             [--min_diff MIN_DIFF] [--min_identity MIN_IDENTITY] 
                             [--min_length_percent MIN_LENGTH_PERCENT] 
                             [--min_complete MIN_COMPLETE]
@@ -213,6 +214,7 @@ python compleasm.py analyze [-h] -g GFF -l LINEAGE -o OUTPUT_DIR [-t THREADS] [-
   --hmmsearch_execute_path  Path to hmmsearch executable
                             If not specified, compleasm will search for hmmsearch in the directory where compleasm.py is located, the current execution directory, and system environment variables.
   --specified_contigs       Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.
+  --retrocopy               Separate retrocopy genes from duplicated genes.
 ```
 Threshold parameters are same as `run` module.
 
