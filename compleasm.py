@@ -1617,9 +1617,9 @@ class CompleasmRunner:
         self.downloader.download_lineage(lineage, self.odb)
         download_lineage_end_time = time.time()
         print("lineage: {}".format(lineage))
-        if "refseq_db.faa.gz" in self.downloader.lineage_description[lineage][3]:
+        if "refseq_db.faa.gz" in os.listdir(self.downloader.lineage_description[lineage][3]):
             lineage_filepath = os.path.join(self.downloader.lineage_description[lineage][3], "refseq_db.faa.gz")
-        elif "refseq_db.faa" in self.downloader.lineage_description[lineage][3]:
+        elif "refseq_db.faa" in os.listdir(self.downloader.lineage_description[lineage][3]):
             lineage_filepath = os.path.join(self.downloader.lineage_description[lineage][3], "refseq_db.faa")
         else:
             raise ValueError("`refseq_db.faa.gz` or `refseq_db.faa` not found in lineage!")
@@ -1672,9 +1672,9 @@ class CompleasmRunner:
                 return
             self.downloader.download_lineage(best_match_lineage, self.odb)
             lineage = best_match_lineage
-            if "refseq_db.faa.gz" in self.downloader.lineage_description[lineage][3]:
+            if "refseq_db.faa.gz" in os.listdir(self.downloader.lineage_description[lineage][3]):
                 lineage_filepath = os.path.join(self.downloader.lineage_description[lineage][3], "refseq_db.faa.gz")
-            elif "refseq_db.faa" in self.downloader.lineage_description[lineage][3]:
+            elif "refseq_db.faa" in os.listdir(self.downloader.lineage_description[lineage][3]):
                 lineage_filepath = os.path.join(self.downloader.lineage_description[lineage][3], "refseq_db.faa")
             else:
                 raise ValueError("`refseq_db.faa.gz` or `refseq_db.faa` not found in lineage!")
