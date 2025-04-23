@@ -171,9 +171,16 @@ class Downloader:
             if download_success:
                 tar = tarfile.open(download_path)
                 try:
-                    tar.extractall(self.download_dir, members=[tar.getmember('{}/refseq_db.faa.gz'.format(lineage)),
+                    if f"{lineage}/refseq_db.faa.gz" in tar.getnames():
+                        tar.extractall(self.download_dir, members=[tar.getmember('{}/refseq_db.faa.gz'.format(lineage)),
                                                                tar.getmember('{}/hmms'.format(lineage)),
                                                                tar.getmember('{}/scores_cutoff'.format(lineage))])
+                    elif f"{lineage}/refseq_db.faa" in tar.getnames():
+                        tar.extractall(self.download_dir, members=[tar.getmember('{}/refseq_db.faa'.format(lineage)),
+                                                                   tar.getmember('{}/hmms'.format(lineage)),
+                                                                   tar.getmember('{}/scores_cutoff'.format(lineage))])
+                    else:
+                        raise ValueError("`refseq_db.faa.gz` or `refseq_db.faa` not found in lineage!")
                     hmm_files = [u for u in tar.getnames() if ".hmm" in u]
                     tar.extractall(self.download_dir, members=[tar.getmember(u) for u in hmm_files])
                 except:
@@ -1610,7 +1617,12 @@ class CompleasmRunner:
         self.downloader.download_lineage(lineage, self.odb)
         download_lineage_end_time = time.time()
         print("lineage: {}".format(lineage))
-        lineage_filepath = os.path.join(self.downloader.lineage_description[lineage][3], "refseq_db.faa.gz")
+        if "refseq_db.faa.gz" in self.downloader.lineage_description[lineage][3]:
+            lineage_filepath = os.path.join(self.downloader.lineage_description[lineage][3], "refseq_db.faa.gz")
+        elif "refseq_db.faa" in self.downloader.lineage_description[lineage][3]:
+            lineage_filepath = os.path.join(self.downloader.lineage_description[lineage][3], "refseq_db.faa")
+        else:
+            raise ValueError("`refseq_db.faa.gz` or `refseq_db.faa` not found in lineage!")
         alignment_output_dir = os.path.join(self.output_folder, lineage)
         if not os.path.exists(alignment_output_dir):
             os.makedirs(alignment_output_dir)
@@ -1660,7 +1672,12 @@ class CompleasmRunner:
                 return
             self.downloader.download_lineage(best_match_lineage, self.odb)
             lineage = best_match_lineage
-            lineage_filepath = os.path.join(self.downloader.lineage_description[lineage][3], "refseq_db.faa.gz")
+            if "refseq_db.faa.gz" in self.downloader.lineage_description[lineage][3]:
+                lineage_filepath = os.path.join(self.downloader.lineage_description[lineage][3], "refseq_db.faa.gz")
+            elif "refseq_db.faa" in self.downloader.lineage_description[lineage][3]:
+                lineage_filepath = os.path.join(self.downloader.lineage_description[lineage][3], "refseq_db.faa")
+            else:
+                raise ValueError("`refseq_db.faa.gz` or `refseq_db.faa` not found in lineage!")
             alignment_output_dir = os.path.join(self.output_folder, lineage)
             if not os.path.exists(alignment_output_dir):
                 os.makedirs(alignment_output_dir)
