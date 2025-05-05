@@ -543,6 +543,22 @@ class GeneLabel(Enum):
     Missing = 5
     Retrocopy = 6
 
+    def __str__(self):
+        if self == GeneLabel.Single:
+            return "Single"
+        elif self == GeneLabel.Duplicated:
+            return "Duplicated"
+        elif self == GeneLabel.Fragmented:
+            return "Fragmented"
+        elif self == GeneLabel.Interspaced:
+            return "Interspaced"
+        elif self == GeneLabel.Missing:
+            return "Missing"
+        elif self == GeneLabel.Retrocopy:
+            return "Retrocopy"
+        else:
+            raise Error("Unknown gene label")
+
 
 class MiniprotGffItems:
     def __init__(self):
@@ -807,6 +823,7 @@ class MiniprotAlignmentParser:
         if lineage is None:
             self.completeness_output_file = os.path.join(self.run_folder, "summary.txt")
             self.full_table_output_file = os.path.join(self.run_folder, "full_table.tsv")
+            self.gff_output_file = os.path.join(self.run_folder, "detected_genes.gff")
             self.full_table_busco_format_output_file = os.path.join(self.run_folder, "full_table_busco_format.tsv")
         else:
             lineage = "{}_{}".format(lineage.strip().split("_")[0], odb)
@@ -815,6 +832,7 @@ class MiniprotAlignmentParser:
                 os.makedirs(self.run_folder)
             self.completeness_output_file = os.path.join(run_folder, "summary.txt")
             self.full_table_output_file = os.path.join(self.run_folder, "full_table.tsv")
+            self.gff_output_file = os.path.join(self.run_folder, "detected_genes.gff")
             self.full_table_busco_format_output_file = os.path.join(self.run_folder, "full_table_busco_format.tsv")
         self.library_path = library_path
         self.gff_file = gff_file
@@ -1376,6 +1394,8 @@ class MiniprotAlignmentParser:
         full_table_busco_format_writer = open(self.full_table_busco_format_output_file, "w")
         full_table_busco_format_writer.write("# Busco id\tStatus\tSequence\tGene Start\tGene End\t"
                                              "Strand\tScore\tLength\n")
+        gff_output_writer = open(self.gff_output_file, "w")
+        gff_output_writer.write("##gff-version 3\n")
 
         filtered_candidate_hits = []
         for rx in range(records_df.shape[0]):
@@ -1468,6 +1488,18 @@ class MiniprotAlignmentParser:
                                                                         output.data_record["Strand"],
                                                                         output.data_record["Score"],
                                                                         output.data_record["Protein_mapped_length"]))
+                        gff_gene_contig = output.data_record["Contig_name"]
+                        gff_gene_start = int(output.data_record["Contig_Start"]) + 1  # 0-based
+                        gff_gene_end = int(output.data_record["Contig_Stop"]) + 1  # 0-based
+                        gff_gene_strand = output.data_record["Strand"]
+                        gff_gene_status = output.gene_label.__str__()
+                        gff_busco_name = output.data_record["Busco_name"]
+                        gff_output_writer.write(
+                            f"{gff_gene_contig}\t.\tmRNA\t{gff_gene_start}\t{gff_gene_end}\t.\t{gff_gene_strand}\t.\tID={gff_busco_name};Status={gff_gene_status};\n")
+                        for cds in output.data_record["Codons"].split("|"):
+                            cds_start, cds_end, cds_strand = cds.split("_")  # 1-based
+                            gff_output_writer.write(
+                                f"{gff_gene_contig}\t.\tCDS\t{cds_start}\t{cds_end}\t.\t{cds_strand}\t.\tParent={gff_busco_name};\n")
                     else:
                         for dri in range(output.data_record.shape[0]):
                             identities_list.append(output.data_record.iloc[dri]["Identity"])
@@ -1501,6 +1533,19 @@ class MiniprotAlignmentParser:
                                     output.data_record.iloc[dri]["Strand"],
                                     output.data_record.iloc[dri]["Score"],
                                     output.data_record.iloc[dri]["Protein_mapped_length"]))
+
+                            gff_gene_contig = output.data_record.iloc[dri]["Contig_name"]
+                            gff_gene_start = int(output.data_record.iloc[dri]["Contig_Start"]) + 1  # 0-based
+                            gff_gene_end = int(output.data_record.iloc[dri]["Contig_Stop"]) + 1  # 0-based
+                            gff_gene_strand = output.data_record.iloc[dri]["Strand"]
+                            gff_gene_status = output.gene_label.__str__()
+                            gff_busco_name = output.data_record.iloc[dri]["Busco_name"]
+                            gff_output_writer.write(
+                                f"{gff_gene_contig}\t.\tmRNA\t{gff_gene_start}\t{gff_gene_end}\t.\t{gff_gene_strand}\t.\tID={gff_busco_name};Status={gff_gene_status};\n")
+                            for cds in output.data_record.iloc[dri]["Codons"].split("|"):
+                                cds_start, cds_end, cds_strand = cds.split("_")  # 1-based
+                                gff_output_writer.write(
+                                    f"{gff_gene_contig}\t.\tCDS\t{cds_start}\t{cds_end}\t.\t{cds_strand}\t.\tParent={gff_busco_name};\n")
                 if output.gene_label == GeneLabel.Single:
                     single_genes.append(busco_name)
                 elif output.gene_label == GeneLabel.Duplicated:
