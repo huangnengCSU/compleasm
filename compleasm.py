@@ -1819,7 +1819,7 @@ class ProteinRunner():
             outfile = os.path.join(self.hmmsearch_output_folder, hmmsearch_output)
             with open(outfile, 'r') as fin:
                 coords_dict = defaultdict(list)
-                hmm_results = []
+                gene_busco_dict = defaultdict(lambda: defaultdict(list))
                 for line in fin:
                     if line.startswith('#'):
                         continue
@@ -1838,12 +1838,8 @@ class ProteinRunner():
                     if hmm_score < score_cutoff_dict[short_busco_name]:
                         # failed to pass the score cutoff
                         continue
-                    # coords_dict[target_name].append((hmm_from, hmm_to, hmm_score, env_from, env_to, qlen))
-                    hmm_results.append((hmm_from, hmm_to, hmm_score, env_from, env_to, qlen))
-                highest_score = sorted(hmm_results, key=lambda x: x[2], reverse=True)[0][2] if len(hmm_results) > 0 else 0
-                for (hmm_from, hmm_to, hmm_score, env_from, env_to, qlen) in hmm_results:
-                    if hmm_score >= 0.85 * highest_score:
-                        coords_dict[target_name].append((hmm_from, hmm_to, hmm_score, env_from, env_to, qlen))
+                    coords_dict[target_name].append((hmm_from, hmm_to, hmm_score, env_from, env_to, qlen))
+                    gene_busco_dict[target_name][short_busco_name].append((hmm_from, hmm_to, hmm_score, env_from, env_to, qlen))
                 for tname in coords_dict.keys():
                     coords = coords_dict[tname]
                     interval = []
@@ -1865,6 +1861,35 @@ class ProteinRunner():
                         protein_hmmsearch_output_dict[short_busco_name].append((tname, 0, hmm_score, match_length))  # 0 means complete
                     else:
                         protein_hmmsearch_output_dict[short_busco_name].append((tname, 1, hmm_score, match_length))  # 1 means fragment
+
+        # one gene to multiple busco proteins, keep the best one
+        gene_busco_pair = defaultdict()
+        for short_busco_name, all_matches in protein_hmmsearch_output_dict.items():
+            for (gene_name, flag, score, length) in all_matches:
+                if gene_name not in gene_busco_pair:
+                    gene_busco_pair[gene_name] = (short_busco_name, score)
+                else:
+                    if score > gene_busco_pair[gene_name][1]:
+                        gene_busco_pair[gene_name] = (short_busco_name, score)
+        # one gene keep the best busco protein
+        for short_busco_name in protein_hmmsearch_output_dict.keys():
+            all_matches = protein_hmmsearch_output_dict[short_busco_name]
+            filtered_matches = []
+            for (gene_name, flag, score, length) in all_matches:
+                if gene_busco_pair[gene_name][0] == short_busco_name:
+                    filtered_matches.append((gene_name, flag, score, length))
+            protein_hmmsearch_output_dict[short_busco_name] = filtered_matches
+
+
+        # remove low qual matches
+        for short_busco_name in protein_hmmsearch_output_dict.keys():
+            all_matches = protein_hmmsearch_output_dict[short_busco_name]
+            highest_score = sorted(all_matches, key=lambda x: x[2], reverse=True)[0][2] if len(all_matches) > 0 else 0
+            filtered_matches = []
+            for (tname, flag, score, length) in all_matches:
+                if score >= 0.85 * highest_score:
+                    filtered_matches.append((tname, flag, score, length))
+            protein_hmmsearch_output_dict[short_busco_name] = filtered_matches
 
         # 3. assign each protein to Single, Duplicate, Fragment or Missing
         full_table_writer = open(self.full_table_output_file, "w")
