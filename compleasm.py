@@ -1819,6 +1819,7 @@ class ProteinRunner():
             outfile = os.path.join(self.hmmsearch_output_folder, hmmsearch_output)
             with open(outfile, 'r') as fin:
                 coords_dict = defaultdict(list)
+                hmm_results = []
                 for line in fin:
                     if line.startswith('#'):
                         continue
@@ -1837,7 +1838,12 @@ class ProteinRunner():
                     if hmm_score < score_cutoff_dict[short_busco_name]:
                         # failed to pass the score cutoff
                         continue
-                    coords_dict[target_name].append((hmm_from, hmm_to, hmm_score, env_from, env_to, qlen))
+                    # coords_dict[target_name].append((hmm_from, hmm_to, hmm_score, env_from, env_to, qlen))
+                    hmm_results.append((hmm_from, hmm_to, hmm_score, env_from, env_to, qlen))
+                highest_score = sorted(hmm_results, key=lambda x: x[2], reverse=True)[0][2] if len(hmm_results) > 0 else 0
+                for (hmm_from, hmm_to, hmm_score, env_from, env_to, qlen) in hmm_results:
+                    if hmm_score >= 0.85 * highest_score:
+                        coords_dict[target_name].append((hmm_from, hmm_to, hmm_score, env_from, env_to, qlen))
                 for tname in coords_dict.keys():
                     coords = coords_dict[tname]
                     interval = []
