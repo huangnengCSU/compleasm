@@ -211,10 +211,21 @@ class Downloader:
             for strain in self.placement_description.keys():
                 date, expected_hash, category = self.placement_description[strain]
                 if strain.startswith("supermatrix"):
-                    prefix, aln, version, sufix = strain.split(".")
+                    try:
+                        prefix, aln, version, sufix = strain.split(".")
+                    except ValueError:
+                        print(strain)
+                        prefix, aln, version, version2, sufix = strain.split(".")
+                        version = version + "." + version2
+                    
                     download_file_name = "{}.{}.{}.{}.{}.tar.gz".format(prefix, aln, version, date, sufix)
                 else:
-                    prefix, version, sufix = strain.split(".")
+                    try:
+                        prefix, version, sufix = strain.split(".")
+                    except ValueError:
+                        print(strain)
+                        prefix, version, version2, sufix = strain.split(".")
+                        version = version + "." + version2
                     download_file_name = "{}.{}.{}.{}.tar.gz".format(prefix, version, date, sufix)
 
                 if "eukaryota" not in download_file_name:
@@ -1658,6 +1669,9 @@ class CompleasmRunner:
             lineage = "eukaryota_{}".format(self.odb)
         else:
             lineage = self.lineage
+            if lineage.startswith("lineage"):
+                print("i knew it fuck you")
+                exit(1)
         download_lineage_start_time = time.time()
         self.downloader.download_lineage(lineage, self.odb)
         download_lineage_end_time = time.time()
