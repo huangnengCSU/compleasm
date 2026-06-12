@@ -111,29 +111,30 @@ class Downloader:
         if os.path.exists(file_version_download_path + ".tmp"):
             sys.exit("file_versions.tsv.tmp exists, another process is downloading, please run again later.")
 
-        if not os.path.exists(file_version_download_path + ".done"):
-            open(file_version_download_path + ".tmp", 'w').close()
-
-            # download hash file
-            try:
-                urllib.request.urlretrieve(hash_url, hash_download_path)
-            except URLError:
-                print("Cannot reach {}".format(hash_url))
-                os.remove(file_version_download_path + ".tmp")
+        # Always fetch the remote hash to detect when file_versions.tsv has been updated.
+        try:
+            urllib.request.urlretrieve(hash_url, hash_download_path)
+        except URLError:
+            if not os.path.exists(file_version_download_path):
                 raise Error("Unable to download necessary file {}".format("file_versions.tsv.hash"))
 
+            print("Warning: cannot reach {}, using cached file_versions.tsv".format(hash_url))
+        else:
             with open(hash_download_path, 'r') as fin:
                 expected_file_version_hash = fin.readline().strip().split()[0]
 
-            download_success = self.download_single_file(file_version_url,
-                                                         file_version_download_path,
-                                                         expected_file_version_hash)
-            if not download_success:
-                os.remove(file_version_download_path + ".tmp")
-                raise Error("Unable to download necessary file {}".format("file_versions.tsv"))
-            else:
-                open(file_version_download_path + ".done", 'w').close()
-                os.remove(file_version_download_path + ".tmp")
+            local_hash = md5(file_version_download_path) if os.path.exists(file_version_download_path) else None
+            if local_hash != expected_file_version_hash:
+                open(file_version_download_path + ".tmp", 'w').close()
+                download_success = self.download_single_file(file_version_url,
+                                                             file_version_download_path,
+                                                             expected_file_version_hash)
+                if not download_success:
+                    os.remove(file_version_download_path + ".tmp")
+                    raise Error("Unable to download necessary file {}".format("file_versions.tsv"))
+                else:
+                    open(file_version_download_path + ".done", 'w').close()
+                    os.remove(file_version_download_path + ".tmp")
 
         lineages_description_dict = {}
         placement_description_dict = {}
@@ -393,7 +394,7 @@ class AutoLineager:
                         taxid = match[0][7:].split(":")[0]
                     else:
                         taxid = match[0][1:].split(":")[0]
-                except IndexError as e:
+                except IndexError:
                     continue
                 if not taxid:
                     continue
