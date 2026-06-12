@@ -210,12 +210,11 @@ class Downloader:
 
             for strain in self.placement_description.keys():
                 date, expected_hash, category = self.placement_description[strain]
-                if strain.startswith("supermatrix"):
-                    prefix, aln, version, sufix = strain.split(".")
-                    download_file_name = "{}.{}.{}.{}.{}.tar.gz".format(prefix, aln, version, date, sufix)
-                else:
-                    prefix, version, sufix = strain.split(".")
-                    download_file_name = "{}.{}.{}.{}.tar.gz".format(prefix, version, date, sufix)
+                parts = strain.split(".")
+                prefix = parts[0]
+                sufix = parts[-1]
+                middle = ".".join(parts[1:-1])
+                download_file_name = "{}.{}.{}.{}.tar.gz".format(prefix, middle, date, sufix)
 
                 if "eukaryota" not in download_file_name:
                     continue
@@ -241,12 +240,11 @@ class Downloader:
         else:
             for strain in self.placement_description.keys():
                 date, expected_hash, category = self.placement_description[strain]
-                if strain.startswith("supermatrix"):
-                    prefix, aln, version, sufix = strain.split(".")
-                    download_file_name = "{}.{}.{}.{}.{}.tar.gz".format(prefix, aln, version, date, sufix)
-                else:
-                    prefix, version, sufix = strain.split(".")
-                    download_file_name = "{}.{}.{}.{}.tar.gz".format(prefix, version, date, sufix)
+                parts = strain.split(".")
+                prefix = parts[0]
+                sufix = parts[-1]
+                middle = ".".join(parts[1:-1])
+                download_file_name = "{}.{}.{}.{}.tar.gz".format(prefix, middle, date, sufix)
                 if "eukaryota" not in download_file_name:
                     continue
                 self.placement_description[strain].append(
