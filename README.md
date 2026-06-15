@@ -1,8 +1,8 @@
 ## Getting Started
 ```sh
 # download compleasm and its dependencies (miniprot and hmmsearch)
-wget https://github.com/huangnengCSU/compleasm/releases/download/v0.2.7/compleasm-0.2.7_x64-linux.tar.bz2
-tar -jxvf compleasm-0.2.7_x64-linux.tar.bz2
+wget https://github.com/huangnengCSU/compleasm/releases/download/v0.2.8/compleasm-0.2.8_x64-linux.tar.bz2
+tar -jxvf compleasm-0.2.8_x64-linux.tar.bz2
 
 # Install pandas if necessary
 pip3 install pandas                               # or conda install pandas
@@ -38,6 +38,9 @@ compleasm_kit/compleasm.py run --autolineage -a hg38.fa -o hs38-mb
 
 
 ## Updates
+### v0.2.8 (June 15, 2026)
+- Fix placement filename parsing failure when the ODB version contains a dot.
+
 ### v0.2.7 (March 12, 2025)
 - Added support for BUSCO odb12 but not compatible with odb10 (v0.2.6 supports odb10)
 - Add a new `"duplicate"` class for retrocopies of a gene using the `--retrocopy` option.
@@ -64,21 +67,21 @@ compleasm -h
 ### Docker Installation
 Compleasm can be installed with docker. If you don't have docker, please install [docker](https://docs.docker.com/get-docker/) first. Then you can pull the docker image with compleasm installed.
 ```angular2html
-VERSION=0.2.7
+VERSION=0.2.8
 docker run huangnengcsu/compleasm:v${VERSION} compleasm -h
 ```
 
 ### Singularity Installation
 Compleasm can be installed with singularity. If you don't have singularity, please install [singularity](https://docs.sylabs.io/guides/3.9/user-guide/quick_start.html#quick-installation-steps) first. Then you can pull the singularity image with compleasm installed.
 ```angular2html
-VERSION=0.2.7
+VERSION=0.2.8
 singularity exec docker://huangnengcsu/compleasm:v${VERSION} compleasm -h
 ```
 
 ### Release Installation
 ```angular2html
-wget https://github.com/huangnengCSU/compleasm/releases/download/v0.2.7/compleasm-0.2.7_x64-linux.tar.bz2
-tar -jxvf compleasm-0.2.7_x64-linux.tar.bz2
+wget https://github.com/huangnengCSU/compleasm/releases/download/v0.2.8/compleasm-0.2.8_x64-linux.tar.bz2
+tar -jxvf compleasm-0.2.8_x64-linux.tar.bz2
 compleasm_kit/compleasm.py -h
 ```
 
