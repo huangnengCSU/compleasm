@@ -13,7 +13,7 @@ compleasm_kit/compleasm.py run -t16 -l primates -a hg38.fa -o hg38-mb  # run the
 
 # Automatically detect lineage (requiring sepp)
 conda install -c bioconda sepp                    # if sepp hasn't been installed
-compleasm_kit/compleasm.py run --autolineage -a hg38.fa -o hs38-mb  
+compleasm_kit/compleasm.py run --autolineage -a hg38.fa -o hs38-mb
 ```
 
 ## Contents
@@ -48,12 +48,12 @@ compleasm_kit/compleasm.py run --autolineage -a hg38.fa -o hs38-mb
 
 ## Installation
 Compleasm is developed on python3.
-- Prequisites:  
-      [python3.*](https://www.python.org)  
-      [miniprot](https://github.com/lh3/miniprot)   
-      [hmmer](http://hmmer.org/)  
-      [sepp](https://github.com/smirarab/sepp)  
-- Dependencies:  
+- Perquisites:
+      [python3.*](https://www.python.org)
+      [miniprot](https://github.com/lh3/miniprot)
+      [hmmer](http://hmmer.org/)
+      [sepp](https://github.com/smirarab/sepp)
+- Dependencies:
   [pandas](https://pandas.pydata.org/docs/getting_started/install.html#installing-from-pypi)
 
 ### Conda Installation
@@ -102,7 +102,7 @@ cd miniprot && make
 
 #### Install hmmer:
 ```angular2html
-wget http://eddylab.org/software/hmmer/hmmer.tar.gz 
+wget http://eddylab.org/software/hmmer/hmmer.tar.gz
 tar zxf hmmer.tar.gz
 cd hmmer-3.3.2
 ./configure --prefix /your/install/path
@@ -138,12 +138,12 @@ protein sequences in the lineage file to the genome sequence with miniprot, and 
 evaluate genome completeness.
 #### Usage:
 ```angular2html
-python compleasm.py run [-h] -a ASSEMBLY_PATH -o OUTPUT_DIR [-t THREADS] [-l LINEAGE] [-L LIBRARY_PATH] [--odb ODB] 
+python compleasm.py run [-h] -a ASSEMBLY_PATH -o OUTPUT_DIR [-t THREADS] [-l LINEAGE] [-L LIBRARY_PATH] [--odb ODB]
                         [--specified_contigs SPECIFIED_CONTIGS [SPECIFIED_CONTIGS ...]] [--outs OUTS]
-                        [--miniprot_execute_path MINIPROT_EXECUTE_PATH] 
-                        [--hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH] [--autolineage] [--retrocopy] 
+                        [--miniprot_execute_path MINIPROT_EXECUTE_PATH]
+                        [--hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH] [--autolineage] [--retrocopy]
                         [--sepp_execute_path SEPP_EXECUTE_PATH] [--min_diff MIN_DIFF]
-                        [--min_identity MIN_IDENTITY] [--min_length_percent MIN_LENGTH_PERCENT] 
+                        [--min_identity MIN_IDENTITY] [--min_length_percent MIN_LENGTH_PERCENT]
                         [--min_complete MIN_COMPLETE] [--min_rise MIN_RISE]
 
 ```
@@ -154,12 +154,12 @@ python compleasm.py run [-h] -a ASSEMBLY_PATH -o OUTPUT_DIR [-t THREADS] [-l LIN
   -o, --output_dir           The output folder
   -t, --threads              Number of threads to use
   -l, --lineage              Specify the name of the BUSCO lineage to be used. (e.g. eukaryota, primates, saccharomycetes etc.)
-  -L, --library_path         Folder path to download lineages or already downloaded lineages. 
+  -L, --library_path         Folder path to download lineages or already downloaded lineages.
                              If not specified, a folder named "mb_downloads" will be created on the current running path by default to store the downloaded lineage files.
   --odb ODB                  OrthoDB version, default: odb12
   --specified_contigs        Specify the contigs to be evaluated, e.g. chr1 chr2 chr3. If not specified, all contigs will be evaluated.
   --outs                     output if score at least FLOAT*bestScore [0.95]
-  --miniprot_execute_path    Path to miniprot executable file. 
+  --miniprot_execute_path    Path to miniprot executable file.
                              If not specified, compleasm will search for miniprot in the directory where compleasm.py is located, the current execution directory, and system environment variables.
   --hmmsearch_execute_path   Path to hmmsearch executable file.
                              If not specified, compleasm will search for hmmsearch in the directory where compleasm.py is located, the current execution directory, and system environment variables.
@@ -197,11 +197,11 @@ python compleasm.py run -a genome.fasta -o output_dir -l eukaryota -t 8 --specif
 This will directly parse the provided miniprot alignment result to evaluate genome completeness. The execute command of miniprot should be like `miniprot --trans -u -I --outs=0.95 --gff -t 8 ref-file protein.faa > output.gff`.
 #### Usage:
 ```angular2html
-python compleasm.py analyze [-h] -g GFF -l LINEAGE -o OUTPUT_DIR [-t THREADS] [-L LIBRARY_PATH] [--odb ODB] 
+python compleasm.py analyze [-h] -g GFF -l LINEAGE -o OUTPUT_DIR [-t THREADS] [-L LIBRARY_PATH] [--odb ODB]
                             [--hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH]
                             [--specified_contigs SPECIFIED_CONTIGS [SPECIFIED_CONTIGS ...]] [--retrocopy]
-                            [--min_diff MIN_DIFF] [--min_identity MIN_IDENTITY] 
-                            [--min_length_percent MIN_LENGTH_PERCENT] 
+                            [--min_diff MIN_DIFF] [--min_identity MIN_IDENTITY]
+                            [--min_length_percent MIN_LENGTH_PERCENT]
                             [--min_complete MIN_COMPLETE]
                             [--min_rise MIN_RISE]
 
@@ -241,7 +241,7 @@ python compleasm.py download [-h] [-L LIBRARY_PATH] [--odb ODB] lineages [lineag
 
 #### Parameters:
 ```angular2html
-positional arguments:  
+positional arguments:
   lineages                Specify the names of the BUSCO lineages to be downloaded. (e.g. eukaryota, primates, saccharomycetes etc.)
 
 optional arguments:
@@ -265,7 +265,7 @@ python compleasm.py download saccharomycetes,primates,brassicales -L /path/to/li
 This will run miniprot alignment and output the gff file.
 #### Usage:
 ```angular2html
-python compleasm.py miniprot [-h] -a ASSEMBLY -p PROTEIN -o OUTDIR [-t THREADS] 
+python compleasm.py miniprot [-h] -a ASSEMBLY -p PROTEIN -o OUTDIR [-t THREADS]
                              [--miniprot_execute_path MINIPROT_EXECUTE_PATH]
 ```
 
@@ -276,7 +276,7 @@ python compleasm.py miniprot [-h] -a ASSEMBLY -p PROTEIN -o OUTDIR [-t THREADS]
   -o, --outdir               Miniprot alignment output directory
   -t, --threads              Number of threads to use
   --outs                     output if score at least FLOAT*bestScore [0.95]
-  --miniprot_execute_path    Path to miniprot executable file. 
+  --miniprot_execute_path    Path to miniprot executable file.
                              If not specified, compleasm will search for miniprot in the directory where compleasm.py is located, the current execution directory, and system environment variables.
 ```
 
@@ -317,7 +317,7 @@ python compleasm.py list --remote
 This will evaluate the completeness of input proteins.
 #### Usage:
 ```angular2html
-python compleasm.py protein [-h] -p PROTEINS -l LINEAGE -o OUTDIR [-t THREADS] [-L LIBRARY_PATH] 
+python compleasm.py protein [-h] -p PROTEINS -l LINEAGE -o OUTDIR [-t THREADS] [-L LIBRARY_PATH]
                             [--odb ODB] [--hmmsearch_execute_path HMMSEARCH_EXECUTE_PATH]
 ```
 
@@ -343,8 +343,8 @@ python compleasm.py protein -p input.faa -l eukaryota -t 8 -o output_dir
 
 
 ### Output description
-The assessment result by compleasm is saved in the file ```summary.txt``` in the output folder. These BUSCO genes are categorized into the following classes:   
-- **S** (**Single Copy Complete Genes**): The BUSCO genes that can be entirely aligned in the assembly, with only one copy present.  
+The assessment result by compleasm is saved in the file ```summary.txt``` in the output folder. These BUSCO genes are categorized into the following classes:
+- **S** (**Single Copy Complete Genes**): The BUSCO genes that can be entirely aligned in the assembly, with only one copy present.
 - **D** (**Duplicated Complete Genes**): The BUSCO genes that can be completely aligned in the assembly, with more than one copy present.
 - **F** (**Fragmented Genes, subclass 1**): The BUSCO genes which only a portion of the gene is present in the assembly, and the rest of the gene cannot be aligned.
 - **I** (**Fragmented Genes, subclass 2**): The BUSCO genes in which a section of the gene aligns to one position in the assembly, while the remaining part aligns to another position.
@@ -360,7 +360,3 @@ If you use compleasm, please cite:
 
 
 [doi]: https://doi.org/10.1093/bioinformatics/btad595
-
-
-
-

@@ -2146,7 +2146,7 @@ def run(args):
     if lineage is None and autolineage is False:
         sys.exit(
             "\n Usage error: Please specify the lineage name with -l. e.g. eukaryota, primates, saccharomycetes etc."
-            "\n Or specify --autolineage to automaticly search the best matching lineage\n")
+            "\n Or specify --autolineage to automatically search the best matching lineage\n")
 
     mr = CompleasmRunner(assembly_path=assembly_path,
                          output_folder=output_folder,
@@ -2244,7 +2244,7 @@ def main():
     analysis_parser.add_argument("--min_complete", type=float, default=0.9,
                                  help="The length threshold for complete gene.")
     analysis_parser.add_argument("--min_rise", type=float, default=0.5,
-                                 help="Minimum length threshold to make dupicate take precedence over single or fragmented over single/duplicate.")
+                                 help="Minimum length threshold to make duplicate take precedence over single or fragmented over single/duplicate.")
     analysis_parser.set_defaults(func=analyze)
 
     ### sub-command: run
@@ -2279,7 +2279,7 @@ def main():
     run_parser.add_argument("--min_complete", type=float, default=0.9,
                             help="The length threshold for complete gene.")
     run_parser.add_argument("--min_rise", type=float, default=0.5,
-                            help="Minimum length threshold to make dupicate take precedence over single or fragmented over single/duplicate.")
+                            help="Minimum length threshold to make duplicate take precedence over single or fragmented over single/duplicate.")
     run_parser.set_defaults(func=run)
 
     if len(sys.argv) == 1:
