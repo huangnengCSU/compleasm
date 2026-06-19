@@ -1,4 +1,4 @@
-FROM continuumio/miniconda3
+FROM anaconda/miniconda3
 USER root
 
 WORKDIR /app
