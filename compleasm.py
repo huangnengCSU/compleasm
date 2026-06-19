@@ -157,6 +157,9 @@ class Downloader:
         return lineages_description_dict, placement_description_dict
 
     def download_lineage(self, lineage):
+        odb_match = re.search(r'_odb(\d+)', lineage)
+        if odb_match and int(odb_match.group(1)) > 10:
+            sys.exit("odb{} is not supported, only odb10 is supported.".format(odb_match.group(1)))
         if not lineage.endswith("_odb10"):
             lineage = lineage + "_odb10"
         if os.path.exists(os.path.join(self.download_dir, lineage) + ".tmp"):
@@ -230,13 +233,26 @@ class Downloader:
         if not os.path.exists(self.placement_dir + ".done"):
             open(self.placement_dir + ".tmp", 'w').close()
 
+            warned_odb_versions = set()
             for strain in self.placement_description.keys():
+                if "_odb10" not in strain:
+                    odb_match = re.search(r'_odb(\d+)', strain)
+                    if odb_match:
+                        odb_ver = "odb{}".format(odb_match.group(1))
+                        if odb_ver not in warned_odb_versions:
+                            print("Warning: {} is not supported, only odb10 is supported. Skipping {} files.".format(
+                                odb_ver, odb_ver))
+                            warned_odb_versions.add(odb_ver)
+                    continue
                 date, expected_hash, category = self.placement_description[strain]
+                parts = strain.split(".")
                 if strain.startswith("supermatrix"):
-                    prefix, aln, version, sufix = strain.split(".")
+                    prefix, aln, sufix = parts[0], parts[1], parts[-1]
+                    version = ".".join(parts[2:-1])
                     download_file_name = "{}.{}.{}.{}.{}.tar.gz".format(prefix, aln, version, date, sufix)
                 else:
-                    prefix, version, sufix = strain.split(".")
+                    prefix, sufix = parts[0], parts[-1]
+                    version = ".".join(parts[1:-1])
                     download_file_name = "{}.{}.{}.{}.tar.gz".format(prefix, version, date, sufix)
 
                 if "eukaryota" not in download_file_name:
@@ -261,13 +277,26 @@ class Downloader:
             open(self.placement_dir + ".done", 'w').close()
             os.remove(self.placement_dir + ".tmp")
         else:
+            warned_odb_versions = set()
             for strain in self.placement_description.keys():
+                if "_odb10" not in strain:
+                    odb_match = re.search(r'_odb(\d+)', strain)
+                    if odb_match:
+                        odb_ver = "odb{}".format(odb_match.group(1))
+                        if odb_ver not in warned_odb_versions:
+                            print("Warning: {} is not supported, only odb10 is supported. Skipping {} files.".format(
+                                odb_ver, odb_ver))
+                            warned_odb_versions.add(odb_ver)
+                    continue
                 date, expected_hash, category = self.placement_description[strain]
+                parts = strain.split(".")
                 if strain.startswith("supermatrix"):
-                    prefix, aln, version, sufix = strain.split(".")
+                    prefix, aln, sufix = parts[0], parts[1], parts[-1]
+                    version = ".".join(parts[2:-1])
                     download_file_name = "{}.{}.{}.{}.{}.tar.gz".format(prefix, aln, version, date, sufix)
                 else:
-                    prefix, version, sufix = strain.split(".")
+                    prefix, sufix = parts[0], parts[-1]
+                    version = ".".join(parts[1:-1])
                     download_file_name = "{}.{}.{}.{}.tar.gz".format(prefix, version, date, sufix)
                 if "eukaryota" not in download_file_name:
                     continue
