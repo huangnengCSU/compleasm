@@ -1428,7 +1428,7 @@ class MiniprotAlignmentParser:
             if self.specified_contigs is not None:
                 if len(all_contig_names & set(self.specified_contigs)) == 0:
                     raise Exception("No contigs found in the specified contigs!")
-            grouped_filtered_records_df = filtered_records_df.groupby(["Busco_name"])
+            grouped_filtered_records_df = filtered_records_df.groupby("Busco_name")
 
             # remaining genes
             for busco_name in filtered_busco_names:
