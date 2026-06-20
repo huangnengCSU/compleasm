@@ -1304,7 +1304,7 @@ class MiniprotAlignmentParser:
             if self.specified_contigs is not None:
                 if len(set(all_contigs) & set(self.specified_contigs)) == 0:
                     raise Exception("No contigs found in the specified contigs!")
-            grouped_df = records_df.groupby(["Target_species"])
+            grouped_df = records_df.groupby("Target_species")
 
             # remaining genes
             for gene_id in filtered_species:
@@ -1554,7 +1554,7 @@ class MiniprotAlignmentParser:
         if self.specified_contigs is not None:
             if len(set(all_contigs) & set(self.specified_contigs)) == 0:
                 raise Exception("No contigs found in the specified contigs!")
-        grouped_df = records_df.groupby(["Target_species"])
+        grouped_df = records_df.groupby("Target_species")
         full_table_writer = open(self.full_table_output_file, "w")
         full_table_writer.write(
             "Gene\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tIdentity\tFraction\tFrameshift events\tBest gene\tCodons\n")
