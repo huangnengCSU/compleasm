@@ -73,8 +73,12 @@ class Downloader:
     def __init__(self, download_dir=None, download_lineage=True, download_placement=True):
         self.base_url = "https://busco-data.ezlab.org/v5/data/"
         self.default_lineage = ["eukaryota_odb10"]
-        if download_dir is None:
-            self.download_dir = "mb_downloads"
+        if download_dir == None:
+            library_path_env = os.getenv("COMPLEASM_LIBRARY_PATH")
+            if library_path_env is None:
+                self.download_dir = "mb_downloads"
+            else:
+                self.download_dir = library_path_env
         else:
             self.download_dir = download_dir
 
@@ -2664,9 +2668,10 @@ def main():
     download_parser = subparser.add_parser("download", help="Download specified BUSCO lineages")
     download_parser.add_argument("lineages", type=str, nargs='+',
                                  help="Specify the names of the BUSCO lineages to be downloaded. (e.g. eukaryota, primates, saccharomycetes etc.)")
-    download_parser.add_argument("-L", "--library_path", type=str, default="mb_downloads",
-                                 help="The destination folder to store the downloaded lineage files."
-                                      "If not specified, a folder named \"mb_downloads\" will be created on the current running path.")
+    download_parser.add_argument("-L", "--library_path", type=str, default=None,
+                                 help="The destination folder to store the downloaded lineage files. "
+                                      "If not specified, the environment variable COMPLEASM_LIBRARY_PATH is used. "
+                                      "If that is not set, a folder named \"mb_downloads\" will be created on the current running path.")
     download_parser.set_defaults(func=download)
 
     ### sub-command: list
@@ -2682,8 +2687,10 @@ def main():
     protein_parser.add_argument("-l", "--lineage", type=str, help="BUSCO lineage name", required=True)
     protein_parser.add_argument("-o", "--outdir", type=str, help="Output analysis folder", required=True)
     protein_parser.add_argument("-t", "--threads", type=int, help="Number of threads to use", default=1)
-    protein_parser.add_argument("-L", "--library_path", type=str, default="mb_downloads",
-                                help="Folder path to stored lineages. ")
+    protein_parser.add_argument("-L", "--library_path", type=str, default=None,
+                                help="Folder path to stored lineages. "
+                                     "If not specified, the environment variable COMPLEASM_LIBRARY_PATH is used. "
+                                     "If that is not set, a folder named \"mb_downloads\" on the current running path will be used.")
     protein_parser.add_argument("--hmmsearch_execute_path", type=str, default=None, help="Path to hmmsearch executable")
     protein_parser.set_defaults(func=protein_fun)
 
@@ -2708,8 +2715,10 @@ def main():
     analysis_parser.add_argument("-l", "--lineage", type=str, help="BUSCO lineage name", required=True)
     analysis_parser.add_argument("-o", "--output_dir", type=str, help="Output analysis folder", required=True)
     analysis_parser.add_argument("-t", "--threads", type=int, help="Number of threads to use", default=1)
-    analysis_parser.add_argument("-L", "--library_path", type=str, default="mb_downloads",
-                                 help="Folder path to stored lineages. ")
+    analysis_parser.add_argument("-L", "--library_path", type=str, default=None,
+                                 help="Folder path to stored lineages. "
+                                      "If not specified, the environment variable COMPLEASM_LIBRARY_PATH is used. "
+                                      "If that is not set, a folder named \"mb_downloads\" on the current running path will be used.")
     analysis_parser.add_argument("-m", "--mode", type=str, choices=["lite", "busco"], default="busco",
                                  help="The mode of evaluation. dafault mode: busco.\n"
                                       "lite:  Without using hmmsearch to filtering protein alignment.\n"
@@ -2738,9 +2747,10 @@ def main():
     run_parser.add_argument("-t", "--threads", type=int, default=1, help="Number of threads to use")
     run_parser.add_argument("-l", "--lineage", type=str, default=None,
                             help="Specify the name of the BUSCO lineage to be used. (e.g. eukaryota, primates, saccharomycetes etc.)")
-    run_parser.add_argument("-L", "--library_path", type=str, default="mb_downloads",
+    run_parser.add_argument("-L", "--library_path", type=str, default=None,
                             help="Folder path to download lineages or already downloaded lineages. "
-                                 "If not specified, a folder named \"mb_downloads\" will be created on the current running path by default to store the downloaded lineage files.")
+                                 "If not specified, the environment variable COMPLEASM_LIBRARY_PATH is used. "
+                                 "If that is not set, a folder named \"mb_downloads\" on the current running path will be used or created.")
     run_parser.add_argument("-m", "--mode", type=str, choices=["lite", "busco"], default="busco",
                             help="The mode of evaluation. dafault mode: busco.\n"
                                  "lite:  Without using hmmsearch to filtering protein alignment.\n"
@@ -2771,6 +2781,13 @@ def main():
         sys.exit()
 
     args = parser.parse_args()
+    # if --library_path unspecified, check COMPLEASM_LIBRARY_PATH. If unset, use "mb_downloads" as default
+    if args.library_path == None:
+        library_path_env = os.getenv("COMPLEASM_LIBRARY_PATH")
+        if library_path_env is None:
+            args.library_path = "mb_downloads"
+        else:
+            args.library_path = library_path_env
     args.func(args)
 
 
