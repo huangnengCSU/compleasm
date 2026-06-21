@@ -1308,7 +1308,7 @@ class MiniprotAlignmentParser:
 
             # remaining genes
             for gene_id in filtered_species:
-                mapped_records = grouped_df.get_group(gene_id)
+                mapped_records = grouped_df.get_group((gene_id,))
                 mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
                 if self.specified_contigs is not None:
                     mapped_records = mapped_records[mapped_records["Contig_id"].isin(self.specified_contigs)]
@@ -1571,7 +1571,7 @@ class MiniprotAlignmentParser:
             full_table_busco_format_writer.write(
                 "# Busco id\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tOrthoDB url\tDescription\n")
         for gene_id in all_species:
-            mapped_records = grouped_df.get_group(gene_id)
+            mapped_records = grouped_df.get_group((gene_id,))
             mapped_records = mapped_records.sort_values(by=["I+L"], ascending=False)
             if self.specified_contigs is not None:
                 mapped_records = mapped_records[mapped_records["Contig_id"].isin(self.specified_contigs)]
