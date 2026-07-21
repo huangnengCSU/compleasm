@@ -723,7 +723,11 @@ def load_score_cutoff_protein_mode(scores_cutoff_file):
     return cutoff_dict
 
 
-def load_length_cutoff(lengths_cutoff_file):
+def load_length_cutoff(lengths_cutoff_file, odb):
+    """Load lengths_cutoff file. Format differs by odb version:
+    odb10:   id  type  sigma  mean_length   (4 cols, col[2]=sigma, col[3]=mean)
+    odb12.2+: id  median  smad             (3 cols, col[1]=median, col[2]=scaled MAD)
+    """
     cutoff_dict = {}
     try:
         with open(lengths_cutoff_file, "r") as f:
@@ -731,13 +735,15 @@ def load_length_cutoff(lengths_cutoff_file):
                 line = line.strip().split()
                 try:
                     taxid = line[0]
-                    sigma = float(line[2])
-                    length = float(line[3])
-                    if sigma == 0.0:
-                        sigma = 1
-                    cutoff_dict[taxid] = {}
-                    cutoff_dict[taxid]["sigma"] = sigma
-                    cutoff_dict[taxid]["length"] = length
+                    if odb == "odb10":
+                        sigma = float(line[2])
+                        length = float(line[3])
+                        if sigma == 0.0:
+                            sigma = 1
+                    else:
+                        length = float(line[1])
+                        sigma = float(line[2])
+                    cutoff_dict[taxid] = {"length": length, "sigma": sigma}
                 except IndexError:
                     raise Error("Error parsing the lengths_cutoff file.")
     except IOError:
@@ -749,17 +755,20 @@ def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
     reliable_mappings = {}
     reliable_mappings_qlen = {}
     hmm_length_dict = {}
+    hmm_tlen_dict = {}
     for outfile in os.listdir(hmmsearch_output_folder):
         outfile = os.path.join(hmmsearch_output_folder, outfile)
         with open(outfile, 'r') as fin:
             best_protein = None
             coords_dict = defaultdict(list)
+            best_protein_tlen = None
             for line in fin:
                 if line.startswith('#'):
                     continue
                 line = line.strip().split()
                 target_name = line[0]
                 query_name = line[3]
+                tlen = int(line[2])
                 qlen = int(line[5])
                 hmm_score = float(line[7])
                 hmm_from = int(line[15])
@@ -770,7 +779,8 @@ def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
                 short_busco_name = busco_name.split("at")[0]
 
                 ## query name must match the target name
-                if short_busco_name != query_name:
+                ## odb10 HMMs use full id (e.g. "1001705at2759") while odb12/odb12.2 use short id (e.g. "1001705")
+                if query_name != busco_name and query_name != short_busco_name:
                     continue
                 ## save records of the best candidate only (maybe duplicated)
                 if best_protein is not None and best_protein != protein_name:
@@ -781,6 +791,7 @@ def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
                 location = target_name.split("|", maxsplit=1)[1]
                 coords_dict[location].append((hmm_from, hmm_to))
                 best_protein = protein_name
+                best_protein_tlen = tlen
             for location in coords_dict.keys():
                 coords = coords_dict[location]
                 keyname = "{}|{}".format(best_protein, location)
@@ -806,10 +817,12 @@ def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
                         else:
                             raise Error("Error parsing the hmmsearch output file {}.".format(outfile))
                 hmm_length_dict[keyname] = interval[2]
+                if best_protein_tlen is not None:
+                    hmm_tlen_dict[keyname] = best_protein_tlen
     reliable_mappings = list(reliable_mappings.keys())
     if len(reliable_mappings) == 0:
         print("Warning: no reliable mappings found. All candidates do not pass the cutoff of BUSCO gene.")
-    return reliable_mappings, reliable_mappings_qlen, hmm_length_dict
+    return reliable_mappings, reliable_mappings_qlen, hmm_length_dict, hmm_tlen_dict
 
 
 class MiniprotAlignmentParser:
@@ -836,6 +849,7 @@ class MiniprotAlignmentParser:
         self.library_path = library_path
         self.gff_file = gff_file
         self.lineage = lineage
+        self.odb = odb
         self.retrocopy = retrocopy
         self.min_length_percent = min_length_percent
         self.min_diff = min_diff
@@ -852,6 +866,12 @@ class MiniprotAlignmentParser:
 
         if not os.path.exists(self.hmm_output_folder):
             os.makedirs(self.hmm_output_folder)
+
+        lengths_cutoff_path = os.path.join(self.library_path, self.lineage, "lengths_cutoff") if self.lineage else None
+        if lengths_cutoff_path and os.path.exists(lengths_cutoff_path):
+            self.length_cutoff_dict = load_length_cutoff(lengths_cutoff_path, odb)
+        else:
+            self.length_cutoff_dict = {}
 
     @staticmethod
     def parse_miniprot_records(gff_file):
@@ -924,7 +944,31 @@ class MiniprotAlignmentParser:
                         items.codons.append("{}_{}_{}".format(codon_start, codon_end, codon_strand))
 
     @staticmethod
-    def record_1st_gene_label(dataframe, min_identity, min_complete, retrocopy, by_length=False):
+    def _is_complete(row, length_cutoff_dict, odb):
+        """Determine if an alignment is complete based on odb version.
+
+        odb10:   Complete if hmm_matched_length >= mean_length - 2*sigma
+        odb12.2: Complete if tlen (full translated protein length) >= lower_bound
+        odb12:   Complete if hmm_matched_length >= 0.8 * qlen
+        """
+        busco_name = row["Busco_name"]
+        size = row["tlen"] if odb == "odb12.2" else row["Protein_mapped_length"]
+        qlen = row["qlen"]
+        if length_cutoff_dict and busco_name in length_cutoff_dict:
+            ref_length = length_cutoff_dict[busco_name]["length"]
+            sigma = length_cutoff_dict[busco_name]["sigma"]
+            if odb == "odb10":
+                return size >= ref_length - 2 * sigma
+            else:
+                margin = min(25.0, 2 * sigma)
+                lower_bound = min(0.9 * ref_length, ref_length - margin, 0.8 * qlen)
+                return size >= lower_bound
+        else:
+            return size >= 0.8 * qlen
+
+    @staticmethod
+    def record_1st_gene_label(dataframe, min_identity, min_complete, retrocopy, by_length=False,
+                              length_cutoff_dict=None, odb="odb12"):
         # check records with same tid of the best record
         output = OutputFormat()
         protein_name = dataframe.iloc[0]["Protein_name"]
@@ -934,7 +978,7 @@ class MiniprotAlignmentParser:
             return output
         elif dataframe.shape[0] == 1:
             if by_length:
-                if dataframe.iloc[0]["Protein_mapped_length"] >= 0.8 * dataframe.iloc[0]["qlen"]:
+                if MiniprotAlignmentParser._is_complete(dataframe.iloc[0], length_cutoff_dict, odb):
                     output.gene_label = GeneLabel.Single
                     output.data_record = dataframe.iloc[0]
                     return output
@@ -956,7 +1000,7 @@ class MiniprotAlignmentParser:
             fragmented_regions = []
             for i in range(dataframe.shape[0]):
                 if by_length:
-                    if dataframe.iloc[i]["Protein_mapped_length"] >= 0.8 * dataframe.iloc[i]["qlen"]:
+                    if MiniprotAlignmentParser._is_complete(dataframe.iloc[i], length_cutoff_dict, odb):
                         complete_regions.append(
                             (dataframe.iloc[i]["Contig_name"], dataframe.iloc[i]["Contig_Start"], dataframe.iloc[i]["Contig_Stop"], dataframe.iloc[i]["Num_introns"]))
                     else:
@@ -1005,16 +1049,17 @@ class MiniprotAlignmentParser:
                     return output
 
     @staticmethod
-    def record_1st_2nd_gene_label(dataframe_1st, dataframe_2nd, min_identity, min_complete, min_rise, retrocopy, by_length=False):
+    def record_1st_2nd_gene_label(dataframe_1st, dataframe_2nd, min_identity, min_complete, min_rise, retrocopy,
+                                  by_length=False, length_cutoff_dict=None, odb="odb12"):
         # check top 1st and 2nd records whether they are the same gene
         output = OutputFormat()
         # dataframe_1st = dataframe_1st[dataframe_1st["Identity"] >= min_identity]
         # dataframe_2nd = dataframe_2nd[dataframe_2nd["Identity"] >= min_identity]
         if dataframe_1st.shape[0] >= 1 and dataframe_2nd.shape[0] == 0:
-            out = MiniprotAlignmentParser.record_1st_gene_label(dataframe_1st, min_identity, min_complete, retrocopy, by_length)
+            out = MiniprotAlignmentParser.record_1st_gene_label(dataframe_1st, min_identity, min_complete, retrocopy, by_length, length_cutoff_dict, odb)
             return out
         if dataframe_1st.shape[0] == 0 and dataframe_2nd.shape[0] >= 1:
-            out = MiniprotAlignmentParser.record_1st_gene_label(dataframe_2nd, min_identity, min_complete, retrocopy, by_length)
+            out = MiniprotAlignmentParser.record_1st_gene_label(dataframe_2nd, min_identity, min_complete, retrocopy, by_length, length_cutoff_dict, odb)
             return out
         if dataframe_1st.shape[0] == 0 and dataframe_2nd.shape[0] == 0:
             output.gene_label = GeneLabel.Missing
@@ -1026,9 +1071,9 @@ class MiniprotAlignmentParser:
             protein_length2 = dataframe_2nd.iloc[0]["Protein_length"]
 
             label_length = defaultdict(list)
-            out1 = MiniprotAlignmentParser.record_1st_gene_label(dataframe_1st, min_identity, min_complete, retrocopy, by_length)
+            out1 = MiniprotAlignmentParser.record_1st_gene_label(dataframe_1st, min_identity, min_complete, retrocopy, by_length, length_cutoff_dict, odb)
             label_length[out1.gene_label].append(protein_length1)
-            out2 = MiniprotAlignmentParser.record_1st_gene_label(dataframe_2nd, min_identity, min_complete, retrocopy, by_length)
+            out2 = MiniprotAlignmentParser.record_1st_gene_label(dataframe_2nd, min_identity, min_complete, retrocopy, by_length, length_cutoff_dict, odb)
             label_length[out2.gene_label].append(protein_length2)
             if label_length.keys() == {GeneLabel.Single}:
                 output.gene_label = GeneLabel.Single
@@ -1164,7 +1209,8 @@ class MiniprotAlignmentParser:
                 raise ValueError
 
     @staticmethod
-    def Ost_eval(dataframe, difficial_rate, min_identity, min_complete, min_rise, retrocopy, by_length=False):
+    def Ost_eval(dataframe, difficial_rate, min_identity, min_complete, min_rise, retrocopy, by_length=False,
+                 length_cutoff_dict=None, odb="odb12"):
         if dataframe.shape[0] == 0:
             output = OutputFormat()
             output.gene_label = GeneLabel.Missing
@@ -1172,24 +1218,25 @@ class MiniprotAlignmentParser:
         if dataframe.shape[0] == 1:
             return MiniprotAlignmentParser.record_1st_gene_label(
                 dataframe[dataframe["Protein_name"] == dataframe.iloc[0]["Protein_name"]], min_identity, min_complete,
-                retrocopy, by_length)
+                retrocopy, by_length, length_cutoff_dict, odb)
         record_1st = dataframe.iloc[0]
         record_1st_tid = record_1st["Protein_name"]
         record_2nd = dataframe.iloc[1]
         record_2nd_tid = record_2nd["Protein_name"]
         if (record_1st["I+L"] - record_2nd["I+L"]) / (record_2nd["I+L"] + 1e-9) >= difficial_rate:
             return MiniprotAlignmentParser.record_1st_gene_label(dataframe[dataframe["Protein_name"] == record_1st_tid],
-                                                                 min_identity, min_complete, retrocopy, by_length)
+                                                                 min_identity, min_complete, retrocopy, by_length,
+                                                                 length_cutoff_dict, odb)
         else:
             if record_1st_tid == record_2nd_tid:
                 return MiniprotAlignmentParser.record_1st_gene_label(
                     dataframe[dataframe["Protein_name"] == record_1st_tid],
-                    min_identity, min_complete, retrocopy, by_length)
+                    min_identity, min_complete, retrocopy, by_length, length_cutoff_dict, odb)
             else:
                 return MiniprotAlignmentParser.record_1st_2nd_gene_label(
                     dataframe[dataframe["Protein_name"] == record_1st_tid],
                     dataframe[dataframe["Protein_name"] == record_2nd_tid], min_identity, min_complete, min_rise,
-                    retrocopy, by_length)
+                    retrocopy, by_length, length_cutoff_dict, odb)
 
     @staticmethod
     def refine_fragmented(dataframe):
@@ -1355,9 +1402,8 @@ class MiniprotAlignmentParser:
         if not os.path.exists(os.path.join(self.run_folder, "hmmsearch.done")):
             hmmsearcher.Run(translated_proteins)
         score_cutoff_dict = load_score_cutoff(os.path.join(self.library_path, self.lineage, "scores_cutoff"))
-        # length_cutoff_dict = load_length_cutoff(os.path.join(self.library_path, self.lineage, "lengths_cutoff"))
         # TODO: records_df["Score"] is miniprot alignment score instead of hmmsearch score. hmmsearch score is stored in reliable_mappings.
-        reliable_mappings, reliable_mappings_qlen, hmm_length_dict = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
+        reliable_mappings, reliable_mappings_qlen, hmm_length_dict, hmm_tlen_dict = load_hmmsearch_output(self.hmm_output_folder, score_cutoff_dict)
         reliable_mappings = set(reliable_mappings)
         records_df = pd.DataFrame(records, columns=["Busco_name",
                                                     "Protein_name",
@@ -1409,10 +1455,9 @@ class MiniprotAlignmentParser:
                                                                                                        contig_start,
                                                                                                        contig_stop)]
                     tmp_record = records_df.iloc[rx].copy()
-                    tmp_record.loc["qlen"] = reliable_mappings_qlen["{}|{}:{}-{}".format(protein_name,
-                                                                                         contig_name,
-                                                                                         contig_start,
-                                                                                         contig_stop)]
+                    _key = "{}|{}:{}-{}".format(protein_name, contig_name, contig_start, contig_stop)
+                    tmp_record.loc["qlen"] = reliable_mappings_qlen[_key]
+                    tmp_record.loc["tlen"] = hmm_tlen_dict.get(_key, 0)
                     filtered_candidate_hits.append(tmp_record)
                 except KeyError:
                     print("{}|{}:{}-{}".format(protein_name,
@@ -1441,7 +1486,8 @@ class MiniprotAlignmentParser:
                     min_identity = 0
                     min_complete = 0
                     output = self.Ost_eval(mapped_records, self.min_diff, min_identity, min_complete, self.min_rise,
-                                           self.retrocopy, by_length=True)
+                                           self.retrocopy, by_length=True,
+                                           length_cutoff_dict=self.length_cutoff_dict, odb=self.odb)
                     if output.gene_label == GeneLabel.Single:
                         single_complete_proteins.append(">{}\n{}\n".format(output.data_record["Protein_name"],
                                                                            output.data_record["Ata_seq"]))
@@ -1786,6 +1832,31 @@ class ProteinRunner():
         self.hmmsearch_output_folder = os.path.join(self.output_folder, "{}_hmmsearch_output".format(self.lineage))
         if not os.path.exists(self.hmmsearch_output_folder):
             os.mkdir(self.hmmsearch_output_folder)
+        # protein mode uses short busco names as keys, so normalize length_cutoff_dict keys accordingly
+        lengths_cutoff_path = os.path.join(library_path, lineage, "lengths_cutoff")
+        if os.path.exists(lengths_cutoff_path):
+            raw = load_length_cutoff(lengths_cutoff_path, odb)
+            self.length_cutoff_dict = {k.split("at")[0]: v for k, v in raw.items()}
+        else:
+            self.length_cutoff_dict = {}
+
+    def _is_complete_protein(self, short_busco_name, match_length, qlen, tlen=None):
+        """Same three-way logic as MiniprotAlignmentParser._is_complete but keyed by short busco name.
+
+        odb12.2 uses tlen (full user protein length) as size; odb10/odb12 use hmm_matched_length.
+        """
+        size = tlen if (self.odb == "odb12.2" and tlen is not None) else match_length
+        if self.length_cutoff_dict and short_busco_name in self.length_cutoff_dict:
+            ref_length = self.length_cutoff_dict[short_busco_name]["length"]
+            sigma = self.length_cutoff_dict[short_busco_name]["sigma"]
+            if self.odb == "odb10":
+                return size >= ref_length - 2 * sigma
+            else:
+                margin = min(25.0, 2 * sigma)
+                lower_bound = min(0.9 * ref_length, ref_length - margin, 0.8 * qlen)
+                return size >= lower_bound
+        else:
+            return size >= 0.8 * qlen
 
     def run(self):
         # 1. run hmmsearch
@@ -1832,16 +1903,18 @@ class ProteinRunner():
                     env_to = int(line[20])
                     assert hmm_to >= hmm_from
 
-                    short_busco_name = query_name
+                    short_busco_name = query_name.split("at")[0]  # normalize odb10 full id to short form
+                    tlen = int(line[2])
                     if hmm_score < score_cutoff_dict[short_busco_name]:
                         # failed to pass the score cutoff
                         continue
-                    coords_dict[target_name].append((hmm_from, hmm_to, hmm_score, env_from, env_to, qlen))
+                    coords_dict[target_name].append((hmm_from, hmm_to, hmm_score, env_from, env_to, qlen, tlen))
                 for tname in coords_dict.keys():
                     coords = coords_dict[tname]
                     interval = []
                     coords = sorted(coords, key=lambda x: x[0])
                     qlen = coords[0][5]
+                    tlen = coords[0][6]
                     for i in range(len(coords)):
                         if i == 0:
                             interval.append([coords[0][0], coords[0][1]])
@@ -1854,7 +1927,7 @@ class ProteinRunner():
                             else:
                                 interval.append([coords[i][0], coords[i][1]])
                     match_length = sum([x[1] - x[0] for x in interval])
-                    if match_length >= 0.8 * qlen:
+                    if self._is_complete_protein(short_busco_name, match_length, qlen, tlen):
                         protein_hmmsearch_output_dict[short_busco_name].append((tname, 0, hmm_score, match_length))  # 0 means complete
                     else:
                         protein_hmmsearch_output_dict[short_busco_name].append((tname, 1, hmm_score, match_length))  # 1 means fragment
