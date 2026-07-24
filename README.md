@@ -120,8 +120,7 @@ make install
 ```angular2html
 git clone https://github.com/smirarab/sepp.git
 cd sepp
-python setup.py config -c
-python setup.py install
+pip install . && config_sepp -c
 ```
 
 ## Running
