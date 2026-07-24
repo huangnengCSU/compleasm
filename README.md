@@ -40,6 +40,8 @@ compleasm_kit/compleasm.py run --autolineage -a hg38.fa -o hs38-mb
 ## Updates
 ### v0.2.9 (July 20, 2026)
 - Compatible with odb10, odb12, and odb12.2 lineages.
+- odb10 and odb12.2 lineages include a `lengths_cutoff` file, whereas odb12
+  lineages do not. Compleasm applies length-cutoff filtering following the BUSCO method.
 
 ### v0.2.8 (June 15, 2026)
 - Fix placement filename parsing failure when the ODB version contains a dot.
@@ -123,6 +125,24 @@ python setup.py install
 ```
 
 ## Running
+
+### Selecting an OrthoDB version
+
+Compleasm supports `odb10`, `odb12`, and `odb12.2`. Use the lineage name
+without the OrthoDB suffix for `-l` and select the database version with
+`--odb`:
+
+```bash
+# These select eukaryota_odb10, eukaryota_odb12, and eukaryota_odb12.2,
+# respectively.
+python compleasm.py run -a genome.fasta -o output_odb10   -l eukaryota --odb odb10   -t 8
+python compleasm.py run -a genome.fasta -o output_odb12   -l eukaryota --odb odb12   -t 8
+python compleasm.py run -a genome.fasta -o output_odb12_2 -l eukaryota --odb odb12.2 -t 8
+```
+
+`odb12` is used when `--odb` is omitted. Use the same `--odb` value
+when downloading a lineage and when running `run`, `analyze`, `protein`, or
+`list`.
 
 ### Main Modules:
 
