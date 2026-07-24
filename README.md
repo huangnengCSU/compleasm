@@ -109,7 +109,7 @@ cd miniprot && make
 ```angular2html
 wget http://eddylab.org/software/hmmer/hmmer.tar.gz
 tar zxf hmmer.tar.gz
-cd hmmer-3.3.2
+cd hmmer-*
 ./configure --prefix /your/install/path
 make
 make check
