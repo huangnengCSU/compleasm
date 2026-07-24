@@ -172,17 +172,28 @@ class Downloader:
             if download_success:
                 tar = tarfile.open(download_path)
                 try:
-                    if f"{lineage}/refseq_db.faa.gz" in tar.getnames():
-                        tar.extractall(self.download_dir, members=[tar.getmember('{}/refseq_db.faa.gz'.format(lineage)),
-                                                               tar.getmember('{}/hmms'.format(lineage)),
-                                                               tar.getmember('{}/scores_cutoff'.format(lineage))])
-                    elif f"{lineage}/refseq_db.faa" in tar.getnames():
-                        tar.extractall(self.download_dir, members=[tar.getmember('{}/refseq_db.faa'.format(lineage)),
-                                                                   tar.getmember('{}/hmms'.format(lineage)),
-                                                                   tar.getmember('{}/scores_cutoff'.format(lineage))])
+                    tar_names = set(tar.getnames())
+                    if f"{lineage}/refseq_db.faa.gz" in tar_names:
+                        refseq_member = f"{lineage}/refseq_db.faa.gz"
+                    elif f"{lineage}/refseq_db.faa" in tar_names:
+                        refseq_member = f"{lineage}/refseq_db.faa"
                     else:
                         raise ValueError("`refseq_db.faa.gz` or `refseq_db.faa` not found in lineage!")
-                    hmm_files = [u for u in tar.getnames() if ".hmm" in u]
+
+                    required_members = [
+                        refseq_member,
+                        f"{lineage}/hmms",
+                        f"{lineage}/scores_cutoff",
+                    ]
+                    lengths_cutoff_member = f"{lineage}/lengths_cutoff"
+                    if lengths_cutoff_member in tar_names:
+                        required_members.append(lengths_cutoff_member)
+
+                    tar.extractall(
+                        self.download_dir,
+                        members=[tar.getmember(u) for u in required_members],
+                    )
+                    hmm_files = [u for u in tar_names if ".hmm" in u]
                     tar.extractall(self.download_dir, members=[tar.getmember(u) for u in hmm_files])
                 except:
                     os.remove(os.path.join(self.download_dir, lineage) + ".tmp")
