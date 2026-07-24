@@ -7,6 +7,7 @@ with open("_version.py") as version_file:
 setup(
     name="compleasm",
     version=version["__version__"],
+    python_requires=">=3.7",
     author="Neng Huang",
     license="Licensed under the Apache License and LICENST-BUSCO",
     author_email="neng@ds.dfci.harvard.edu",
