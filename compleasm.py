@@ -838,7 +838,8 @@ def load_hmmsearch_output(hmmsearch_output_folder, cutoff_dict):
 
 class MiniprotAlignmentParser:
     def __init__(self, run_folder, gff_file, lineage, odb, min_length_percent, min_diff, min_identity, min_complete,
-                 min_rise, specified_contigs, autolineage, retrocopy, hmmsearch_execute_command, nthreads, library_path):
+                 min_rise, specified_contigs, autolineage, retrocopy, hmmsearch_execute_command, nthreads, library_path,
+                 lineage_date=None):
         self.autolineage = autolineage
         self.run_folder = run_folder
         if not os.path.exists(run_folder):
@@ -874,6 +875,7 @@ class MiniprotAlignmentParser:
         self.hmmsearch_execute_command = hmmsearch_execute_command
         self.hmm_output_folder = os.path.join(self.run_folder, "hmmer_output")
         self.nthreads = nthreads
+        self.lineage_date = lineage_date
 
         if not os.path.exists(self.hmm_output_folder):
             os.makedirs(self.hmm_output_folder)
@@ -1448,6 +1450,9 @@ class MiniprotAlignmentParser:
         full_table_writer.write("Gene\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tIdentity\t"
                                 "Fraction\tFrameshift events\tBest gene\tCodons\n")
         full_table_busco_format_writer = open(self.full_table_busco_format_output_file, "w")
+        full_table_busco_format_writer.write("# compleasm version is: {}\n".format(__version__))
+        full_table_busco_format_writer.write("# The lineage dataset is: {} (Creation date: {}, number of BUSCOs: {})\n".format(
+            self.lineage or "unknown", self.lineage_date or "unknown", len(score_cutoff_dict)))
         full_table_busco_format_writer.write("# Busco id\tStatus\tSequence\tGene Start\tGene End\t"
                                              "Strand\tScore\tLength\n")
         gff_output_writer = open(self.gff_output_file, "w")
@@ -1650,6 +1655,10 @@ class MiniprotAlignmentParser:
                       "We recommend reassessing the sample using BUSCO.")
                 print()
         with open(self.completeness_output_file, 'a') as fout:
+            if fout.tell() == 0:
+                fout.write("# compleasm version is: {}\n".format(__version__))
+                fout.write("# The lineage dataset is: {} (Creation date: {}, number of BUSCOs: {})\n".format(
+                    self.lineage or "unknown", self.lineage_date or "unknown", len(score_cutoff_dict)))
             if self.lineage is not None:
                 fout.write("## lineage: {}\n".format(self.lineage))
             else:
@@ -1751,7 +1760,8 @@ class CompleasmRunner:
                                                             retrocopy=self.retrocopy,
                                                             library_path=self.library_path,
                                                             hmmsearch_execute_command=self.hmmsearch_execute_command,
-                                                            nthreads=self.nthreads)
+                                                            nthreads=self.nthreads,
+                                                            lineage_date=self.downloader.lineage_description.get(lineage, ["Unknown"])[0])
 
         if os.path.exists(miniprot_alignment_parser.completeness_output_file):
             os.remove(miniprot_alignment_parser.completeness_output_file)
@@ -1805,7 +1815,8 @@ class CompleasmRunner:
                                                                 retrocopy=self.retrocopy,
                                                                 library_path=self.library_path,
                                                                 hmmsearch_execute_command=self.hmmsearch_execute_command,
-                                                                nthreads=self.nthreads)
+                                                                nthreads=self.nthreads,
+                                                                lineage_date=self.downloader.lineage_description.get(lineage, ["Unknown"])[0])
             miniprot_alignment_parser.Run()
             second_analysis_miniprot_end_time = time.time()
         end_time = time.time()
@@ -2004,7 +2015,12 @@ class ProteinRunner():
         print("N:{}".format(total_busco_genes))
         print()
 
+        lineage_date = self.downloader.lineage_description.get(self.lineage, ["Unknown"])[0]
         with open(self.completeness_output_file, 'a') as fout:
+            if fout.tell() == 0:
+                fout.write("# compleasm version is: {}\n".format(__version__))
+                fout.write("# The lineage dataset is: {} (Creation date: {}, number of BUSCOs: {})\n".format(
+                    self.lineage or "unknown", lineage_date, len(score_cutoff_dict)))
             if self.lineage is not None:
                 fout.write("## lineage: {}\n".format(self.lineage))
             else:
