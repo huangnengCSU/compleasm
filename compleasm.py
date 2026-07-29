@@ -188,6 +188,9 @@ class Downloader:
                     lengths_cutoff_member = f"{lineage}/lengths_cutoff"
                     if lengths_cutoff_member in tar_names:
                         required_members.append(lengths_cutoff_member)
+                    dataset_cfg_member = f"{lineage}/dataset.cfg"
+                    if dataset_cfg_member in tar_names:
+                        required_members.append(dataset_cfg_member)
 
                     tar.extractall(
                         self.download_dir,
@@ -698,6 +701,19 @@ def load_dbinfo(dbinfo_file):
             gene_id, db, link = line.strip().split("\t")
             dbinfo[gene_id] = [link, db]
     return dbinfo
+
+
+def load_dataset_cfg(lineage_dir):
+    cfg_path = os.path.join(lineage_dir, "dataset.cfg")
+    info = {}
+    if os.path.exists(cfg_path):
+        with open(cfg_path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if "=" in line:
+                    key, _, val = line.partition("=")
+                    info[key.strip()] = val.strip()
+    return info
 
 
 def load_score_cutoff(scores_cutoff_file):
@@ -1449,10 +1465,14 @@ class MiniprotAlignmentParser:
         full_table_writer = open(self.full_table_output_file, "w")
         full_table_writer.write("Gene\tStatus\tSequence\tGene Start\tGene End\tStrand\tScore\tLength\tIdentity\t"
                                 "Fraction\tFrameshift events\tBest gene\tCodons\n")
+        dataset_cfg = load_dataset_cfg(os.path.join(self.library_path, self.lineage)) if self.lineage else {}
+        creation_date = dataset_cfg.get("creation_date", self.lineage_date or "unknown")
+        n_genomes = dataset_cfg.get("number_of_species", "unknown")
+        n_buscos = dataset_cfg.get("number_of_BUSCOs", len(score_cutoff_dict))
         full_table_busco_format_writer = open(self.full_table_busco_format_output_file, "w")
         full_table_busco_format_writer.write("# compleasm version is: {}\n".format(__version__))
-        full_table_busco_format_writer.write("# The lineage dataset is: {} (Creation date: {}, number of BUSCOs: {})\n".format(
-            self.lineage or "unknown", self.lineage_date or "unknown", len(score_cutoff_dict)))
+        full_table_busco_format_writer.write("# The lineage dataset is: {} (Creation date: {}, number of genomes: {}, number of BUSCOs: {})\n".format(
+            self.lineage or "unknown", creation_date, n_genomes, n_buscos))
         full_table_busco_format_writer.write("# Busco id\tStatus\tSequence\tGene Start\tGene End\t"
                                              "Strand\tScore\tLength\n")
         gff_output_writer = open(self.gff_output_file, "w")
@@ -1657,8 +1677,8 @@ class MiniprotAlignmentParser:
         with open(self.completeness_output_file, 'a') as fout:
             if fout.tell() == 0:
                 fout.write("# compleasm version is: {}\n".format(__version__))
-                fout.write("# The lineage dataset is: {} (Creation date: {}, number of BUSCOs: {})\n".format(
-                    self.lineage or "unknown", self.lineage_date or "unknown", len(score_cutoff_dict)))
+                fout.write("# The lineage dataset is: {} (Creation date: {}, number of genomes: {}, number of BUSCOs: {})\n".format(
+                    self.lineage or "unknown", creation_date, n_genomes, n_buscos))
             if self.lineage is not None:
                 fout.write("## lineage: {}\n".format(self.lineage))
             else:
@@ -2015,12 +2035,16 @@ class ProteinRunner():
         print("N:{}".format(total_busco_genes))
         print()
 
+        dataset_cfg = load_dataset_cfg(os.path.join(self.library_path, self.lineage)) if self.lineage else {}
         lineage_date = self.downloader.lineage_description.get(self.lineage, ["Unknown"])[0]
+        creation_date = dataset_cfg.get("creation_date", lineage_date)
+        n_genomes = dataset_cfg.get("number_of_species", "unknown")
+        n_buscos = dataset_cfg.get("number_of_BUSCOs", len(score_cutoff_dict))
         with open(self.completeness_output_file, 'a') as fout:
             if fout.tell() == 0:
                 fout.write("# compleasm version is: {}\n".format(__version__))
-                fout.write("# The lineage dataset is: {} (Creation date: {}, number of BUSCOs: {})\n".format(
-                    self.lineage or "unknown", lineage_date, len(score_cutoff_dict)))
+                fout.write("# The lineage dataset is: {} (Creation date: {}, number of genomes: {}, number of BUSCOs: {})\n".format(
+                    self.lineage or "unknown", creation_date, n_genomes, n_buscos))
             if self.lineage is not None:
                 fout.write("## lineage: {}\n".format(self.lineage))
             else:
