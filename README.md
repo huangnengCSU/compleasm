@@ -195,7 +195,7 @@ python compleasm.py run [-h] -a ASSEMBLY_PATH -o OUTPUT_DIR [-t THREADS] [-l LIN
   --min_diff               The thresholds for the best matching and second best matching. default=0.2
   --min_identity           The identity threshold for valid mapping results. default=0.4
   --min_length_percent     The fraction of protein for valid mapping results. default=0.6
-  --min_complete           The length threshold for complete gene. default=0.9
+  --min_complete           Deprecated and ignored. Completeness is determined using lineage-specific length cutoffs.
 ```
 
 #### Example:

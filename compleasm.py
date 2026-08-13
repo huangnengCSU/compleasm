@@ -34,6 +34,16 @@ class Error(Exception):
         return self.value
 
 
+def warn_deprecated_min_complete(value):
+    """Warn when the retained compatibility option is explicitly supplied."""
+    if value is not None:
+        print(
+            "Warning: --min_complete is deprecated and ignored. Compleasm uses "
+            "lineage-specific length cutoffs to classify complete and fragmented genes.",
+            file=sys.stderr,
+        )
+
+
 ### DownloadLineage.py
 
 class URLError(OSError):
@@ -2221,6 +2231,7 @@ def miniprot(args):
 
 
 def analyze(args):
+    warn_deprecated_min_complete(args.min_complete)
     ckdh = CheckDependency(args.hmmsearch_execute_path)
     hmmsearch_execute_command = ckdh.check_hmmsearch()
     ar = MiniprotAlignmentParser(run_folder=args.output_dir,
@@ -2242,6 +2253,7 @@ def analyze(args):
 
 
 def run(args):
+    warn_deprecated_min_complete(args.min_complete)
     assembly_path = args.assembly_path
     output_folder = args.output_dir
     library_path = args.library_path
@@ -2365,8 +2377,9 @@ def main():
                                  help="The identity threshold for valid mapping results. [0, 1]")
     analysis_parser.add_argument("--min_length_percent", type=float, default=0.6,
                                  help="The fraction of protein for valid mapping results.")
-    analysis_parser.add_argument("--min_complete", type=float, default=0.9,
-                                 help="The length threshold for complete gene.")
+    analysis_parser.add_argument(
+        "--min_complete", type=float, default=None,
+        help="Deprecated and ignored; completeness is determined using lineage-specific length cutoffs.")
     analysis_parser.add_argument("--min_rise", type=float, default=0.5,
                                  help="Minimum length threshold to make duplicate take precedence over single or fragmented over single/duplicate.")
     analysis_parser.set_defaults(func=analyze)
@@ -2400,8 +2413,9 @@ def main():
                             help="The identity threshold for valid mapping results.")
     run_parser.add_argument("--min_length_percent", type=float, default=0.6,
                             help="The fraction of protein for valid mapping results.")
-    run_parser.add_argument("--min_complete", type=float, default=0.9,
-                            help="The length threshold for complete gene.")
+    run_parser.add_argument(
+        "--min_complete", type=float, default=None,
+        help="Deprecated and ignored; completeness is determined using lineage-specific length cutoffs.")
     run_parser.add_argument("--min_rise", type=float, default=0.5,
                             help="Minimum length threshold to make duplicate take precedence over single or fragmented over single/duplicate.")
     run_parser.set_defaults(func=run)
