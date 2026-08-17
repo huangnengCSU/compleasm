@@ -182,7 +182,8 @@ class Downloader:
             if download_success:
                 tar = tarfile.open(download_path)
                 try:
-                    tar_names = set(tar.getnames())
+                    tar_members = tar.getmembers()
+                    tar_names = {member.name for member in tar_members}
                     if f"{lineage}/refseq_db.faa.gz" in tar_names:
                         refseq_member = f"{lineage}/refseq_db.faa.gz"
                     elif f"{lineage}/refseq_db.faa" in tar_names:
@@ -206,8 +207,8 @@ class Downloader:
                         self.download_dir,
                         members=[tar.getmember(u) for u in required_members],
                     )
-                    hmm_files = [u for u in tar_names if ".hmm" in u]
-                    tar.extractall(self.download_dir, members=[tar.getmember(u) for u in hmm_files])
+                    hmm_members = [member for member in tar_members if ".hmm" in member.name]
+                    tar.extractall(self.download_dir, members=hmm_members)
                 except:
                     os.remove(os.path.join(self.download_dir, lineage) + ".tmp")
                     os.remove(download_path)
